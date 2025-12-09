@@ -4,7 +4,7 @@ mod chain;
 mod wallet;
 
 mod network; // bring in your network.rs
-
+use network::{NetMessage, start_server, connect_and_send};
 use crypto::KeyPair;
 use block::{
     create_poh_block, create_reward_block, create_vote_block,
@@ -122,6 +122,21 @@ async fn main() {
             }
         });
     }
+    #[tokio::main]
+async fn main() {
+    // … your chain + Gulf Stream setup …
+
+    // Start networking server
+    tokio::spawn(start_server("0.0.0.0:9000"));
+
+    // Example: send a Ping to yourself (or another node)
+    tokio::spawn(async {
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        connect_and_send("127.0.0.1:9000", NetMessage::Ping).await;
+    });
+
+    // … keep your PoH loop + admin menu …
+}
 
     // --- Admin menu loop ---
     loop {
