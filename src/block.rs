@@ -4,7 +4,11 @@ use crate::crypto::KeyPair;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockType {
-    PoH { tick: u64 },
+    PoH {
+        tick: u64,
+        iterations: u64,
+        hash: String, // end_hash of the VDF
+    },
     Work,
     Proposal {
         id: u64,
@@ -62,6 +66,12 @@ impl BlockHeader {
         );
 
         match &self.block_type {
+            BlockType::PoH { tick, iterations, hash } => {
+                data.push_str(&format!(
+                    ":poh_tick={}:poh_iterations={}:poh_hash={}",
+                    tick, iterations, hash
+                ));
+            }
             BlockType::Proposal { id, proposer, text, deadline } => {
                 data.push_str(&format!(
                     ":proposal_id={}:proposal_proposer={}:proposal_text={}:proposal_deadline={}",
@@ -162,13 +172,24 @@ pub fn create_proposal_block(
 }
 
 /// PoH block (signed by admin)
-pub fn create_poh_block(prev_hash: String, tick: u64, admin: &KeyPair) -> BlockHeader {
+pub fn create_poh_block(
+    prev_hash: String,
+    tick: u64,
+    iterations: u64,
+    end_vdf_hash: Vec<u8>,
+    admin: &KeyPair,
+) -> BlockHeader {
     let timestamp = current_unix_timestamp_ms();
-    let message = format!("PoH:{}:{}:{}", tick, prev_hash, timestamp);
+    let hash_hex = hex::encode(&end_vdf_hash);
+    let message = format!("PoH:{}:{}:{}:{}", tick, prev_hash, timestamp, hash_hex);
     let signature_hex = admin.sign_hex(message.as_bytes());
 
     let mut header = BlockHeader {
-        block_type: BlockType::PoH { tick },
+        block_type: BlockType::PoH {
+            tick,
+            iterations,
+            hash: hash_hex,
+        },
         proposer: "admin".to_string(),
         timestamp,
         signature_hex: Some(signature_hex),

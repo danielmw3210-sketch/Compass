@@ -2,8 +2,9 @@ mod crypto;
 mod block;
 mod chain;
 mod wallet;
+mod vdf;
 
-mod network; // bring in your network.rs
+mod network;
 use network::{NetMessage, start_server, connect_and_send};
 use crypto::KeyPair;
 use block::{
@@ -29,7 +30,7 @@ fn log_to_file(msg: &str) {
     writeln!(file, "{}", msg).unwrap();
 }
 
-#[tokio::main] // async runtime for networking + background tasks
+#[tokio::main]
 async fn main() {
     // --- Setup admin ---
     let admin = Arc::new(KeyPair::new());
@@ -49,40 +50,70 @@ async fn main() {
     let chain = Arc::new(Mutex::new(Chain::load_from_json("compass_chain.json")));
     let wallets = Arc::new(Mutex::new(wallet_manager));
 
-    // --- Genesis Mint (100k Compass) ---
+    // --- Genesis Mint (from Foundation Reserve) ---
     {
         let mut wallets = wallets.lock().unwrap();
-        // Check if Daniel has any "Compass" (Foundation)
         if wallets.get_balance("Daniel", "Compass") == 0 {
             wallets.credit("Daniel", "Compass", 100_000);
             wallets.save("wallets.json");
-            
-            // Log to terminal
-            println!("GENESIS: Minted 100,000 Compass to Daniel");
             log_to_file("GENESIS: Minted 100,000 Compass to Daniel (Unbacked Foundation Reserve)");
+            println!("GENESIS: Minted 100,000 Compass to Daniel");
         }
     }
 
-    // --- Gul
- 
-    // --- Spawn PoH + reward loop ---
+    // --- Spawn PoH + VDF loop ---
     {
         let chain = Arc::clone(&chain);
-        let wallets = Arc::clone(&wallets);
+        // let wallets = Arc::clone(&wallets); // Unused in loop now
         let admin = Arc::clone(&admin);
-        let admin_wallet_id = admin_wallet_id.clone();
-        let admin_pubkey_hex = admin_pubkey_hex.clone();
+        // let admin_wallet_id = admin_wallet_id.clone(); // Unused in loop
 
         thread::spawn(move || {
             let mut tick: u64 = 0;
+            let mut seed = b"COMPASS_GENESIS_SEED".to_vec();
+            
+            // Restore state from Chain if exists
+            {
+                let chain_guard = chain.lock().unwrap();
+                // Find last PoH block
+                for block in chain_guard.blocks.iter().rev() {
+                    if let block::BlockType::PoH { tick: last_tick, hash: ref last_hash, .. } = block.block_type {
+                        tick = last_tick;
+                        if let Ok(decoded_hash) = hex::decode(last_hash) {
+                            seed = decoded_hash;
+                        }
+                        println!("Restored PoH State: Tick={}, VDF Hash={}", tick, last_hash);
+                        break;
+                    }
+                }
+            }
+
+            let mut vdf_state = vdf::VDFState::new(seed);
+            
+            // Target: ~400ms per block (Solana style)
+            // Based on logs: ~290k H/s on this machine.
+            // 120,000 / 290,000 ~= 0.41s
+            let iterations_per_tick = 120_000;
 
             loop {
+                // Run VDF Work (CPU intensive!)
+                let start = std::time::Instant::now();
+                let start_hash = vdf_state.current_hash.clone();
+                let end_hash = vdf_state.execute(iterations_per_tick);
+                let duration = start.elapsed();
+
                 {
                     let mut chain = chain.lock().unwrap();
 
-                    // Bootstrap genesis if empty
+                    // Bootstrap genesis if empty (rarely happens here if we restored, but good for clean start)
                     if chain.blocks.is_empty() {
-                        let genesis = create_poh_block("GENESIS".to_string(), 0, &admin);
+                         let genesis = create_poh_block(
+                            "GENESIS".to_string(), 
+                            0, 
+                            0, 
+                            start_hash.clone(), // initial seed
+                            &admin
+                        );
                         chain.blocks.push(genesis);
                         chain.save_to_json("compass_chain.json").unwrap();
                         println!("Genesis PoH block created.");
@@ -93,45 +124,41 @@ async fn main() {
                     let poh = create_poh_block(
                         chain.head_hash().unwrap_or_default(),
                         tick,
+                        iterations_per_tick,
+                        end_hash.clone(),
                         &admin,
                     );
                     chain.blocks.push(poh);
-
-                    // Reward (removed per new policy - L1 does not mint continuous rewards)
-                    // Only PoH ticks now
                 }
 
-                // --- Logging + saving outside locks ---
-                {
+                // Log periodically (outside lock)
+                if tick % 10 == 0 || tick == 1 {
                     let chain = chain.lock().unwrap();
-                    log_to_file(&format!(
-                        "[CHAIN] PoH tick appended. Tick: {} Chain size: {}",
-                        tick, chain.blocks.len()
-                    ));
+                    let millis = duration.as_millis();
+                    // Avoid divide by zero
+                    let hps = if millis > 0 { (iterations_per_tick as u128 * 1000) / millis } else { 0 };
+                    
+                    println!("PoH Tick #{}: {} hashes in {}ms (~{} H/s)", 
+                        tick, iterations_per_tick, millis, hps);
+                    log_to_file(&format!("PoH Tick #{}: {}ms (~{} H/s)", tick, millis, hps));
                     chain.save_to_json("compass_chain.json").unwrap();
                 }
                 
-                thread::sleep(Duration::from_secs(30));
+                // Sleep tiny amount to prevent log flooding only, in prod this is 0
+                thread::sleep(Duration::from_millis(10));
             }
         });
     }
-    #[tokio::main]
-async fn main() {
-    // … your chain + Gulf Stream setup …
 
-    // Start networking server
+    // --- Networking Setup ---
     tokio::spawn(start_server("0.0.0.0:9000"));
 
-    // Example: send a Ping to yourself (or another node)
     tokio::spawn(async {
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(Duration::from_secs(2)).await;
         connect_and_send("127.0.0.1:9000", NetMessage::Ping).await;
     });
 
-    // … keep your PoH loop + admin menu …
-}
-
-    // --- Admin menu loop ---
+    // --- Admin Menu Loop (Main Thread) ---
     loop {
         println!("\n=== Compass Admin Menu ===");
         println!("1. Show status");
@@ -193,7 +220,7 @@ async fn main() {
                 io::stdin().read_line(&mut vote_str).unwrap();
                 let choice = vote_str.trim().eq_ignore_ascii_case("yes");
 
-                let voter = KeyPair::new(); // later: load from wallet
+                let voter = KeyPair::new();
                 let mut chain = chain.lock().unwrap();
                 let vote_block = create_vote_block(
                     "Daniel".to_string(),
