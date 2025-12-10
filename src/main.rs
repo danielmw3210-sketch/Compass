@@ -7,10 +7,11 @@ mod vault;
 mod oracle;
 mod market;
 mod gulf_stream; // Added module declaration
+mod storage; // Added storage module
 
 mod network;
 use network::{NetMessage, TransactionPayload, start_server, connect_and_send}; 
-use tokio::io::AsyncReadExt; // Added AsyncReadExt trait
+use tokio::io::{AsyncReadExt, AsyncWriteExt}; // Added AsyncReadExt and AsyncWriteExt traits
 use crypto::KeyPair;
 use block::{
     create_poh_block, create_vote_block,
@@ -479,15 +480,18 @@ async fn run_node_mode() {
                                     NetMessage::Ping => println!("Received Ping"),
                                     NetMessage::RequestBlocks { start_height, end_height } => {
                                         println!("Peer requested blocks {} to {}", start_height, end_height);
-                                        let chain = chain.lock().unwrap();
-                                        let mut blocks = Vec::new();
-                                        for h in start_height..=end_height {
-                                            if let Ok(Some(block)) = chain.storage.get_block_by_height(h) {
-                                                blocks.push(block);
-                                            } else {
-                                                break; // End of chain or gap
+                                        let blocks = {
+                                            let chain = chain.lock().unwrap();
+                                            let mut blocks = Vec::new();
+                                            for h in start_height..=end_height {
+                                                if let Ok(Some(block)) = chain.storage.get_block_by_height(h) {
+                                                    blocks.push(block);
+                                                } else {
+                                                    break; // End of chain or gap
+                                                }
                                             }
-                                        }
+                                            blocks
+                                        };
                                         // Send back
                                         let resp = NetMessage::SendBlocks(blocks);
                                         let data = bincode::serialize(&resp).unwrap();
@@ -562,10 +566,7 @@ async fn run_node_mode() {
         }
     });
 
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-        }
-    });
+
 
     // --- Sync Loop (Active) ---
     // Placeholder for "Google Node" IP. User should replace or use CLI args.

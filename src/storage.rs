@@ -42,7 +42,8 @@ impl Storage {
     // 1. Blocks
     pub fn save_block(&self, block: &crate::block::Block) -> Result<(), String> {
         // Save by Hash
-        let hash = &block.header.hash; // String?
+        // Save by Hash
+        let hash = block.header.hash.as_ref().ok_or_else(|| "Block has no hash".to_string())?;
         // Convert hex hash to key "block:<hash>"
         self.put(&format!("block:{}", hash), block)?;
         

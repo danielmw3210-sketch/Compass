@@ -3,6 +3,12 @@ use sha2::{Sha256, Digest};
 use crate::crypto::KeyPair;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Block {
+    pub header: BlockHeader,
+    pub transactions: Vec<Vec<u8>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockType {
     PoH {
         tick: u64,
@@ -44,6 +50,7 @@ impl BlockType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockHeader {
+    pub index: u64, // Added index field
     pub block_type: BlockType,
     pub proposer: String,
     pub timestamp: u64,
@@ -58,7 +65,8 @@ impl BlockHeader {
         let mut hasher = Sha256::new();
 
         let mut data = format!(
-            "{}:{}:{}:{}",
+            "{}:{}:{}:{}:{}",
+            self.index, // Added index to hash
             self.block_type.to_code(),
             self.proposer,
             self.timestamp,
@@ -152,6 +160,7 @@ pub fn create_proposal_block(
     };
 
     let mut header = BlockHeader {
+        index: 0, // Placeholder, needs to be set by Chain
         block_type: proposal_variant,
         proposer: admin_wallet_id,
         timestamp: now,
@@ -185,6 +194,7 @@ pub fn create_poh_block(
     let signature_hex = admin.sign_hex(message.as_bytes());
 
     let mut header = BlockHeader {
+        index: 0, // Placeholder
         block_type: BlockType::PoH {
             tick,
             iterations,
@@ -210,6 +220,7 @@ pub fn create_vote_block(
     voter: &KeyPair,
 ) -> BlockHeader {
     let mut header = BlockHeader {
+        index: 0, // Placeholder
         block_type: BlockType::Vote {
             proposal_id,
             voter: voter_wallet_id.clone(),
@@ -241,6 +252,7 @@ pub fn create_reward_block(
     admin: &KeyPair,
 ) -> BlockHeader {
     let mut header = BlockHeader {
+        index: 0, // Placeholder
         block_type: BlockType::Reward {
             recipient,
             amount,

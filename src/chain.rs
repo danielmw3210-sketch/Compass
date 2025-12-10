@@ -69,7 +69,7 @@ impl Chain {
         admin_pubkey_hex: &str,
     ) -> Result<(), &'static str> {
         if let Some(head) = self.head_hash() {
-            if header.prev_hash != head {
+            if header.prev_hash != Some(head) {
                 return Err("prev_hash mismatch");
             }
         }
@@ -95,7 +95,7 @@ impl Chain {
         admin_pubkey_hex: &str,
     ) -> Result<(), &'static str> {
         if let Some(head) = self.head_hash() {
-            if header.prev_hash != head {
+            if header.prev_hash != Some(head) {
                 return Err("prev_hash mismatch");
             }
         }
@@ -121,7 +121,7 @@ impl Chain {
         admin_pubkey_hex: &str,
     ) -> Result<(), &'static str> {
         if let Some(head) = self.head_hash() {
-            if header.prev_hash != head {
+            if header.prev_hash != Some(head) {
                 return Err("prev_hash mismatch");
             }
         }
@@ -146,7 +146,7 @@ impl Chain {
         voter_pubkey_hex: &str,
     ) -> Result<(), &'static str> {
         if let Some(head) = self.head_hash() {
-            if header.prev_hash != head {
+            if header.prev_hash != Some(head) {
                 return Err("prev_hash mismatch");
             }
         }
