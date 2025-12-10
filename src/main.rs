@@ -517,13 +517,16 @@ async fn run_node_mode() {
                                         let blocks = {
                                             let chain = chain.lock().unwrap();
                                             let mut blocks = Vec::new();
+                                            println!("DEBUG: Chain height is {}, looking for blocks {} to {}", chain.height, start_height, end_height);
                                             for h in start_height..=end_height {
                                                 if let Ok(Some(block)) = chain.storage.get_block_by_height(h) {
                                                     blocks.push(block);
                                                 } else {
+                                                    println!("DEBUG: Block at height {} not found, stopping", h);
                                                     break; // End of chain or gap
                                                 }
                                             }
+                                            println!("DEBUG: Returning {} blocks", blocks.len());
                                             blocks
                                         };
                                         // Send back
