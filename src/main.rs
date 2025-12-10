@@ -482,7 +482,13 @@ async fn run_node_mode() {
                 }
                 
                 // Sleep to control block production rate (1 block per second)
-                thread::sleep(Duration::from_millis(1000));
+                // Calculate how much time to sleep to reach 1 second total
+                let elapsed_ms = duration.as_millis() as u64;
+                let target_ms = 1000; // 1 second per block
+                if elapsed_ms < target_ms {
+                    let sleep_ms = target_ms - elapsed_ms;
+                    thread::sleep(Duration::from_millis(sleep_ms));
+                }
             }
         });
     } else {
