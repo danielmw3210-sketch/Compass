@@ -145,10 +145,11 @@ async fn run_client_mode() {
             println!("Balance: ??? (Use 'View balances' to see all)"); 
             
             println!("1. View Balances");
-            println!("2. Create Mint Contract (LTC)");
-            println!("3. Redeem (Burn)");
-            println!("4. Trade (Market)");
-            println!("5. Logout");
+            println!("2. Transfer Funds");
+            println!("3. Create Mint Contract (LTC)");
+            println!("4. Redeem (Burn)");
+            println!("5. Trade (Market)");
+            println!("6. Logout");
             print!("Select: ");
             io::stdout().flush().unwrap();
             
@@ -173,6 +174,47 @@ async fn run_client_mode() {
                      }
                 },
                 "2" => {
+                     // Transfer Funds
+                     println!("--- Transfer Funds ---");
+                     
+                     print!("Recipient: ");
+                     io::stdout().flush().unwrap();
+                     let mut to = String::new();
+                     io::stdin().read_line(&mut to).unwrap();
+                     let to = to.trim().to_string();
+                     
+                     print!("Asset (Compass/cLTC/cSOL): ");
+                     io::stdout().flush().unwrap();
+                     let mut asset = String::new();
+                     io::stdin().read_line(&mut asset).unwrap();
+                     let asset = asset.trim().to_string();
+                     
+                     print!("Amount: ");
+                     io::stdout().flush().unwrap();
+                     let mut amount_str = String::new();
+                     io::stdin().read_line(&mut amount_str).unwrap();
+                     let amount: u64 = amount_str.trim().parse().unwrap_or(0);
+                     
+                     if amount == 0 {
+                         println!("Invalid amount");
+                         continue;
+                     }
+                     
+                     // Create transfer payload
+                     let payload = TransactionPayload::Transfer {
+                         from: current_user.clone(),
+                         to,
+                         asset,
+                         amount,
+                         signature: String::new(), // Will be signed by node
+                     };
+                     
+                     // Send to node
+                     println!("Submitting transfer to node...");
+                     connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
+                     println!("Transfer submitted! Check node logs for confirmation.");
+                },
+                "3" => {
                      println!("--- Mint Contract ---");
                      println!("Note: You must obtain an Oracle Signature from the Node for your deposit first.");
                      
@@ -219,10 +261,10 @@ async fn run_client_mode() {
                          Err(e) => println!("Mint Failed: {}", e),
                      }
                 },
-                "3" => {
+                "4" => {
                      println!("Redemption is currently for specific assets. (Not fully ported to Traceable logic yet)");
                 },
-                "4" => {
+                "5" => {
                     println!("\n--- Market ---");
                     println!("1. View Orderbook");
                     println!("2. Place Buy Order");
@@ -295,7 +337,7 @@ async fn run_client_mode() {
                         _ => println!("Invalid."),
                     }
                 }, 
-                "5" => current_user.clear(),
+                "6" => current_user.clear(),
                 _ => println!("Invalid."),
             }
         }
