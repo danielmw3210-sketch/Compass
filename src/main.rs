@@ -310,6 +310,7 @@ async fn run_node_mode() {
     let args: Vec<String> = std::env::args().collect();
     let mut port = 9000u16;
     let mut peer_addr: Option<String> = None;
+    let mut follower_mode = false;
     
     let mut i = 0;
     while i < args.len() {
@@ -319,8 +320,18 @@ async fn run_node_mode() {
         } else if args[i] == "--peer" && i + 1 < args.len() {
             peer_addr = Some(args[i + 1].clone());
             i += 2;
+        } else if args[i] == "--follower" {
+            follower_mode = true;
+            i += 1;
         } else {
             i += 1;
+        }
+    }
+
+    if follower_mode {
+        println!("Running in FOLLOWER mode - will sync from peer, not generate blocks");
+        if peer_addr.is_none() {
+            println!("WARNING: Follower mode requires --peer argument!");
         }
     }
 
@@ -357,8 +368,8 @@ async fn run_node_mode() {
         }
     }
 
-    // --- Spawn PoH + VDF loop ---
-    {
+    // --- Spawn PoH + VDF loop (only if NOT in follower mode) ---
+    if !follower_mode {
         let chain = Arc::clone(&chain);
         // let wallets = Arc::clone(&wallets); // Unused in loop now
         let admin = Arc::clone(&admin);
@@ -459,6 +470,8 @@ async fn run_node_mode() {
                 thread::sleep(Duration::from_millis(10));
             }
         });
+    } else {
+        println!("PoH generation DISABLED (follower mode)");
     }
 
     // --- Oracle / Smart Contract Setup ---
@@ -599,7 +612,7 @@ async fn run_node_mode() {
         
         tokio::spawn(async move {
             loop {
-                tokio::time::sleep(Duration::from_secs(10)).await;
+                tokio::time::sleep(Duration::from_secs(2)).await; // Faster sync: 2s instead of 10s
                 
                 let my_height = {
                     let chain = chain.lock().unwrap();
@@ -609,7 +622,7 @@ async fn run_node_mode() {
                 println!("Sync: Requesting blocks from {} starting at {}", peer_addr, my_height);
 
                 if let Ok(mut stream) = tokio::net::TcpStream::connect(&peer_addr).await {
-                     let req = NetMessage::RequestBlocks { start_height: my_height, end_height: my_height + 10 };
+                     let req = NetMessage::RequestBlocks { start_height: my_height, end_height: my_height + 100 }; // Request 100 blocks at a time
                      let data = bincode::serialize(&req).unwrap();
                      if stream.write_all(&data).await.is_ok() {
                          // Read response
