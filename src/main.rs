@@ -7,7 +7,7 @@ mod network; // bring in your network.rs
 use network::{NetMessage, start_server, connect_and_send};
 use crypto::KeyPair;
 use block::{
-    create_poh_block, create_reward_block, create_vote_block,
+    create_poh_block, create_vote_block,
     create_proposal_block, current_unix_timestamp_ms,
 };
 
@@ -49,6 +49,20 @@ async fn main() {
     let chain = Arc::new(Mutex::new(Chain::load_from_json("compass_chain.json")));
     let wallets = Arc::new(Mutex::new(wallet_manager));
 
+    // --- Genesis Mint (100k Compass) ---
+    {
+        let mut wallets = wallets.lock().unwrap();
+        // Check if Daniel has any "Compass" (Foundation)
+        if wallets.get_balance("Daniel", "Compass") == 0 {
+            wallets.credit("Daniel", "Compass", 100_000);
+            wallets.save("wallets.json");
+            
+            // Log to terminal
+            println!("GENESIS: Minted 100,000 Compass to Daniel");
+            log_to_file("GENESIS: Minted 100,000 Compass to Daniel (Unbacked Foundation Reserve)");
+        }
+    }
+
     // --- Gul
  
     // --- Spawn PoH + reward loop ---
@@ -83,21 +97,8 @@ async fn main() {
                     );
                     chain.blocks.push(poh);
 
-                    // Reward (signed by admin)
-                    let reward = create_reward_block(
-                        admin_wallet_id.clone(),
-                        "Daniel".to_string(),
-                        1,
-                        format!("PoH tick {}", tick),
-                        chain.head_hash(),
-                        &admin,
-                    );
-                    chain.append_reward(reward, &admin_pubkey_hex).expect("append reward failed");
-                }
-
-                {
-                    let mut wallets = wallets.lock().unwrap();
-                    wallets.credit("Daniel", 1);
+                    // Reward (removed per new policy - L1 does not mint continuous rewards)
+                    // Only PoH ticks now
                 }
 
                 // --- Logging + saving outside locks ---
@@ -109,15 +110,7 @@ async fn main() {
                     ));
                     chain.save_to_json("compass_chain.json").unwrap();
                 }
-                {
-                    let wallets = wallets.lock().unwrap();
-                    wallets.save("wallets.json");
-                    log_to_file(&format!(
-                        "[CHAIN] Minted 1 coin to Daniel. New balance: {}",
-                        wallets.get_wallet("Daniel").unwrap().balance
-                    ));
-                }
-
+                
                 thread::sleep(Duration::from_secs(30));
             }
         });
@@ -159,7 +152,7 @@ async fn main() {
                 let wallets = wallets.lock().unwrap();
                 println!("Chain size: {}", chain.blocks.len());
                 for w in &wallets.wallets {
-                    println!("{}: {} coins ({:?})", w.owner, w.balance, w.wallet_type);
+                    println!("{}: {:?} ({:?})", w.owner, w.balances, w.wallet_type);
                 }
             }
             "2" => {

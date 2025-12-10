@@ -1,8 +1,9 @@
 use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
 use std::fs;
 
 /// Different roles a wallet can have
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum WalletType {
     Admin,     // full privileges
     User,      // normal participant
@@ -10,13 +11,14 @@ pub enum WalletType {
     Verifier,  // can verify GPU computations
 }
 
-/// A single wallet
+/// A single wallet with multi-asset support
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Wallet {
     pub owner: String,
-    pub balance: u64,
+    /// Map of Asset Symbol -> Amount (e.g., "C-SOL" -> 50000)
+    pub balances: HashMap<String, u64>,
     pub wallet_type: WalletType,
-    pub nonce: u64, // NEW: replay protection
+    pub nonce: u64, // replay protection
 }
 
 impl Wallet {
@@ -24,7 +26,7 @@ impl Wallet {
     pub fn new(owner: &str, wallet_type: WalletType) -> Self {
         Wallet {
             owner: owner.to_string(),
-            balance: 0,
+            balances: HashMap::new(),
             wallet_type,
             nonce: 0,
         }
@@ -85,13 +87,15 @@ impl WalletManager {
     }
 
     /// Credit coins to a wallet (mint or transfer)
-    pub fn credit(&mut self, owner: &str, amount: u64) {
+    pub fn credit(&mut self, owner: &str, asset: &str, amount: u64) {
         if let Some(wallet) = self.get_wallet_mut(owner) {
-            wallet.balance += amount;
+            *wallet.balances.entry(asset.to_string()).or_insert(0) += amount;
         } else {
+            let mut balances = HashMap::new();
+            balances.insert(asset.to_string(), amount);
             self.wallets.push(Wallet {
                 owner: owner.to_string(),
-                balance: amount,
+                balances,
                 wallet_type: WalletType::User,
                 nonce: 0,
             });
@@ -99,10 +103,11 @@ impl WalletManager {
     }
 
     /// Debit coins from a wallet (spend/transfer)
-    pub fn debit(&mut self, owner: &str, amount: u64) -> bool {
+    pub fn debit(&mut self, owner: &str, asset: &str, amount: u64) -> bool {
         if let Some(wallet) = self.get_wallet_mut(owner) {
-            if wallet.balance >= amount {
-                wallet.balance -= amount;
+            let balance = wallet.balances.entry(asset.to_string()).or_insert(0);
+            if *balance >= amount {
+                *balance -= amount;
                 return true;
             }
         }
@@ -121,8 +126,11 @@ impl WalletManager {
         }
     }
 
-    pub fn get_balance(&self, owner: &str) -> u64 {
-        self.get_wallet(owner).map(|w| w.balance).unwrap_or(0)
+    pub fn get_balance(&self, owner: &str, asset: &str) -> u64 {
+        self.get_wallet(owner)
+            .and_then(|w| w.balances.get(asset))
+            .cloned()
+            .unwrap_or(0)
     }
 
     pub fn save(&self, path: &str) {

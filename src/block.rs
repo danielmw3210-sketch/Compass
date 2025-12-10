@@ -15,6 +15,7 @@ pub enum BlockType {
     Reward {
         recipient: String,
         amount: u64,
+        asset: String,
         reason: String,
     },
     Vote {
@@ -67,10 +68,10 @@ impl BlockHeader {
                     id, proposer, text, deadline
                 ));
             }
-            BlockType::Reward { recipient, amount, reason } => {
+            BlockType::Reward { recipient, amount, asset, reason } => {
                 data.push_str(&format!(
-                    ":reward_recipient={}:reward_amount={}:reward_reason={}",
-                    recipient, amount, reason
+                    ":reward_recipient={}:reward_amount={}:reward_asset={}:reward_reason={}",
+                    recipient, amount, asset, reason
                 ));
             }
             _ => {}
@@ -213,6 +214,7 @@ pub fn create_reward_block(
     admin_wallet_id: String,
     recipient: String,
     amount: u64,
+    asset: String,
     reason: String,
     prev_hash: Option<String>,
     admin: &KeyPair,
@@ -221,6 +223,7 @@ pub fn create_reward_block(
         block_type: BlockType::Reward {
             recipient,
             amount,
+            asset,
             reason,
         },
         proposer: admin_wallet_id.clone(),
