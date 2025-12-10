@@ -30,6 +30,9 @@ pub enum NetMessage {
     SubmitTx(TransactionPayload),
     Transaction(Vec<u8>), // Legacy raw bytes
     Ping,
+    // Sync Messages
+    RequestBlocks { start_height: u64, end_height: u64 },
+    SendBlocks(Vec<crate::block::Block>),
 }
 
 /// Start a TCP server that listens for incoming connections

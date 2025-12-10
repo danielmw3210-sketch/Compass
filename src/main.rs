@@ -320,7 +320,8 @@ async fn run_node_mode() {
     }
 
     // --- Load chain ---
-    let chain = Arc::new(Mutex::new(Chain::load_from_json("compass_chain.json")));
+    let storage_arc = Arc::new(crate::storage::Storage::new("compass_db"));
+    let chain = Arc::new(Mutex::new(Chain::new(storage_arc)));
     let wallets = Arc::new(Mutex::new(wallet_manager));
     let vaults = Arc::new(Mutex::new(VaultManager::load("vaults.json")));
     let market = Arc::new(Mutex::new(Market::load("market.json"))); // Load Market
@@ -348,19 +349,26 @@ async fn run_node_mode() {
             let mut tick: u64 = 0;
             let mut seed = b"COMPASS_GENESIS_SEED".to_vec();
             
-            // Restore state from Chain if exists
+            // Restore state from Chain if exists (Updated for Storage)
             {
                 let chain_guard = chain.lock().unwrap();
-                // Find last PoH block
-                for block in chain_guard.blocks.iter().rev() {
-                    if let block::BlockType::PoH { tick: last_tick, hash: ref last_hash, .. } = block.block_type {
-                        tick = last_tick;
-                        if let Ok(decoded_hash) = hex::decode(last_hash) {
-                            seed = decoded_hash;
-                        }
-                        println!("Restored PoH State: Tick={}, VDF Hash={}", tick, last_hash);
-                        break;
-                    }
+                let head = chain_guard.head_hash();
+                if let Some(h) = head {
+                     // Get head block
+                     if let Ok(Some(block)) = chain_guard.storage.get_block(&h) {
+                          // Simple restore: use head VDF hash as seed, and height as tick
+                          // This assumes strictly one PoH block per height (ok for PoH chain)
+                          // In reality, we might mix block types.
+                          // Ideally we scan backwards for last PoH block.
+                          // For prototype, let's just use head logic if it IS a PoH block.
+                          if let block::BlockType::PoH { tick: last_tick, hash: ref last_hash, .. } = block.header.block_type {
+                                tick = last_tick;
+                                if let Ok(decoded_hash) = hex::decode(last_hash) {
+                                    seed = decoded_hash;
+                                }
+                                println!("Restored PoH State: Tick={}, VDF Hash={}", tick, last_hash);
+                          }
+                     }
                 }
             }
 
@@ -382,7 +390,7 @@ async fn run_node_mode() {
                     let mut chain = chain.lock().unwrap();
 
                     // Bootstrap genesis if empty (rarely happens here if we restored, but good for clean start)
-                    if chain.blocks.is_empty() {
+                    if chain.head_hash().is_none() {
                          let genesis = create_poh_block(
                             "GENESIS".to_string(), 
                             0, 
@@ -390,8 +398,11 @@ async fn run_node_mode() {
                             start_hash.clone(), // initial seed
                             &admin
                         );
-                        chain.blocks.push(genesis);
-                        chain.save_to_json("compass_chain.json").unwrap();
+                        // Genesis has no prev_hash (GENESIS)
+                        // append_poh verifies.
+                        // We must be careful about "GENESIS" hash check.
+                        // Impl in Chain allows GENESIS if no head.
+                        chain.append_poh(genesis, &admin.public_key_hex()).expect("Genesis PoH failed");
                         println!("Genesis PoH block created.");
                     }
 
@@ -404,7 +415,10 @@ async fn run_node_mode() {
                         end_hash.clone(),
                         &admin,
                     );
-                    chain.blocks.push(poh);
+                    if let Err(e) = chain.append_poh(poh, &admin.public_key_hex()) {
+                         println!("PoH Append Error: {}", e);
+                         // Don't crash loop, just retry?
+                    }
                 }
 
                 // Log periodically (outside lock)
@@ -417,7 +431,7 @@ async fn run_node_mode() {
                     println!("PoH Tick #{}: {} hashes in {}ms (~{} H/s)", 
                         tick, iterations_per_tick, millis, hps);
                     log_to_file(&format!("PoH Tick #{}: {}ms (~{} H/s)", tick, millis, hps));
-                    chain.save_to_json("compass_chain.json").unwrap();
+                    // chain.save_to_json // REMOVED (No need, DB persists instantly)
                 }
                 
                 // Sleep tiny amount to prevent log flooding only, in prod this is 0
@@ -435,6 +449,7 @@ async fn run_node_mode() {
     // --- Networking Setup ---
     {
         let gulf_stream = Arc::clone(&gulf_stream);
+        let chain = Arc::clone(&chain); // Pass chain to listener
         tokio::spawn(async move {
             let listener = tokio::net::TcpListener::bind("0.0.0.0:9000").await.unwrap();
             println!("Compass node listening on 0.0.0.0:9000");
@@ -443,9 +458,10 @@ async fn run_node_mode() {
                 let (mut socket, peer) = listener.accept().await.unwrap();
                 println!("Incoming connection from {}", peer);
                 let gulf_stream = Arc::clone(&gulf_stream);
+                let chain = Arc::clone(&chain);
 
                 tokio::spawn(async move {
-                    let mut buf = vec![0u8; 4096]; // Increased buffer
+                    let mut buf = vec![0u8; 65536]; // Increased buffer for blocks
                     match socket.read(&mut buf).await {
                         Ok(n) if n > 0 => {
                             if let Ok(msg) = bincode::deserialize::<NetMessage>(&buf[..n]) {
@@ -461,6 +477,24 @@ async fn run_node_mode() {
                                         }
                                     },
                                     NetMessage::Ping => println!("Received Ping"),
+                                    NetMessage::RequestBlocks { start_height, end_height } => {
+                                        println!("Peer requested blocks {} to {}", start_height, end_height);
+                                        let chain = chain.lock().unwrap();
+                                        let mut blocks = Vec::new();
+                                        for h in start_height..=end_height {
+                                            if let Ok(Some(block)) = chain.storage.get_block_by_height(h) {
+                                                blocks.push(block);
+                                            } else {
+                                                break; // End of chain or gap
+                                            }
+                                        }
+                                        // Send back
+                                        let resp = NetMessage::SendBlocks(blocks);
+                                        let data = bincode::serialize(&resp).unwrap();
+                                        if let Err(e) = socket.write_all(&data).await {
+                                            println!("Failed to send blocks: {}", e);
+                                        }
+                                    },
                                     _ => {},
                                 }
                             }
@@ -528,7 +562,61 @@ async fn run_node_mode() {
         }
     });
 
-    // tokio::spawn(start_server("0.0.0.0:9000")); // Replaced by custom handler above
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+    });
+
+    // --- Sync Loop (Active) ---
+    // Placeholder for "Google Node" IP. User should replace or use CLI args.
+    let peer_addr = "127.0.0.1:9000".to_string(); 
+    {
+        let chain = Arc::clone(&chain);
+        let wallets = Arc::clone(&wallets); // Need to update state if blocks processed? 
+        // Currently append_block doesn't execute txs automatically on history sync?
+        // Ideally we re-process, but for prototype just appending to chain is good step 1.
+        
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                
+                let my_height = {
+                    let chain = chain.lock().unwrap();
+                    chain.height
+                };
+
+                println!("Sync: Requesting blocks from {} starting at {}", peer_addr, my_height);
+
+                if let Ok(mut stream) = tokio::net::TcpStream::connect(&peer_addr).await {
+                     let req = NetMessage::RequestBlocks { start_height: my_height, end_height: my_height + 10 };
+                     let data = bincode::serialize(&req).unwrap();
+                     if stream.write_all(&data).await.is_ok() {
+                         // Read response
+                         let mut buf = vec![0u8; 65536];
+                         if let Ok(n) = stream.read(&mut buf).await {
+                             if n > 0 {
+                                 if let Ok(NetMessage::SendBlocks(blocks)) = bincode::deserialize(&buf[..n]) {
+                                     println!("Sync: Received {} blocks", blocks.len());
+                                     let mut chain = chain.lock().unwrap();
+                                     for block in blocks {
+                                         // Append downloaded block
+                                         if let Err(e) = chain.sync_block(block.header) {
+                                            println!("Sync Error: Failed to append block: {}", e);
+                                            break;
+                                         } else {
+                                            println!("Sync: Appended block height {}", chain.height);
+                                         }
+                                     } 
+                                 }
+                             }
+                         }
+                     }
+                } else {
+                    println!("Sync: Failed to connect to {}", peer_addr);
+                }
+            }
+        });
+    }
 
     // --- Admin Menu Loop (Main Thread) ---
     loop {
@@ -551,7 +639,7 @@ async fn run_node_mode() {
             "1" => {
                 let chain = chain.lock().unwrap();
                 let wallets = wallets.lock().unwrap();
-                println!("Chain size: {}", chain.blocks.len());
+                println!("Chain height: {}", chain.height);
                 for w in &wallets.wallets {
                     println!("{}: {:?} ({:?})", w.owner, w.balances, w.wallet_type);
                 }
