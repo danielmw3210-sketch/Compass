@@ -569,6 +569,7 @@ async fn run_node_mode() {
         let chain = Arc::clone(&chain); // Pass chain to listener
         let bind_addr = format!("0.0.0.0:{}", port);
         let admin_pubkey_for_network = admin_pubkey_hex.clone(); // Clone for network handler
+        let admin_keypair_for_network = admin.clone(); // Clone admin keypair for signing transfers
         tokio::spawn(async move {
             let listener = tokio::net::TcpListener::bind(&bind_addr).await.unwrap();
             println!("Compass node listening on {}", bind_addr);
@@ -579,6 +580,7 @@ async fn run_node_mode() {
                 let gulf_stream = Arc::clone(&gulf_stream);
                 let chain = Arc::clone(&chain);
                 let admin_pubkey = admin_pubkey_for_network.clone(); // Clone for this connection
+                let admin_keypair = admin_keypair_for_network.clone(); // Clone for this connection
 
                 tokio::spawn(async move {
                     let mut buf = vec![0u8; 65536]; // Increased buffer for blocks
@@ -603,10 +605,7 @@ async fn run_node_mode() {
                                                     let prev_hash = chain_lock.head_hash();
                                                     let index = chain_lock.height;
                                                     
-                                                    // Note: We're using the signature from the payload
-                                                    // In a real system, we'd verify the sender's keypair
-                                                    // For now, we'll create a dummy keypair (this is a simplification)
-                                                    let dummy_keypair = KeyPair::new();
+                                                    // Use admin keypair for signing (temporary - should use sender's keypair)
                                                     create_transfer_block(
                                                         index,
                                                         from.clone(),
@@ -615,7 +614,7 @@ async fn run_node_mode() {
                                                         amount,
                                                         nonce,
                                                         prev_hash,
-                                                        &dummy_keypair
+                                                        &admin_keypair
                                                     )
                                                 };
 
