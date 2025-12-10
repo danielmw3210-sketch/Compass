@@ -172,6 +172,26 @@ async fn run_client_mode() {
                              println!(" - {}: {}{}", asset, amt, info_str);
                          }
                      }
+                     
+                     // Also show blockchain balances
+                     println!("\n=== Blockchain Balances (On-Chain) ===");
+                     let storage = crate::storage::Storage::new("compass_db");
+                     let assets = vec!["Compass", "cLTC", "cSOL", "cBTC"];
+                     let mut found_any = false;
+                     for asset in assets {
+                         if let Ok(balance) = storage.get_balance(&current_user, asset) {
+                             if balance > 0 {
+                                 println!(" - {}: {}", asset, balance);
+                                 found_any = true;
+                             }
+                         }
+                     }
+                     if !found_any {
+                         println!(" (No assets found on blockchain)");
+                     }
+                     if let Ok(nonce) = storage.get_nonce(&current_user) {
+                         println!("Nonce: {}", nonce);
+                     }
                 },
                 "2" => {
                      // Transfer Funds
