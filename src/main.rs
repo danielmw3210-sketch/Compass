@@ -306,6 +306,24 @@ async fn run_client_mode() {
 async fn run_node_mode() {
     println!("Starting Compass Node...");
 
+    // --- Parse CLI args ---
+    let args: Vec<String> = std::env::args().collect();
+    let mut port = 9000u16;
+    let mut peer_addr: Option<String> = None;
+    
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--port" && i + 1 < args.len() {
+            port = args[i + 1].parse().unwrap_or(9000);
+            i += 2;
+        } else if args[i] == "--peer" && i + 1 < args.len() {
+            peer_addr = Some(args[i + 1].clone());
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+
     // --- Setup admin ---
     let admin = Arc::new(KeyPair::new());
     let admin_wallet_id = "admin".to_string();
@@ -393,6 +411,7 @@ async fn run_node_mode() {
                     // Bootstrap genesis if empty (rarely happens here if we restored, but good for clean start)
                     if chain.head_hash().is_none() {
                          let genesis = create_poh_block(
+                            chain.height, // Added index
                             "GENESIS".to_string(), 
                             0, 
                             0, 
@@ -410,6 +429,7 @@ async fn run_node_mode() {
                     // PoH tick (signed by admin)
                     tick += 1;
                     let poh = create_poh_block(
+                        chain.height, // Added index (current height will be index of new block if we synced properly? No, chain.height IS next index)
                         chain.head_hash().unwrap_or_default(),
                         tick,
                         iterations_per_tick,
@@ -451,9 +471,10 @@ async fn run_node_mode() {
     {
         let gulf_stream = Arc::clone(&gulf_stream);
         let chain = Arc::clone(&chain); // Pass chain to listener
+        let bind_addr = format!("0.0.0.0:{}", port);
         tokio::spawn(async move {
-            let listener = tokio::net::TcpListener::bind("0.0.0.0:9000").await.unwrap();
-            println!("Compass node listening on 0.0.0.0:9000");
+            let listener = tokio::net::TcpListener::bind(&bind_addr).await.unwrap();
+            println!("Compass node listening on {}", bind_addr);
 
             loop {
                 let (mut socket, peer) = listener.accept().await.unwrap();
@@ -569,9 +590,8 @@ async fn run_node_mode() {
 
 
     // --- Sync Loop (Active) ---
-    // Placeholder for "Google Node" IP. User should replace or use CLI args.
-    let peer_addr = "127.0.0.1:9000".to_string(); 
-    {
+    // Only sync if peer address is explicitly provided
+    if let Some(peer_addr) = peer_addr {
         let chain = Arc::clone(&chain);
         let wallets = Arc::clone(&wallets); // Need to update state if blocks processed? 
         // Currently append_block doesn't execute txs automatically on history sync?
@@ -617,6 +637,8 @@ async fn run_node_mode() {
                 }
             }
         });
+    } else {
+        println!("No peer specified. Running in standalone mode. Use --peer <address> to enable sync.");
     }
 
     // --- Admin Menu Loop (Main Thread) ---
@@ -659,6 +681,7 @@ async fn run_node_mode() {
 
                 let mut chain = chain.lock().unwrap();
                 let proposal = create_proposal_block(
+                    chain.height,
                     admin_wallet_id.clone(),
                     text.trim().to_string(),
                     deadline,
@@ -686,6 +709,7 @@ async fn run_node_mode() {
                 let voter = KeyPair::new();
                 let mut chain = chain.lock().unwrap();
                 let vote_block = create_vote_block(
+                    chain.height,
                     "Daniel".to_string(),
                     proposal_id,
                     choice,

@@ -50,7 +50,7 @@ impl BlockType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockHeader {
-    pub index: u64, // Added index field
+    pub index: u64, 
     pub block_type: BlockType,
     pub proposer: String,
     pub timestamp: u64,
@@ -66,7 +66,7 @@ impl BlockHeader {
 
         let mut data = format!(
             "{}:{}:{}:{}:{}",
-            self.index, // Added index to hash
+            self.index,
             self.block_type.to_code(),
             self.proposer,
             self.timestamp,
@@ -125,6 +125,7 @@ pub enum ProposalError {
 pub type ProposalResult<T> = Result<T, ProposalError>;
 
 pub fn create_proposal_block(
+    index: u64,
     admin_wallet_id: String,
     proposal_text: String,
     deadline_ms: u64,
@@ -160,7 +161,7 @@ pub fn create_proposal_block(
     };
 
     let mut header = BlockHeader {
-        index: 0, // Placeholder, needs to be set by Chain
+        index,
         block_type: proposal_variant,
         proposer: admin_wallet_id,
         timestamp: now,
@@ -182,6 +183,7 @@ pub fn create_proposal_block(
 
 /// PoH block (signed by admin)
 pub fn create_poh_block(
+    index: u64,
     prev_hash: String,
     tick: u64,
     iterations: u64,
@@ -190,11 +192,10 @@ pub fn create_poh_block(
 ) -> BlockHeader {
     let timestamp = current_unix_timestamp_ms();
     let hash_hex = hex::encode(&end_vdf_hash);
-    let message = format!("PoH:{}:{}:{}:{}", tick, prev_hash, timestamp, hash_hex);
-    let signature_hex = admin.sign_hex(message.as_bytes());
-
+    
+    // Construct header FIRST to get correct hash to sign
     let mut header = BlockHeader {
-        index: 0, // Placeholder
+        index,
         block_type: BlockType::PoH {
             tick,
             iterations,
@@ -202,17 +203,22 @@ pub fn create_poh_block(
         },
         proposer: "admin".to_string(),
         timestamp,
-        signature_hex: Some(signature_hex),
+        signature_hex: None, // Will sign below
         prev_hash: Some(prev_hash),
         hash: None,
     };
+    
+    let pre_sign_hash = header.calculate_hash();
+    let signature_hex = admin.sign_hex(pre_sign_hash.as_bytes()); // Sign canonical hash
 
+    header.signature_hex = Some(signature_hex);
     header.hash = Some(header.calculate_hash());
     header
 }
 
 /// Vote block
 pub fn create_vote_block(
+    index: u64,
     voter_wallet_id: String,
     proposal_id: u64,
     choice: bool,
@@ -220,7 +226,7 @@ pub fn create_vote_block(
     voter: &KeyPair,
 ) -> BlockHeader {
     let mut header = BlockHeader {
-        index: 0, // Placeholder
+        index,
         block_type: BlockType::Vote {
             proposal_id,
             voter: voter_wallet_id.clone(),
@@ -243,6 +249,7 @@ pub fn create_vote_block(
 
 /// Reward block (signed by admin)
 pub fn create_reward_block(
+    index: u64,
     admin_wallet_id: String,
     recipient: String,
     amount: u64,
@@ -252,7 +259,7 @@ pub fn create_reward_block(
     admin: &KeyPair,
 ) -> BlockHeader {
     let mut header = BlockHeader {
-        index: 0, // Placeholder
+        index,
         block_type: BlockType::Reward {
             recipient,
             amount,
