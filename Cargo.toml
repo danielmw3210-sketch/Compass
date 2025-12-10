@@ -9,6 +9,7 @@ serde_json = "1.0"
 bincode = "1.3"
 
 tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.11", features = ["json", "blocking"] }
 
 # ed25519-dalek 1.0.x expects rand 0.7 and rand_core 0.5
 ed25519-dalek = "1.0.1"

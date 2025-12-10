@@ -3,9 +3,14 @@ mod block;
 mod chain;
 mod wallet;
 mod vdf;
+mod vault;
+mod oracle;
+mod market;
+mod gulf_stream; // Added module declaration
 
 mod network;
-use network::{NetMessage, start_server, connect_and_send};
+use network::{NetMessage, TransactionPayload, start_server, connect_and_send}; 
+use tokio::io::AsyncReadExt; // Added AsyncReadExt trait
 use crypto::KeyPair;
 use block::{
     create_poh_block, create_vote_block,
@@ -14,6 +19,9 @@ use block::{
 
 use chain::Chain;
 use wallet::{WalletManager, WalletType};
+use vault::VaultManager;
+use market::{Market, OrderSide};
+use gulf_stream::manager::CompassGulfStreamManager; // Import Gulf Stream
 use std::io::{self, Write};
 use std::thread;
 use std::sync::{Arc, Mutex};
@@ -32,6 +40,271 @@ fn log_to_file(msg: &str) {
 
 #[tokio::main]
 async fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.contains(&"--node".to_string()) {
+        run_node_mode().await;
+    } else {
+        run_client_mode().await;
+    }
+}
+
+// --- CLIENT MODE (User) ---
+async fn run_client_mode() {
+    println!("\n=== Compass Client ===");
+    
+    // 1. Login / Wallet Selection
+    let mut wallet_manager = WalletManager::load("wallets.json");
+    let mut market = Market::load("market.json");
+    let mut current_user = String::new();
+
+    loop {
+        if current_user.is_empty() {
+             println!("\n1. Login (Existing User)");
+             println!("2. Create New User");
+             println!("3. Transfer Funds"); // Added Transfer
+             println!("4. Exit");
+             print!("Select: ");
+             io::stdout().flush().unwrap();
+             
+             let mut input = String::new();
+             io::stdin().read_line(&mut input).unwrap();
+             match input.trim() {
+                 "1" => {
+                    print!("Username: ");
+                    io::stdout().flush().unwrap();
+                    let mut name = String::new();
+                    io::stdin().read_line(&mut name).unwrap();
+                    let name = name.trim().to_string();
+                    if wallet_manager.get_wallet(&name).is_some() {
+                        current_user = name;
+                        println!("Logged in as {}", current_user);
+                    } else {
+                        println!("User not found.");
+                    }
+                 },
+                 "2" => {
+                    print!("New Username: ");
+                    io::stdout().flush().unwrap();
+                    let mut name = String::new();
+                    io::stdin().read_line(&mut name).unwrap();
+                    let name = name.trim().to_string();
+                    if wallet_manager.get_wallet(&name).is_some() {
+                         println!("User already exists.");
+                    } else {
+                        // Create Wallet
+                        let new_wallet = wallet::Wallet::new(&name, WalletType::User);
+                        wallet_manager.wallets.push(new_wallet);
+                        wallet_manager.save("wallets.json");
+                        current_user = name;
+                        println!("Wallet created! Logged in as {}", current_user);
+                    }
+                 },
+                 "3" => {
+                    // Transfer Funds
+                    print!("User (Sender): ");
+                    io::stdout().flush().unwrap();
+                    let mut u = String::new(); io::stdin().read_line(&mut u).unwrap();
+                    let u = u.trim().to_string();
+                    
+                    print!("Recipient: ");
+                    io::stdout().flush().unwrap();
+                    let mut r = String::new(); io::stdin().read_line(&mut r).unwrap();
+                    
+                    print!("Asset: ");
+                    io::stdout().flush().unwrap();
+                    let mut a = String::new(); io::stdin().read_line(&mut a).unwrap();
+                    
+                    print!("Amount: ");
+                    io::stdout().flush().unwrap();
+                    let mut s = String::new(); io::stdin().read_line(&mut s).unwrap();
+                    let amt: u64 = s.trim().parse().unwrap_or(0);
+                    
+                    // Create Payload
+                    let payload = TransactionPayload::Transfer {
+                        from: u,
+                        to: r.trim().to_string(),
+                        asset: a.trim().to_string(),
+                        amount: amt,
+                        signature: "stub_sig".to_string(),
+                    };
+                    
+                    connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
+                    println!("Transfer Submitted to Network!");
+                 },
+                 "4" => std::process::exit(0),
+                 _ => println!("Invalid."),
+             }
+        } else {
+            // Logged In Dashboard
+            // Refresh wallet from file in case Node updated it (simulated shared storage)
+            wallet_manager = WalletManager::load("wallets.json");
+            
+            println!("\n--- Dashboard: {} ---", current_user);
+            let bal = wallet_manager.get_balance(&current_user, "Compass-LTC"); // TODO: List all assets
+            println!("Balance: ??? (Use 'View balances' to see all)"); 
+            
+            println!("1. View Balances");
+            println!("2. Create Mint Contract (LTC)");
+            println!("3. Redeem (Burn)");
+            println!("4. Trade (Market)");
+            println!("5. Logout");
+            print!("Select: ");
+            io::stdout().flush().unwrap();
+            
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).unwrap();
+            match input.trim() {
+                "1" => {
+                     if let Some(w) = wallet_manager.get_wallet(&current_user) {
+                         println!("Assets:");
+                         let vaults = VaultManager::load("vaults.json");
+                         for (asset, amt) in &w.balances {
+                             let mut info_str = String::new();
+                             if let Some((col_bal, supply, ticker)) = vaults.get_asset_info(asset) {
+                                  if supply > 0 {
+                                      let share = *amt as f64 / supply as f64;
+                                      let implied_val = share * col_bal as f64;
+                                      info_str = format!(" (~{:.8} {})", implied_val, ticker);
+                                  }
+                             }
+                             println!(" - {}: {}{}", asset, amt, info_str);
+                         }
+                     }
+                },
+                "2" => {
+                     println!("--- Mint Contract ---");
+                     println!("Note: You must obtain an Oracle Signature from the Node for your deposit first.");
+                     
+                     print!("TX Hash: ");
+                     io::stdout().flush().unwrap();
+                     let mut tx = String::new();
+                     io::stdin().read_line(&mut tx).unwrap();
+                     
+                     print!("Collateral Amount (Sats/Units): ");
+                     io::stdout().flush().unwrap();
+                     let mut col_str = String::new();
+                     io::stdin().read_line(&mut col_str).unwrap();
+                     let col_amt: u64 = col_str.trim().parse().unwrap_or(0);
+                     
+                     print!("Requested Compass Amount: ");
+                     io::stdout().flush().unwrap();
+                     let mut mint_str = String::new();
+                     io::stdin().read_line(&mut mint_str).unwrap();
+                     let mint_amt: u64 = mint_str.trim().parse().unwrap_or(0);
+                     
+                     print!("Oracle Signature: ");
+                     io::stdout().flush().unwrap();
+                     let mut sig = String::new();
+                     io::stdin().read_line(&mut sig).unwrap();
+                     
+                     print!("Oracle Public Key: ");
+                     io::stdout().flush().unwrap();
+                     let mut pubkey_hex = String::new();
+                     io::stdin().read_line(&mut pubkey_hex).unwrap();
+                     let admin_pubkey = pubkey_hex.trim().to_string(); // Use user input
+
+                     // Load Vaults
+                     let mut vaults = VaultManager::load("vaults.json");
+                     
+                     // Execute
+                     match vaults.deposit_and_mint("LTC", col_amt, mint_amt, &current_user, tx.trim(), sig.trim(), &admin_pubkey) {
+                         Ok((asset, minted)) => {
+                             println!("Success! Minted {} {}", minted, asset);
+                             // Update Wallet
+                             wallet_manager.credit(&current_user, &asset, minted);
+                             wallet_manager.save("wallets.json");
+                             vaults.save("vaults.json");
+                         },
+                         Err(e) => println!("Mint Failed: {}", e),
+                     }
+                },
+                "3" => {
+                     println!("Redemption is currently for specific assets. (Not fully ported to Traceable logic yet)");
+                },
+                "4" => {
+                    println!("\n--- Market ---");
+                    println!("1. View Orderbook");
+                    println!("2. Place Buy Order");
+                    println!("3. Place Sell Order");
+                    print!("Select: ");
+                    io::stdout().flush().unwrap();
+                    let mut m_in = String::new();
+                    io::stdin().read_line(&mut m_in).unwrap();
+                    
+                    match m_in.trim() {
+                        "1" => {
+                            print!("Base Asset (e.g. Compass:Alice:LTC): ");
+                            io::stdout().flush().unwrap();
+                            let mut b = String::new(); io::stdin().read_line(&mut b).unwrap();
+                            print!("Quote Asset (e.g. Compass): ");
+                            io::stdout().flush().unwrap();
+                            let mut q = String::new(); io::stdin().read_line(&mut q).unwrap();
+                            
+                            let key = format!("{}/{}", b.trim(), q.trim());
+                            if let Some(book) = market.books.get(&key) {
+                                println!("--- BIDS (Buy) ---");
+                                for order in &book.bids {
+                                    println!("[#{}] {} @ {}", order.id, order.amount - order.amount_filled, order.price);
+                                }
+                                println!("--- ASKS (Sell) ---");
+                                for order in &book.asks {
+                                    println!("[#{}] {} @ {}", order.id, order.amount - order.amount_filled, order.price);
+                                }
+                            } else {
+                                println!("No book found for {}", key);
+                            }
+                        },
+                        "2" | "3" => {
+                            let side = if m_in.trim() == "2" { OrderSide::Buy } else { OrderSide::Sell };
+                            
+                            print!("Base Asset (e.g. Compass:Alice:LTC): ");
+                            io::stdout().flush().unwrap();
+                            let mut b = String::new(); io::stdin().read_line(&mut b).unwrap();
+                            print!("Quote Asset (e.g. Compass): ");
+                            io::stdout().flush().unwrap();
+                            let mut q = String::new(); io::stdin().read_line(&mut q).unwrap();
+                            
+                            print!("Amount: ");
+                            io::stdout().flush().unwrap();
+                            let mut a_s = String::new(); io::stdin().read_line(&mut a_s).unwrap();
+                            let amt: u64 = a_s.trim().parse().unwrap_or(0);
+
+                            print!("Price: ");
+                            io::stdout().flush().unwrap();
+                            let mut p_s = String::new(); io::stdin().read_line(&mut p_s).unwrap();
+                            match p_s.trim().parse::<u64>() {
+                                Ok(pr) => {
+                                     let payload = TransactionPayload::PlaceOrder {
+                                         user: current_user.clone(),
+                                         side,
+                                         base: b.trim().to_string(),
+                                         quote: q.trim().to_string(),
+                                         amount: amt,
+                                         price: pr,
+                                         signature: "stub_sig".to_string(),
+                                     };
+                                     connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
+                                     println!("Order Submitted to Network!");
+                                     // market.save(); // No longer saving locally in client
+                                     // wallet_manager.save();
+                                },
+                                Err(_) => println!("Invalid Price"),
+                            }
+                        },
+                        _ => println!("Invalid."),
+                    }
+                }, 
+                "5" => current_user.clear(),
+                _ => println!("Invalid."),
+            }
+        }
+    }
+}
+
+// --- NODE MODE (Infrastructure) ---
+async fn run_node_mode() {
+    println!("Starting Compass Node...");
+
     // --- Setup admin ---
     let admin = Arc::new(KeyPair::new());
     let admin_wallet_id = "admin".to_string();
@@ -49,6 +322,9 @@ async fn main() {
     // --- Load chain ---
     let chain = Arc::new(Mutex::new(Chain::load_from_json("compass_chain.json")));
     let wallets = Arc::new(Mutex::new(wallet_manager));
+    let vaults = Arc::new(Mutex::new(VaultManager::load("vaults.json")));
+    let market = Arc::new(Mutex::new(Market::load("market.json"))); // Load Market
+    let gulf_stream = Arc::new(Mutex::new(CompassGulfStreamManager::new("Node1".to_string(), 1000)));
 
     // --- Genesis Mint (from Foundation Reserve) ---
     {
@@ -150,22 +426,120 @@ async fn main() {
         });
     }
 
-    // --- Networking Setup ---
-    tokio::spawn(start_server("0.0.0.0:9000"));
+    // --- Oracle / Smart Contract Setup ---
+    let oracle_service = Arc::new(tokio::sync::Mutex::new(oracle::OracleService::new(
+        "ltc1qunzw2r558tm6ln7fnxhqxqy0mkz8kkdretf75h", 
+        admin.clone()
+    )));
 
-    tokio::spawn(async {
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        connect_and_send("127.0.0.1:9000", NetMessage::Ping).await;
+    // --- Networking Setup ---
+    {
+        let gulf_stream = Arc::clone(&gulf_stream);
+        tokio::spawn(async move {
+            let listener = tokio::net::TcpListener::bind("0.0.0.0:9000").await.unwrap();
+            println!("Compass node listening on 0.0.0.0:9000");
+
+            loop {
+                let (mut socket, peer) = listener.accept().await.unwrap();
+                println!("Incoming connection from {}", peer);
+                let gulf_stream = Arc::clone(&gulf_stream);
+
+                tokio::spawn(async move {
+                    let mut buf = vec![0u8; 4096]; // Increased buffer
+                    match socket.read(&mut buf).await {
+                        Ok(n) if n > 0 => {
+                            if let Ok(msg) = bincode::deserialize::<NetMessage>(&buf[..n]) {
+                                match msg {
+                                    NetMessage::SubmitTx(payload) => {
+                                        let mut gs = gulf_stream.lock().unwrap();
+                                        // Wrap in stub hash/raw (real impl would hash payload)
+                                        let tx_hash = format!("{:?}", payload).as_bytes().to_vec(); // TODO: Real hashing
+                                        let raw_tx = bincode::serialize(&payload).unwrap();
+                                        
+                                        if gs.add_transaction(tx_hash.clone(), raw_tx, 100) {
+                                            println!("GulfStream: TX Queued {:?}", payload);
+                                        }
+                                    },
+                                    NetMessage::Ping => println!("Received Ping"),
+                                    _ => {},
+                                }
+                            }
+                        }
+                        _ => {},
+                    }
+                });
+            }
+        });
+    }
+
+    // --- Transaction Processor Loop ---
+    tokio::spawn({
+        let gulf_stream = Arc::clone(&gulf_stream);
+        let wallets = Arc::clone(&wallets);
+        let market = Arc::clone(&market);
+        
+        async move {
+            loop {
+                // 1. Get Pending Txs
+                let mut txs_to_process = Vec::new();
+                {
+                    let mut gs = gulf_stream.lock().unwrap();
+                    // Simple FIFO for prototype: pop all pending
+                    let keys: Vec<Vec<u8>> = gs.pending_transactions.keys().cloned().collect();
+                    for k in keys {
+                        if let Some(tx) = gs.pending_transactions.get(&k) {
+                             txs_to_process.push(tx.clone());
+                        }
+                        gs.confirm_transaction(&k); // Move to processing/confirmed
+                    }
+                }
+
+                // 2. Execute Txs
+                if !txs_to_process.is_empty() {
+                    let mut w_guard = wallets.lock().unwrap();
+                    let mut m_guard = market.lock().unwrap();
+
+                    for tx in txs_to_process {
+                         if let Ok(payload) = bincode::deserialize::<TransactionPayload>(&tx.raw_tx) {
+                             match payload {
+                                 TransactionPayload::Transfer { from, to, asset, amount, .. } => {
+                                     // Verify sig (TODO). For now, execute.
+                                     if w_guard.debit(&from, &asset, amount) {
+                                         w_guard.credit(&to, &asset, amount);
+                                         println!("EXEC: Transfer {} {} from {} to {}", amount, asset, from, to);
+                                     } else {
+                                         println!("EXEC: Transfer Failed (Insuff Balance) {} -> {}", from, to);
+                                     }
+                                 },
+                                 TransactionPayload::PlaceOrder { user, side, base, quote, amount, price, .. } => {
+                                      println!("EXEC: Place Order for {}", user);
+                                      let _ = m_guard.place_order(&user, side, &base, &quote, amount, price, &mut w_guard);
+                                 },
+                             }
+                         }
+                    }
+                    // Save State
+                    w_guard.save("wallets.json");
+                    m_guard.save("market.json");
+                }
+
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
     });
+
+    // tokio::spawn(start_server("0.0.0.0:9000")); // Replaced by custom handler above
 
     // --- Admin Menu Loop (Main Thread) ---
     loop {
-        println!("\n=== Compass Admin Menu ===");
+        println!("\n=== Compass Node Admin ===");
         println!("1. Show status");
         println!("2. Create proposal");
         println!("3. Cast vote");
         println!("4. Tally votes");
         println!("5. Exit");
+        println!("6. [Admin] Register Vault");
+        println!("7. [Admin] Generate Signature for User Contract");
         print!("Select an option: ");
         io::stdout().flush().unwrap();
 
@@ -244,8 +618,72 @@ async fn main() {
                 println!("Proposal {} tally: YES={} NO={}", proposal_id, yes, no);
             }
             "5" => {
-                println!("Shutting down Compass...");
+                println!("Shutting down Compass Node...");
                 break;
+            }
+            "6" => {
+                print!("Collateral Asset (e.g. SOL): ");
+                io::stdout().flush().unwrap();
+                let mut col = String::new();
+                io::stdin().read_line(&mut col).unwrap();
+                
+                print!("Compass Asset (e.g. Compass-SOL): ");
+                io::stdout().flush().unwrap();
+                let mut name = String::new();
+                io::stdin().read_line(&mut name).unwrap();
+
+                print!("Vault Wallet Address (External Chain): ");
+                io::stdout().flush().unwrap();
+                let mut addr = String::new();
+                io::stdin().read_line(&mut addr).unwrap();
+                
+                print!("Rate (Compass per 1 Collateral): ");
+                io::stdout().flush().unwrap();
+                let mut rate_str = String::new();
+                io::stdin().read_line(&mut rate_str).unwrap();
+                let rate: u64 = rate_str.trim().parse().unwrap_or(0);
+
+                let mut vaults = vaults.lock().unwrap();
+                match vaults.register_vault(col.trim(), name.trim(), addr.trim(), rate) {
+                    Ok(_) => {
+                        println!("Vault Registered!");
+                        vaults.save("vaults.json");
+                    },
+                    Err(e) => println!("Error: {}", e),
+                }
+            }
+            "7" => {
+                // Admin Tool to Sign User Requests
+                print!("Collateral Ticker (e.g. LTC): ");
+                io::stdout().flush().unwrap();
+                let mut t = String::new(); io::stdin().read_line(&mut t).unwrap();
+                
+                print!("Collateral Amount (Sats): ");
+                io::stdout().flush().unwrap();
+                let mut a = String::new(); io::stdin().read_line(&mut a).unwrap();
+                let amt: u64 = a.trim().parse().unwrap_or(0);
+
+                print!("User's Desired Mint Amount: ");
+                io::stdout().flush().unwrap();
+                let mut m = String::new(); io::stdin().read_line(&mut m).unwrap();
+                let mint: u64 = m.trim().parse().unwrap_or(0);
+                
+                print!("TX Hash: ");
+                io::stdout().flush().unwrap();
+                let mut tx = String::new(); io::stdin().read_line(&mut tx).unwrap();
+                
+                print!("User Identity (OwnerID): ");
+                io::stdout().flush().unwrap();
+                let mut u = String::new(); io::stdin().read_line(&mut u).unwrap();
+                
+                let sig = admin.sign_hex(
+                    format!("DEPOSIT:{}:{}:{}:{}:{}", t.trim(), amt, tx.trim(), mint, u.trim()).as_bytes()
+                );
+                
+                println!("\n=== GENERATED SIGNATURE ===");
+                println!("Signature: {}", sig);
+                println!("Oracle PubKey: {}", admin_pubkey_hex);
+                println!("(Send BOTH to user {})", u.trim());
             }
             _ => println!("Invalid option, try again."),
         }

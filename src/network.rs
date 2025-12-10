@@ -3,9 +3,32 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use serde::{Serialize, Deserialize};
 use std::sync::{Arc, Mutex};
 
+use crate::market::OrderSide;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TransactionPayload {
+    Transfer {
+        from: String,
+        to: String,
+        asset: String,
+        amount: u64,
+        signature: String, // Hex encoded
+    },
+    PlaceOrder {
+        user: String,
+        side: OrderSide,
+        base: String,
+        quote: String,
+        amount: u64,
+        price: u64,
+        signature: String,
+    },
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum NetMessage {
-    Transaction(Vec<u8>),
+    SubmitTx(TransactionPayload),
+    Transaction(Vec<u8>), // Legacy raw bytes
     Ping,
 }
 

@@ -1,14 +1,43 @@
+use crate::gulf_stream::transactions::CompassGulfStreamTransaction;
+use crate::gulf_stream::validator::ValidatorSlot;
+use crate::gulf_stream::stats::{GulfStreamStats, QueueSizes};
+use crate::gulf_stream::utils::now_ms;
+use std::collections::{HashMap, VecDeque};
+
+#[derive(Debug, Clone)]
+pub struct HighPrioItem {
+    pub priority_fee: u64,
+    pub timestamp_ms: u128,
+    pub tx_hash: Vec<u8>,
+}
+
+pub struct CompassGulfStreamManager {
+    pub node_id: String,
+    pub capacity: usize,
+    pub pending_transactions: HashMap<Vec<u8>, CompassGulfStreamTransaction>,
+    pub processing_transactions: HashMap<Vec<u8>, CompassGulfStreamTransaction>,
+    pub high_priority_queue: Vec<HighPrioItem>,
+    pub normal_priority_queue: VecDeque<Vec<u8>>,
+    pub low_priority_queue: VecDeque<Vec<u8>>,
+    pub validator_schedule: Vec<ValidatorSlot>,
+    pub current_slot: Option<ValidatorSlot>,
+    pub next_leader: Option<String>,
+    pub transactions_received: u64,
+    pub transactions_confirmed: u64,
+    pub transactions_rejected: u64,
+}
+
 impl CompassGulfStreamManager {
     /// Constructor
     pub fn new(node_id: String, capacity: usize) -> Self {
         CompassGulfStreamManager {
             node_id,
             capacity,
-            pending_transactions: std::collections::HashMap::new(),
-            processing_transactions: std::collections::HashMap::new(),
+            pending_transactions: HashMap::new(),
+            processing_transactions: HashMap::new(),
             high_priority_queue: Vec::new(),
-            normal_priority_queue: std::collections::VecDeque::new(),
-            low_priority_queue: std::collections::VecDeque::new(),
+            normal_priority_queue: VecDeque::new(),
+            low_priority_queue: VecDeque::new(),
             validator_schedule: Vec::new(),
             current_slot: None,
             next_leader: None,
@@ -99,13 +128,21 @@ impl CompassGulfStreamManager {
     /// Get Gulf Stream stats
     pub fn get_stats(&self) -> GulfStreamStats {
         GulfStreamStats {
-            received: self.transactions_received,
-            confirmed: self.transactions_confirmed,
-            rejected: self.transactions_rejected,
+            transactions_received: self.transactions_received,
+            transactions_forwarded: 0,
+            transactions_confirmed: self.transactions_confirmed,
+            transactions_rejected: self.transactions_rejected,
+            pending_transactions: self.pending_transactions.len() as u64,
+            processing_transactions: self.processing_transactions.len() as u64,
+            confirmed_transactions: self.transactions_confirmed,
+            rejected_transactions: self.transactions_rejected,
+            avg_confirmation_time_ms: 0.0,
+            current_slot: self.current_slot.as_ref().map(|s| s.validator_id.clone()),
+            next_leader: self.next_leader.clone(),
             queue_sizes: QueueSizes {
-                high: self.high_priority_queue.len(),
-                normal: self.normal_priority_queue.len(),
-                low: self.low_priority_queue.len(),
+                high_priority: self.high_priority_queue.len() as u64,
+                normal_priority: self.normal_priority_queue.len() as u64,
+                low_priority: self.low_priority_queue.len() as u64,
             },
         }
     }
