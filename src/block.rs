@@ -33,6 +33,13 @@ pub enum BlockType {
         voter: String,
         choice: bool, // yes/no
     },
+    Transfer {
+        from: String,
+        to: String,
+        asset: String,  // "Compass" or "cLTC", "cSOL", etc.
+        amount: u64,
+        nonce: u64,
+    },
     // Future: FinanceAnchor ...
 }
 
@@ -44,6 +51,7 @@ impl BlockType {
             BlockType::Proposal { .. } => 2,
             BlockType::Reward { .. } => 5,
             BlockType::Vote { .. } => 6,
+            BlockType::Transfer { .. } => 7,
         }
     }
 }
@@ -90,6 +98,12 @@ impl BlockHeader {
                 data.push_str(&format!(
                     ":reward_recipient={}:reward_amount={}:reward_asset={}:reward_reason={}",
                     recipient, amount, asset, reason
+                ));
+            }
+            BlockType::Transfer { from, to, asset, amount, nonce } => {
+                data.push_str(&format!(
+                    ":transfer_from={}:transfer_to={}:transfer_asset={}:transfer_amount={}:transfer_nonce={}",
+                    from, to, asset, amount, nonce
                 ));
             }
             _ => {}
@@ -275,6 +289,41 @@ pub fn create_reward_block(
 
     let pre_sign_hash = header.calculate_hash();
     let sig_hex = admin.sign_hex(pre_sign_hash.as_bytes());
+    header.signature_hex = Some(sig_hex);
+    header.hash = Some(header.calculate_hash());
+
+    header
+}
+
+/// Transfer block (signed by sender)
+pub fn create_transfer_block(
+    index: u64,
+    from: String,
+    to: String,
+    asset: String,
+    amount: u64,
+    nonce: u64,
+    prev_hash: Option<String>,
+    sender_keypair: &KeyPair,
+) -> BlockHeader {
+    let mut header = BlockHeader {
+        index,
+        block_type: BlockType::Transfer {
+            from: from.clone(),
+            to,
+            asset,
+            amount,
+            nonce,
+        },
+        proposer: from, // Sender is the proposer
+        timestamp: current_unix_timestamp_ms(),
+        signature_hex: None,
+        prev_hash,
+        hash: None,
+    };
+
+    let pre_sign_hash = header.calculate_hash();
+    let sig_hex = sender_keypair.sign_hex(pre_sign_hash.as_bytes());
     header.signature_hex = Some(sig_hex);
     header.hash = Some(header.calculate_hash());
 

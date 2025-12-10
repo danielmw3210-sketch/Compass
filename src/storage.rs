@@ -65,4 +65,25 @@ impl Storage {
             Ok(None)
         }
     }
+
+    // 2. Account State (Balances and Nonces)
+    pub fn get_balance(&self, wallet_id: &str, asset: &str) -> Result<u64, String> {
+        let key = format!("balance:{}:{}", wallet_id, asset);
+        Ok(self.get::<u64>(&key)?.unwrap_or(0))
+    }
+
+    pub fn set_balance(&self, wallet_id: &str, asset: &str, amount: u64) -> Result<(), String> {
+        let key = format!("balance:{}:{}", wallet_id, asset);
+        self.put(&key, &amount)
+    }
+
+    pub fn get_nonce(&self, wallet_id: &str) -> Result<u64, String> {
+        let key = format!("nonce:{}", wallet_id);
+        Ok(self.get::<u64>(&key)?.unwrap_or(0))
+    }
+
+    pub fn set_nonce(&self, wallet_id: &str, nonce: u64) -> Result<(), String> {
+        let key = format!("nonce:{}", wallet_id);
+        self.put(&key, &nonce)
+    }
 }

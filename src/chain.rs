@@ -164,6 +164,62 @@ impl Chain {
         self.commit_block(header)
     }
 
+    /// Append a transfer block (verify signature, balance, nonce)
+    pub fn append_transfer(
+        &mut self,
+        header: BlockHeader,
+        sender_pubkey_hex: &str,
+    ) -> Result<(), String> {
+        // 1. Check prev_hash
+        if let Some(head) = self.head_hash() {
+            if header.prev_hash != Some(head) {
+                return Err("prev_hash mismatch".to_string());
+            }
+        }
+
+        // 2. Verify signature
+        let recompute = header.calculate_hash();
+        let sig_hex = header.signature_hex.as_ref().ok_or("missing signature")?;
+        if !verify_with_pubkey_hex(recompute.as_bytes(), sig_hex, sender_pubkey_hex) {
+            return Err("invalid signature".to_string());
+        }
+
+        if header.hash.as_deref() != Some(&recompute) {
+            return Err("hash mismatch".to_string());
+        }
+
+        // 3. Extract transfer details
+        if let BlockType::Transfer { from, to, asset, amount, nonce } = &header.block_type {
+            // 4. Check nonce (replay protection)
+            let current_nonce = self.storage.get_nonce(from).map_err(|e| e.to_string())?;
+            if *nonce != current_nonce + 1 {
+                return Err(format!("invalid nonce: expected {}, got {}", current_nonce + 1, nonce));
+            }
+
+            // 5. Check sender balance
+            let sender_balance = self.storage.get_balance(from, asset).map_err(|e| e.to_string())?;
+            if sender_balance < *amount {
+                return Err(format!("insufficient balance: has {}, needs {}", sender_balance, amount));
+            }
+
+            // 6. Execute transfer
+            self.storage.set_balance(from, asset, sender_balance - amount).map_err(|e| e.to_string())?;
+            
+            let recipient_balance = self.storage.get_balance(to, asset).map_err(|e| e.to_string())?;
+            self.storage.set_balance(to, asset, recipient_balance + amount).map_err(|e| e.to_string())?;
+
+            // 7. Update nonce
+            self.storage.set_nonce(from, *nonce).map_err(|e| e.to_string())?;
+
+            // 8. Commit block
+            self.commit_block(header).map_err(|e| e.to_string())?;
+
+            Ok(())
+        } else {
+            Err("not a transfer block".to_string())
+        }
+    }
+
     /// Tally votes for a proposal
     pub fn tally_votes(&self, proposal_id: u64) -> (u64, u64) {
         let mut yes = 0;

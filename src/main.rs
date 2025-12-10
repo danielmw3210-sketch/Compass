@@ -15,7 +15,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt}; // Added AsyncReadExt and AsyncWri
 use crypto::KeyPair;
 use block::{
     create_poh_block, create_vote_block,
-    create_proposal_block, current_unix_timestamp_ms,
+    create_proposal_block, create_transfer_block, current_unix_timestamp_ms,
 };
 
 use chain::Chain;
@@ -357,6 +357,21 @@ async fn run_node_mode() {
     let market = Arc::new(Mutex::new(Market::load("market.json"))); // Load Market
     let gulf_stream = Arc::new(Mutex::new(CompassGulfStreamManager::new("Node1".to_string(), 1000)));
 
+    // --- Genesis Balance Initialization ---
+    {
+        let chain_lock = chain.lock().unwrap();
+        if chain_lock.height == 0 {
+            // Initialize genesis balances
+            if let Err(e) = chain_lock.storage.set_balance("Daniel", "Compass", 100_000) {
+                println!("Warning: Failed to set genesis balance: {}", e);
+            }
+            if let Err(e) = chain_lock.storage.set_nonce("Daniel", 0) {
+                println!("Warning: Failed to set genesis nonce: {}", e);
+            }
+            println!("Genesis: Initialized Daniel with 100,000 Compass");
+        }
+    }
+
     // --- Genesis Mint (from Foundation Reserve) ---
     {
         let mut wallets = wallets.lock().unwrap();
@@ -466,8 +481,8 @@ async fn run_node_mode() {
                     // chain.save_to_json // REMOVED (No need, DB persists instantly)
                 }
                 
-                // Sleep tiny amount to prevent log flooding only, in prod this is 0
-                thread::sleep(Duration::from_millis(10));
+                // Sleep to control block production rate (1 block per second)
+                thread::sleep(Duration::from_millis(1000));
             }
         });
     } else {
@@ -485,6 +500,7 @@ async fn run_node_mode() {
         let gulf_stream = Arc::clone(&gulf_stream);
         let chain = Arc::clone(&chain); // Pass chain to listener
         let bind_addr = format!("0.0.0.0:{}", port);
+        let admin_pubkey_for_network = admin_pubkey_hex.clone(); // Clone for network handler
         tokio::spawn(async move {
             let listener = tokio::net::TcpListener::bind(&bind_addr).await.unwrap();
             println!("Compass node listening on {}", bind_addr);
@@ -494,6 +510,7 @@ async fn run_node_mode() {
                 println!("Incoming connection from {}", peer);
                 let gulf_stream = Arc::clone(&gulf_stream);
                 let chain = Arc::clone(&chain);
+                let admin_pubkey = admin_pubkey_for_network.clone(); // Clone for this connection
 
                 tokio::spawn(async move {
                     let mut buf = vec![0u8; 65536]; // Increased buffer for blocks
@@ -502,13 +519,56 @@ async fn run_node_mode() {
                             if let Ok(msg) = bincode::deserialize::<NetMessage>(&buf[..n]) {
                                 match msg {
                                     NetMessage::SubmitTx(payload) => {
-                                        let mut gs = gulf_stream.lock().unwrap();
-                                        // Wrap in stub hash/raw (real impl would hash payload)
-                                        let tx_hash = format!("{:?}", payload).as_bytes().to_vec(); // TODO: Real hashing
-                                        let raw_tx = bincode::serialize(&payload).unwrap();
-                                        
-                                        if gs.add_transaction(tx_hash.clone(), raw_tx, 100) {
-                                            println!("GulfStream: TX Queued {:?}", payload);
+                                        match payload {
+                                            TransactionPayload::Transfer { from, to, asset, amount, signature } => {
+                                                println!("Received Transfer: {} -> {}, {} {}", from, to, amount, asset);
+                                                
+                                                // Get sender's current nonce
+                                                let nonce = {
+                                                    let chain_lock = chain.lock().unwrap();
+                                                    chain_lock.storage.get_nonce(&from).unwrap_or(0) + 1
+                                                };
+
+                                                // Create transfer block
+                                                let transfer_header = {
+                                                    let chain_lock = chain.lock().unwrap();
+                                                    let prev_hash = chain_lock.head_hash();
+                                                    let index = chain_lock.height;
+                                                    
+                                                    // Note: We're using the signature from the payload
+                                                    // In a real system, we'd verify the sender's keypair
+                                                    // For now, we'll create a dummy keypair (this is a simplification)
+                                                    let dummy_keypair = KeyPair::new();
+                                                    create_transfer_block(
+                                                        index,
+                                                        from.clone(),
+                                                        to,
+                                                        asset,
+                                                        amount,
+                                                        nonce,
+                                                        prev_hash,
+                                                        &dummy_keypair
+                                                    )
+                                                };
+
+                                                // Execute transfer
+                                                let mut chain_lock = chain.lock().unwrap();
+                                                // TODO: Get real sender public key from wallet manager
+                                                let sender_pubkey = admin_pubkey.clone(); // Temporary: use admin key
+                                                match chain_lock.append_transfer(transfer_header, &sender_pubkey) {
+                                                    Ok(_) => println!("Transfer executed successfully!"),
+                                                    Err(e) => println!("Transfer failed: {}", e),
+                                                }
+                                            },
+                                            _ => {
+                                                // Queue other transaction types in GulfStream
+                                                let mut gs = gulf_stream.lock().unwrap();
+                                                let tx_hash = format!("{:?}", payload).as_bytes().to_vec();
+                                                let raw_tx = bincode::serialize(&payload).unwrap();
+                                                if gs.add_transaction(tx_hash.clone(), raw_tx, 100) {
+                                                    println!("GulfStream: TX Queued {:?}", payload);
+                                                }
+                                            }
                                         }
                                     },
                                     NetMessage::Ping => println!("Received Ping"),
@@ -615,7 +675,7 @@ async fn run_node_mode() {
         
         tokio::spawn(async move {
             loop {
-                tokio::time::sleep(Duration::from_secs(2)).await; // Faster sync: 2s instead of 10s
+                tokio::time::sleep(Duration::from_secs(1)).await; // Sync every 1 second
                 
                 let my_height = {
                     let chain = chain.lock().unwrap();
@@ -625,11 +685,11 @@ async fn run_node_mode() {
                 println!("Sync: Requesting blocks from {} starting at {}", peer_addr, my_height);
 
                 if let Ok(mut stream) = tokio::net::TcpStream::connect(&peer_addr).await {
-                     let req = NetMessage::RequestBlocks { start_height: my_height, end_height: my_height + 100 }; // Request 100 blocks at a time
+                     let req = NetMessage::RequestBlocks { start_height: my_height, end_height: my_height + 18 }; // 18 blocks per second
                      let data = bincode::serialize(&req).unwrap();
                      if stream.write_all(&data).await.is_ok() {
                          // Read response
-                         let mut buf = vec![0u8; 65536];
+                         let mut buf = vec![0u8; 10_000_000]; // 10MB buffer for large block batches
                          if let Ok(n) = stream.read(&mut buf).await {
                              if n > 0 {
                                  if let Ok(NetMessage::SendBlocks(blocks)) = bincode::deserialize(&buf[..n]) {
