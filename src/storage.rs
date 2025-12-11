@@ -90,4 +90,15 @@ impl Storage {
         let key = format!("nonce:{}", wallet_id);
         self.put(&key, &nonce)
     }
+
+    // 3. Validator Stats
+    pub fn get_validator_stats(&self, validator: &str) -> std::result::Result<crate::rpc::types::ValidatorStats, String> {
+         let key = format!("stats:{}", validator);
+         Ok(self.get(&key)?.unwrap_or_default())
+    }
+
+    pub fn set_validator_stats(&self, validator: &str, stats: &crate::rpc::types::ValidatorStats) -> Result<(), String> {
+        let key = format!("stats:{}", validator);
+        self.put(&key, stats)
+    }
 }

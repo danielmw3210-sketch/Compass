@@ -77,6 +77,8 @@ pub struct SubmitMintParams {
     #[serde(default)]
     pub fee: u64,
     pub signature: String, // header signature
+    pub prev_hash: Option<String>,
+    pub timestamp: Option<u64>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -94,4 +96,17 @@ pub struct SubmitBurnParams {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GetPeersResponse {
     pub peers: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct ValidatorStats {
+    pub blocks_produced: u64,
+    pub compute_earned: u64, // smaller unit
+    pub uptime_hours: u64,
+    pub avg_block_time_ms: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetValidatorStatsParams {
+    pub validator: String,
 }

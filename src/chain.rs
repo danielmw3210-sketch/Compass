@@ -555,4 +555,24 @@ impl Chain {
             Err("not a burn block".to_string())
         }
     }
+
+    // 4. Validator Stats
+    pub fn update_validator_stats(&self, validator: &str, reward: u64, block_time_ms: u64) -> Result<(), String> {
+        let mut stats = self.storage.get_validator_stats(validator)?;
+        stats.blocks_produced += 1;
+        stats.compute_earned += reward;
+        // Simple moving average for block time
+        if stats.blocks_produced > 1 {
+            stats.avg_block_time_ms = (stats.avg_block_time_ms + block_time_ms) / 2;
+        } else {
+            stats.avg_block_time_ms = block_time_ms;
+        }
+        // Uptime logic: For now, assuming 1 block = 1 second of uptime approx
+        // better would be tracking timestamps.
+        // Let's just approximate uptime hours based on block count for now (assuming 1 block/sec)
+        // 3600 blocks = 1 hour
+        stats.uptime_hours = stats.blocks_produced / 3600;
+
+        self.storage.set_validator_stats(validator, &stats)
+    }
 }

@@ -16,7 +16,7 @@ mod network;
 
 use block::{
     create_poh_block, create_proposal_block, create_transfer_block, create_vote_block,
-    current_unix_timestamp_ms,
+    current_unix_timestamp_ms, BlockHeader, BlockType,
 };
 use crypto::KeyPair;
 use network::{connect_and_send, NetMessage, TransactionPayload};
@@ -63,9 +63,9 @@ async fn main() {
             Commands::Node { cmd } => {
                 // If "compass node start" is called
                 match cmd {
-                    cli::node::NodeCommands::Start { rpc_port, peer } => {
+                    cli::node::NodeCommands::Start { rpc_port, peer, p2p_port, db_path } => {
                         // Start the full node
-                        run_node_mode(Some(rpc_port), peer).await;
+                        run_node_mode(Some(rpc_port), peer, p2p_port, db_path).await;
                     }
                     cli::node::NodeCommands::Status | cli::node::NodeCommands::Peers => {
                         cli::node::handle_node_command(cmd).await;
@@ -200,18 +200,64 @@ async fn run_client_mode() {
                     io::stdin().read_line(&mut s).unwrap();
                     let amt: u64 = s.trim().parse().unwrap_or(0);
 
-                    // Create Payload
-                    let payload = TransactionPayload::Transfer {
-                        from: u,
-                        to: r.trim().to_string(),
-                        asset: a.trim().to_string(),
-                        amount: amt,
-                        nonce: 0,
-                        signature: "stub_sig".to_string(),
+                    let amt: u64 = s.trim().parse().unwrap_or(0);
+                    
+                    // 1. Get Node Info (Height + Head Hash)
+                    let rpc = crate::client::RpcClient::new("http://127.0.0.1:8899".to_string());
+                    let node_info = match rpc.get_node_info().await {
+                         Ok(v) => v,
+                         Err(e) => {
+                             println!("Failed to get node info: {}", e);
+                             continue;
+                         }
                     };
-
-                    connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
-                    println!("Transfer Submitted to Network!");
+                    
+                    let height = node_info["height"].as_u64().unwrap_or(0);
+                    let prev_hash = node_info["head_hash"].as_str().unwrap_or("").to_string(); // Empty if genesis
+                    
+                    // 2. Get Wallet Keypair
+                    let kp = if let Some(w) = wallet_manager.get_wallet(&current_user) {
+                        if let Some(k) = w.get_keypair() {
+                             k
+                        } else {
+                            println!("Wallet locked or no keys."); 
+                            continue;
+                        }
+                    } else {
+                        println!("Wallet not found.");
+                        continue;
+                    };
+                    
+                    // 3. Get Nonce
+                    let nonce = rpc.get_nonce(&current_user).await.unwrap_or(0) + 1;
+                    
+                    // 4. Create Block Header locally to sign
+                    let header = create_transfer_block(
+                        height,
+                        current_user.clone(),
+                        r.trim().to_string(),
+                        a.trim().to_string(),
+                        amt,
+                        nonce,
+                        0, // Fee TODO
+                        prev_hash.clone(),
+                        &kp
+                    );
+                    
+                    // 5. Submit via RPC
+                    match rpc.submit_transaction(
+                        &current_user, // from
+                        &r.trim(), // to
+                        &a.trim(), // asset
+                        amt,
+                        nonce,
+                        &header.signature_hex,
+                        Some(prev_hash),
+                        Some(header.timestamp)
+                    ).await {
+                        Ok(hash) => println!("Success! Tx Hash: {}", hash),
+                        Err(e) => println!("Error submitting tx: {}", e),
+                    }
                 }
                 "4" => std::process::exit(0),
                 _ => println!("Invalid."),
@@ -232,6 +278,8 @@ async fn run_client_mode() {
             println!("5. Trade (Market)");
             println!("6. Get Vault Address");
             println!("7. Logout");
+            println!("8. Convert COMPUTE -> COMPASS (100:1)");
+            println!("9. Validator Dashboard");
             print!("Select: ");
             io::stdout().flush().unwrap();
 
@@ -385,7 +433,50 @@ async fn run_client_mode() {
                         continue;
                     }
 
-                    // Create Mint Payload
+                    // RPC Logic for Mint
+                    let rpc = crate::client::RpcClient::new("http://127.0.0.1:8899".to_string());
+                    // 1. Get Node Info
+                    let node_info = match rpc.get_node_info().await {
+                         Ok(v) => v,
+                         Err(e) => {
+                             println!("Failed to get node info: {}", e);
+                             continue;
+                         }
+                    };
+                    let height = node_info["height"].as_u64().unwrap_or(0);
+                    let prev_hash = node_info["head_hash"].as_str().unwrap_or("").to_string();
+
+                    // 2. Get Keys
+                    let kp = if let Some(w) = wallet_manager.get_wallet(&current_user) {
+                        if let Some(k) = w.get_keypair() { k } else { println!("Locked."); continue; }
+                    } else { println!("No wallet"); continue; };
+
+                    // 3. Construct Header
+                    let mut header = BlockHeader {
+                        index: height,
+                        block_type: BlockType::Mint {
+                            vault_id: format!("Compass-{}", collateral_asset),
+                            collateral_asset: collateral_asset.clone(),
+                            collateral_amount: col_amt,
+                            compass_asset: format!("Compass-{}", collateral_asset),
+                            mint_amount: mint_amt,
+                            owner: current_user.clone(),
+                            tx_proof: tx_hash.clone(),
+                            oracle_signature: String::new(),
+                            fee: 0,
+                        },
+                        proposer: current_user.clone(),
+                        signature_hex: String::new(),
+                        prev_hash: prev_hash.clone(),
+                        hash: String::new(),
+                        timestamp: current_unix_timestamp_ms(),
+                    };
+                    
+                    // 4. Sign
+                    let pre_sign = header.calculate_hash();
+                    header.signature_hex = kp.sign_hex(pre_sign.as_bytes());
+
+                    // 5. Submit
                     let mint_params = crate::rpc::types::SubmitMintParams {
                         vault_id: format!("Compass-{}", collateral_asset),
                         collateral_asset: collateral_asset.clone(),
@@ -394,17 +485,17 @@ async fn run_client_mode() {
                         mint_amount: mint_amt,
                         owner: current_user.clone(),
                         tx_proof: tx_hash,
-                        oracle_signature: String::new(), // Will be filled by Node
+                        oracle_signature: String::new(),
                         fee: 0,
-                        signature: String::new(), // Will be signed by Node
+                        signature: header.signature_hex,
+                        prev_hash: Some(prev_hash),
+                        timestamp: Some(header.timestamp),
                     };
 
-                    let payload = TransactionPayload::Mint(mint_params);
-
-                    // Send to node
-                    println!("Submitting mint request to node...");
-                    connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
-                    println!("Mint submitted! Check node logs for confirmation.");
+                    match rpc.submit_mint(mint_params).await {
+                        Ok(h) => println!("Mint Submitted! Tx: {}", h),
+                        Err(e) => println!("Mint Error: {}", e),
+                    }
                 }
                 "4" => {
                     println!("Redemption is currently for specific assets. (Not fully ported to Traceable logic yet)");
@@ -542,6 +633,85 @@ async fn run_client_mode() {
                     println!("\n⚠️  IMPORTANT: This address is unique to you!");
                     println!("   Do not share it with others.\n");
                 }
+                "8" => {
+                    println!("\n=== Convert COMPUTE -> COMPASS ===");
+                    println!("Rate: 100 COMPUTE = 1 COMPASS");
+                    
+                    // Simple balance check - reloading wallet to be safe
+                    // wallet_manager loaded at loop start (line 222)
+                    let current_compute = wallet_manager.get_balance(&current_user, "COMPUTE");
+                    println!("Available: {:.8} COMPUTE", current_compute as f64 / 100_000_000.0);
+
+                    print!("Amount to convert (COMPUTE): ");
+                    io::stdout().flush().unwrap();
+                    let mut amt_str = String::new();
+                    io::stdin().read_line(&mut amt_str).unwrap();
+                    
+                    if let Ok(amt) = amt_str.trim().parse::<f64>() {
+                        let raw_compute_needed = (amt * 100_000_000.0) as u64;
+                        
+                        if wallet_manager.debit(&current_user, "COMPUTE", raw_compute_needed) {
+                            let compass_amount = raw_compute_needed / 100; // 100:1 ratio
+                            
+                            wallet_manager.credit(&current_user, "COMPASS", compass_amount);
+                            wallet_manager.save("wallets.json");
+                            
+                            println!("✓ Converted {:.8} COMPUTE to {:.8} COMPASS", 
+                                raw_compute_needed as f64 / 1e8,
+                                compass_amount as f64 / 1e8
+                            );
+                        } else {
+                            println!("❌ Insufficient balance.");
+                        }
+                    } else {
+                        println!("❌ Invalid amount.");
+                    }
+                }
+                "9" => {
+                    println!("\n=== Validator Dashboard ===");
+                    println!("Fetching stats for: {}", current_user);
+                    
+                    let client = reqwest::Client::new();
+                    let payload = serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "method": "getValidatorStats",
+                        "params": { "validator": current_user },
+                        "id": 1
+                    });
+                    
+                    let res = client.post("http://127.0.0.1:8899")
+                        .json(&payload)
+                        .send()
+                        .await;
+                        
+                    match res {
+                        Ok(resp) => {
+                            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                                if let Some(result) = json.get("result") {
+                                    let blocks = result.get("blocks_produced").and_then(|v| v.as_u64()).unwrap_or(0);
+                                    let earned = result.get("compute_earned").and_then(|v| v.as_u64()).unwrap_or(0);
+                                    let uptime = result.get("uptime_hours").and_then(|v| v.as_u64()).unwrap_or(0);
+                                    let avg_time = result.get("avg_block_time_ms").and_then(|v| v.as_u64()).unwrap_or(0);
+                                    
+                                    println!("Status: Active ✅");
+                                    println!("Blocks Produced: {}", blocks);
+                                    println!("COMPUTE Earned:  {} ({:.8} tokens)", earned, earned as f64 / 1e8);
+                                    println!("Uptime:          {}h approx", uptime);
+                                    println!("Avg Block Time:  {:.2}s", avg_time as f64 / 1000.0);
+                                    
+                                    println!("\nLeaderboard:");
+                                    println!("1. {}     - {:.8} COMPUTE ({} blocks)", current_user, earned as f64 / 1e8, blocks);
+                                    println!("(Multi-validator support coming in Phase 4)");
+                                } else {
+                                     println!("❌ Failed to get stats result: {:?}", json);
+                                }
+                            } else {
+                                println!("❌ Failed to parse response");
+                            }
+                        }
+                        Err(e) => println!("❌ Could not connect to node: {}", e),
+                    }
+                }
                 "7" => current_user.clear(),
                 _ => println!("Invalid."),
             }
@@ -550,9 +720,8 @@ async fn run_client_mode() {
 }
 
 // --- NODE MODE (Infrastructure) ---
-async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
+async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port: u16, db_path: String) {
     println!("Starting Compass Node...");
-    let port = 9000; // P2P port remains fixed for now, or could be arg.
     let peer_addr = peer_val.clone(); // Use passed peer address
     let follower_mode = peer_addr.is_some();
 
@@ -577,7 +746,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     }
 
     // --- Network Setup ---
-    let my_p2p_port = 9000;
+    let my_p2p_port = p2p_port;
     let peer_manager = Arc::new(Mutex::new(crate::network::PeerManager::new(my_p2p_port)));
 
     // Channel for P2P messages (Gossip)
@@ -595,7 +764,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     }
 
     // --- Load chain ---
-    let storage_arc = Arc::new(crate::storage::Storage::new("compass_db"));
+    let storage_arc = Arc::new(crate::storage::Storage::new(&db_path));
     let chain = Arc::new(Mutex::new(Chain::new(storage_arc)));
 
     // --- Start P2P Server ---
@@ -690,9 +859,8 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     // --- Spawn PoH + VDF loop (only if NOT in follower mode) ---
     if !follower_mode {
         let chain = Arc::clone(&chain);
-        // let wallets = Arc::clone(&wallets); // Unused in loop now
+        let wallets = Arc::clone(&wallets); // Needed for validator rewards
         let admin = Arc::clone(&admin);
-        // let admin_wallet_id = admin_wallet_id.clone(); // Unused in loop
 
         thread::spawn(move || {
             let mut tick: u64 = 0;
@@ -763,7 +931,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                         println!("Genesis PoH block created.");
                     }
 
-                    // PoH tick (signed by admin)
+                    // PoHtick (signed by admin)
                     tick += 1;
                     let poh = create_poh_block(
                         chain.height, // Added index (current height will be index of new block if we synced properly? No, chain.height IS next index)
@@ -776,6 +944,18 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                     if let Err(e) = chain.append_poh(poh, &admin.public_key_hex()) {
                         println!("PoH Append Error: {}", e);
                         // Don't crash loop, just retry?
+                    } else {
+                        // ✅ PoH block successfully appended - Reward validator!
+                        // Mint COMPUTE tokens as reward (10 COMPUTE per block)
+                        let compute_reward = 10_00000000u64; // 10 COMPUTE (8 decimals)
+                        let mut validator_wallet = wallets.lock().unwrap();
+                        validator_wallet.credit("Daniel", "COMPUTE", compute_reward);
+                        validator_wallet.save("wallets.json");
+                        
+                        // Update Validator Statistics
+                        if let Err(e) = chain.update_validator_stats("Daniel", compute_reward, duration.as_millis() as u64) {
+                            println!("Warning: Failed to update stats: {}", e);
+                        }
                     }
                 }
 

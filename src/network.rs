@@ -41,11 +41,15 @@ pub enum NetMessage {
     SendBlocks(Vec<crate::block::Block>),
     // Gossip
     NewPeer { addr: String },
+    GetPeers,
+    Peers(Vec<String>),
 }
 
 pub struct PeerManager {
     pub peers: HashSet<String>, // "ip:port"
     pub my_port: u16,
+    pub seen_messages: std::collections::VecDeque<u64>, // Store hash of seen messages
+    pub seen_set: HashSet<u64>,
 }
 
 impl PeerManager {
@@ -53,7 +57,23 @@ impl PeerManager {
         Self {
             peers: HashSet::new(),
             my_port: port,
+            seen_messages: std::collections::VecDeque::new(),
+            seen_set: HashSet::new(),
         }
+    }
+
+    pub fn mark_seen(&mut self, msg_hash: u64) -> bool {
+        if self.seen_set.contains(&msg_hash) {
+            return true;
+        }
+        if self.seen_messages.len() >= 1000 {
+            if let Some(old) = self.seen_messages.pop_front() {
+                self.seen_set.remove(&old);
+            }
+        }
+        self.seen_messages.push_back(msg_hash);
+        self.seen_set.insert(msg_hash);
+        false
     }
 
     pub fn add_peer(&mut self, peer_addr: String) {
@@ -89,7 +109,34 @@ pub async fn start_server(
             };
 
             let received_data = &buf[..n];
+            // 1. Deduplication (Hash the raw bytes)
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            use std::hash::Hasher;
+            hasher.write(received_data);
+            let msg_hash = hasher.finish();
+            
+            let is_duplicate = {
+                 let mut pm = peer_manager.lock().unwrap();
+                 pm.mark_seen(msg_hash)
+            };
+            
+            if is_duplicate {
+                // Ignore processing, but maybe we shouldn't return if it's a direct RequestBlocks?
+                // RequestBlocks usually specific. Gossip messages need dedup.
+                // Let's decode first to check type.
+            }
+
             if let Ok(msg) = bincode::deserialize::<NetMessage>(received_data) {
+                 // Check Duplicate only for Gossip types (NewPeer, SubmitTx)
+                 match &msg {
+                     NetMessage::SubmitTx(_) | NetMessage::NewPeer { .. } => {
+                         if is_duplicate {
+                             return; // Stop processing/propagating
+                         }
+                     },
+                     _ => {} // Direct messages (Ping, GetPeers) processed always
+                 }
+            
                 // Check if it's a RequestBlocks message
                 if let NetMessage::RequestBlocks {
                     start_height,
@@ -123,6 +170,30 @@ pub async fn start_server(
                         let mut pm = peer_manager.lock().unwrap();
                         pm.add_peer(full_peer_addr.clone());
                     }
+                }
+                
+                // Handle GetPeers
+                if let NetMessage::GetPeers = msg {
+                     let peers_list: Vec<String> = {
+                         let pm = peer_manager.lock().unwrap();
+                         pm.peers.iter().take(20).cloned().collect() // Send up to 20
+                     };
+                     let resp = NetMessage::Peers(peers_list);
+                     let resp_bytes = bincode::serialize(&resp).unwrap();
+                     let _ = socket.write_all(&resp_bytes).await;
+                     return;
+                }
+                
+                // Handle Peers (Response)
+                if let NetMessage::Peers(new_peers) = msg {
+                    println!("Received {} peers from {}", new_peers.len(), peer_addr);
+                    let mut pm = peer_manager.lock().unwrap();
+                    for p in new_peers {
+                        if p != format!("0.0.0.0:{}", pm.my_port) { // Don't add self (naive check)
+                             pm.add_peer(p);
+                        }
+                    }
+                    return;
                 }
 
                 // Gossip / Process (Send to main channel)

@@ -161,6 +161,8 @@ impl RpcClient {
         amount: u64,
         nonce: u64,
         signature: &str,
+        prev_hash: Option<String>,
+        timestamp: Option<u64>,
     ) -> Result<String, String> {
         let id = self.request_id.fetch_add(1, Ordering::SeqCst);
 
@@ -173,7 +175,9 @@ impl RpcClient {
                 "asset": asset,
                 "amount": amount,
                 "nonce": nonce,
-                "signature": signature
+                "signature": signature,
+                "prev_hash": prev_hash,
+                "timestamp": timestamp
             },
             "id": id,
         });

@@ -5,6 +5,10 @@ pub enum NodeCommands {
     Start {
         #[arg(long, default_value_t = 8899)]
         rpc_port: u16,
+        #[arg(long, default_value_t = 9000)]
+        p2p_port: u16,
+        #[arg(long, default_value = "compass_db")]
+        db_path: String,
         #[arg(long)]
         peer: Option<String>,
     },

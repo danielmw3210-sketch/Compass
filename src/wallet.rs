@@ -1,6 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use aes_gcm::{
+    aead::{Aead, KeyInit}, // Aes256Gcm trait imports
+    Aes256Gcm, Nonce, // Key is generic
+};
+use pbkdf2::pbkdf2;
+use hmac::Hmac;
+use sha2::Sha256;
+use rand::{Rng, thread_rng};
 
 /// Different roles a wallet can have
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
@@ -22,6 +30,12 @@ pub struct Wallet {
     pub mnemonic: Option<String>,
     #[serde(default)]
     pub public_key: String,
+    #[serde(default)]
+    pub encrypted_mnemonic: Option<Vec<u8>>,
+    #[serde(default)]
+    pub encryption_salt: Option<Vec<u8>>,
+    #[serde(default)]
+    pub is_encrypted: bool,
 }
 
 impl Wallet {
@@ -38,6 +52,9 @@ impl Wallet {
             nonce: 0,
             mnemonic: Some(mnemonic),
             public_key: kp.public_key_hex(),
+            encrypted_mnemonic: None,
+            encryption_salt: None,
+            is_encrypted: false,
         }
     }
 
@@ -50,6 +67,9 @@ impl Wallet {
             nonce: 0,
             mnemonic: None,
             public_key: String::new(), // In real app, account ID *is* pubkey
+            encrypted_mnemonic: None,
+            encryption_salt: None,
+            is_encrypted: false,
         }
     }
 
@@ -83,6 +103,84 @@ impl Wallet {
         } else {
             None
         }
+    }
+
+    pub fn encrypt_wallet(&mut self, password: &str) -> Result<(), String> {
+        if self.mnemonic.is_none() {
+            return Err("No mnemonic to encrypt".to_string());
+        }
+        let mnemonic_str = self.mnemonic.as_ref().unwrap();
+
+        // Generate Salt
+        let mut salt = [0u8; 16];
+        thread_rng().fill(&mut salt);
+        
+        // Derive Key PBKDF2
+        let mut key = [0u8; 32]; // AES-256
+        pbkdf2::<Hmac<Sha256>>(password.as_bytes(), &salt, 100_000, &mut key);
+
+        // Encrypt
+        let cipher = Aes256Gcm::new(&key.into());
+        let mut nonce_bytes = [0u8; 12];
+        thread_rng().fill(&mut nonce_bytes);
+        let nonce = aes_gcm::Nonce::from_slice(&nonce_bytes);
+
+        let ciphertext = cipher.encrypt(nonce, mnemonic_str.as_bytes())
+            .map_err(|e| format!("Encryption failure: {:?}", e))?;
+
+        // Store
+        // We need to store Nonce too. Let's prepend nonce to ciphertext or store separate?
+        // Simplest: Store Nonce + Ciphertext in encrypted_mnemonic
+        let mut final_blob = Vec::new();
+        final_blob.extend_from_slice(&nonce_bytes);
+        final_blob.extend_from_slice(&ciphertext);
+
+        self.encrypted_mnemonic = Some(final_blob);
+        self.encryption_salt = Some(salt.to_vec());
+        self.is_encrypted = true;
+        self.mnemonic = None; // Clear plaintext
+
+        println!("Wallet encrypted for user {}", self.owner);
+        Ok(())
+    }
+
+    pub fn decrypt_wallet(&mut self, password: &str) -> Result<(), String> {
+        if !self.is_encrypted {
+             return Ok(()); // Already decrypted
+        }
+        let blob = self.encrypted_mnemonic.as_ref().ok_or("No encrypted data")?;
+        let salt = self.encryption_salt.as_ref().ok_or("No salt")?;
+
+        if blob.len() < 12 {
+            return Err("Invalid blob size".to_string());
+        }
+
+        let nonce_bytes = &blob[0..12];
+        let ciphertext = &blob[12..];
+
+        // Derive Key
+        let mut key = [0u8; 32];
+        pbkdf2::<Hmac<Sha256>>(password.as_bytes(), salt, 100_000, &mut key);
+
+        let cipher = Aes256Gcm::new(&key.into());
+        let nonce = Nonce::from_slice(nonce_bytes);
+
+        let plaintext = cipher.decrypt(nonce, ciphertext)
+             .map_err(|_| "Decryption failed (Wrong password?)".to_string())?;
+
+        let mnemonic_str = String::from_utf8(plaintext)
+             .map_err(|_| "Invalid UTF8".to_string())?;
+
+        self.mnemonic = Some(mnemonic_str);
+        self.is_encrypted = false;
+        // Keep encrypted fields for re-locking? Or clear them?
+        // Usually we clear them if we want to change password, but if we just unlock in memory...
+        // Let's clear them to avoid inconsistency if we allow editing.
+        self.encrypted_mnemonic = None;
+        self.encryption_salt = None;
+
+        println!("Wallet decrypted for user {}", self.owner);
+        Ok(())
     }
 }
 
@@ -134,6 +232,9 @@ impl WalletManager {
                 nonce: 0,
                 mnemonic: Some(mnemonic),
                 public_key: kp.public_key_hex(),
+                encrypted_mnemonic: None,
+                encryption_salt: None,
+                is_encrypted: false,
             });
         }
     }

@@ -31,6 +31,7 @@ pub async fn handle_rpc_request(
         "submitBurn" => handle_submit_burn(state.clone(), req.params).await, // Pass STATE
         "getPeers" => handle_get_peers(state.clone()).await,
         "getVaultAddress" => handle_get_vault_address(req.params).await,
+        "getValidatorStats" => handle_get_validator_stats(state.chain.clone(), req.params).await,
         _ => Err(RpcError {
             code: -32601,
             message: format!("Method not found: {}", req.method),
@@ -101,9 +102,9 @@ async fn handle_submit_mint(
             },
             proposer: tx.owner.clone(),
             signature_hex: tx.signature.clone(),
-            prev_hash,
+            prev_hash: tx.prev_hash.clone().unwrap_or(prev_hash), // Use provided or HEAD
             hash: String::new(),
-            timestamp: chrono::Utc::now().timestamp() as u64,
+            timestamp: tx.timestamp.unwrap_or_else(|| chrono::Utc::now().timestamp() as u64),
         };
 
         header.hash = header.calculate_hash();
@@ -355,6 +356,8 @@ async fn handle_submit_transaction(
         signature: String,
         #[serde(default)]
         fee: u64,
+        prev_hash: Option<String>,
+        timestamp: Option<u64>,
     }
 
     let tx: TxParams = serde_json::from_value(params).map_err(|e| RpcError {
@@ -399,9 +402,9 @@ async fn handle_submit_transaction(
             },
             proposer: tx.from.clone(),
             signature_hex: tx.signature.clone(),
-            prev_hash,
+            prev_hash: tx.prev_hash.clone().unwrap_or(prev_hash),
             hash: String::new(),
-            timestamp: chrono::Utc::now().timestamp() as u64,
+            timestamp: tx.timestamp.unwrap_or_else(|| chrono::Utc::now().timestamp() as u64),
         };
 
         // Compute canonical hash
@@ -518,4 +521,23 @@ async fn handle_get_node_info(chain: Arc<Mutex<Chain>>) -> Result<serde_json::Va
         peer_count: 0, // Placeholder
     };
     Ok(serde_json::json!(info))
+}
+
+/// Handle getValidatorStats(validator)
+async fn handle_get_validator_stats(
+    chain: Arc<Mutex<Chain>>,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    let params: GetValidatorStatsParams = serde_json::from_value(params).map_err(|e| RpcError {
+        code: -32602,
+        message: format!("Invalid params: {}", e),
+    })?;
+
+    let chain_lock = chain.lock().unwrap();
+    let stats = chain_lock
+        .storage
+        .get_validator_stats(&params.validator)
+        .unwrap_or_default();
+
+    Ok(serde_json::to_value(stats).unwrap())
 }

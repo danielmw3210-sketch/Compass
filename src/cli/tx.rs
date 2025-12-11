@@ -100,7 +100,7 @@ pub async fn handle_transfer_command(
     // 7. Submit
     println!("Submitting transfer...");
     match client
-        .submit_transaction(&from, &to, &asset, amount, nonce, &signature)
+        .submit_transaction(&from, &to, &asset, amount, nonce, &signature, Some(header.prev_hash), Some(header.timestamp))
         .await
     {
         Ok(tx_hash) => {

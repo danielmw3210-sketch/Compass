@@ -75,7 +75,7 @@ pub async fn handle_mint_command(
         },
         proposer: owner.clone(),
         signature_hex: String::new(),
-        prev_hash: head_hash,
+        prev_hash: head_hash.clone(),
         hash: String::new(),
         timestamp: Utc::now().timestamp() as u64,
     };
@@ -95,6 +95,8 @@ pub async fn handle_mint_command(
         oracle_signature: oracle_sig,
         fee: 0,
         signature,
+        prev_hash: Some(head_hash),
+        timestamp: Some(header.timestamp),
     };
 
     match client.submit_mint(params).await {
