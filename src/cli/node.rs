@@ -5,6 +5,8 @@ pub enum NodeCommands {
     Start {
         #[arg(long, default_value_t = 8899)]
         rpc_port: u16,
+        #[arg(long)]
+        peer: Option<String>,
     },
     Status,
     Peers,

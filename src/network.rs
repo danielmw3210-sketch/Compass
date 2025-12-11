@@ -67,7 +67,8 @@ impl PeerManager {
 pub async fn start_server(
     port: u16, 
     peer_manager: Arc<Mutex<PeerManager>>,
-    gossip_tx: tokio::sync::broadcast::Sender<NetMessage> // To broadcast received msg to other parts of app
+    gossip_tx: tokio::sync::broadcast::Sender<NetMessage>,
+    chain: Arc<Mutex<crate::chain::Chain>>
 ) {
     let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr).await.unwrap();
@@ -77,25 +78,43 @@ pub async fn start_server(
         let (mut socket, peer_addr) = listener.accept().await.unwrap();
         let peer_manager = peer_manager.clone();
         let gossip_tx = gossip_tx.clone();
+        let chain = chain.clone();
 
         tokio::spawn(async move {
-            let mut buf = vec![0u8; 65535]; // Larger buffer
+            let mut buf = vec![0u8; 1024 * 1024]; // 1MB buffer for larger messages (blocks)
             let n = match socket.read(&mut buf).await {
                 Ok(n) if n > 0 => n,
-                _ => return, // Connection closed or empty
+                _ => return, 
             };
 
             let received_data = &buf[..n];
             if let Ok(msg) = bincode::deserialize::<NetMessage>(received_data) {
+                // Check if it's a RequestBlocks message
+                if let NetMessage::RequestBlocks { start_height, end_height } = msg {
+                    println!("Received RequestBlocks({}..{}) from {}", start_height, end_height, peer_addr);
+                    
+                    let blocks = {
+                        let c_lock = chain.lock().unwrap();
+                        c_lock.get_blocks_range(start_height, end_height)
+                    };
+                    
+                    // Respond directly
+                    let resp = NetMessage::SendBlocks(blocks);
+                    let resp_bytes = bincode::serialize(&resp).unwrap();
+                    let _ = socket.write_all(&resp_bytes).await;
+                    // Dont forward execution
+                    return;
+                }
+
                 // Handle Handshake
                 if let NetMessage::Handshake { port } = msg {
-                    let peer_ip = peer_addr.ip().to_string();
-                    let full_peer_addr = format!("{}:{}", peer_ip, port);
-                    {
-                        let mut pm = peer_manager.lock().unwrap();
-                        pm.add_peer(full_peer_addr.clone());
-                    }
-                    // Send Pong?
+                     // ... logic reused ...
+                     let peer_ip = peer_addr.ip().to_string();
+                     let full_peer_addr = format!("{}:{}", peer_ip, port);
+                     {
+                         let mut pm = peer_manager.lock().unwrap();
+                         pm.add_peer(full_peer_addr.clone());
+                     }
                 }
                 
                 // Gossip / Process (Send to main channel)

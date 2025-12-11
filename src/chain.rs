@@ -70,6 +70,18 @@ impl Chain {
         self.commit_block(header)
     }
 
+    pub fn get_blocks_range(&self, start: u64, end: u64) -> Vec<crate::block::Block> {
+        let mut blocks = Vec::new();
+        for i in start..=end {
+            if let Ok(Some(block)) = self.storage.get_block_by_height(i) {
+                blocks.push(block);
+            } else {
+                break; // Stop if we hit a gap (or end of chain)
+            }
+        }
+        blocks
+    }
+
     /// Append a reward block (verify signature)
     pub fn append_reward(
         &mut self,
@@ -86,14 +98,14 @@ impl Chain {
         let recompute = header.calculate_hash();
         let sig_hex = &header.signature_hex;
         if sig_hex.is_empty() {
-            return Err("missing signature");
+             return Err("missing signature");
         }
         if !verify_with_pubkey_hex(recompute.as_bytes(), sig_hex, admin_pubkey_hex) {
-            return Err("invalid signature");
+             return Err("invalid signature");
         }
 
         if header.hash != recompute {
-            return Err("hash mismatch");
+             return Err("hash mismatch");
         }
 
         self.commit_block(header)

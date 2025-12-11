@@ -11,10 +11,6 @@ use clap::{Subcommand, Parser};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
-
-    /// Optional peer address for node sync
-    #[arg(long)]
-    pub peer: Option<String>,
 }
 
 #[derive(Subcommand)]

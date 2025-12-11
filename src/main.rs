@@ -62,9 +62,9 @@ async fn main() {
             Commands::Node { cmd } => {
                 // If "compass node start" is called
                 match cmd {
-                    cli::node::NodeCommands::Start { rpc_port } => {
+                    cli::node::NodeCommands::Start { rpc_port, peer } => {
                         // Start the full node
-                        run_node_mode(Some(rpc_port), cli.peer).await;
+                        run_node_mode(Some(rpc_port), peer).await;
                     }
                     cli::node::NodeCommands::Status | cli::node::NodeCommands::Peers => {
                         cli::node::handle_node_command(cmd).await;
@@ -449,11 +449,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     let (gossip_tx, mut gossip_rx) = tokio::sync::broadcast::channel::<crate::network::NetMessage>(100);
 
     // --- Start P2P Server ---
-    let pm_clone = peer_manager.clone();
-    let gtx_clone = gossip_tx.clone();
-    tokio::spawn(async move {
-        crate::network::start_server(my_p2p_port, pm_clone, gtx_clone).await;
-    });
+
     
     // Connect to peer if specified
     if let Some(paddr) = peer_val {
@@ -466,6 +462,14 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     // --- Load chain ---
     let storage_arc = Arc::new(crate::storage::Storage::new("compass_db"));
     let chain = Arc::new(Mutex::new(Chain::new(storage_arc)));
+
+    // --- Start P2P Server ---
+    let pm_clone = peer_manager.clone();
+    let gtx_clone = gossip_tx.clone();
+    let chain_for_net = Arc::clone(&chain);
+    tokio::spawn(async move {
+        crate::network::start_server(my_p2p_port, pm_clone, gtx_clone, chain_for_net).await;
+    });
     let wallets = Arc::new(Mutex::new(wallet_manager));
     let vaults = Arc::new(Mutex::new(VaultManager::load("vaults.json")));
     let market = Arc::new(Mutex::new(Market::load("market.json"))); // Load Market
