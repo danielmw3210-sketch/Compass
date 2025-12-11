@@ -77,6 +77,13 @@ impl Wallet {
             Wallet::new(owner, wallet_type)
         }
     }
+    pub fn get_keypair(&self) -> Option<crate::crypto::KeyPair> {
+        if let Some(ref m) = self.mnemonic {
+            crate::crypto::KeyPair::from_mnemonic(m).ok()
+        } else {
+            None
+        }
+    }
 }
 
 /// A manager for multiple wallets
@@ -114,13 +121,17 @@ impl WalletManager {
         } else {
             let mut balances = HashMap::new();
             balances.insert(asset.to_string(), amount);
+            use crate::crypto::KeyPair;
+            let mnemonic = KeyPair::generate_mnemonic();
+            let kp = KeyPair::from_mnemonic(&mnemonic).unwrap_or_else(|_| KeyPair::new());
+
             self.wallets.push(Wallet {
                 owner: owner.to_string(),
                 balances,
                 wallet_type: WalletType::User,
                 nonce: 0,
-                mnemonic: None,
-                public_key: String::new(),
+                mnemonic: Some(mnemonic),
+                public_key: kp.public_key_hex(),
             });
         }
     }

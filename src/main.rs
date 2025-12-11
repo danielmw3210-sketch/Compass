@@ -721,6 +721,21 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                                      // Calculate Self Hash
                                      let mut header_final = header.clone();
                                      header_final.hash = header_final.calculate_hash();
+                                     
+                                     // Auto-Sign for Legacy/Hosted Wallets
+                                     if header_final.signature_hex.is_empty() || header_final.signature_hex == "stub_sig" {
+                                         if let Some(sender_wallet) = w_guard.get_wallet(&from) {
+                                              if let Some(kp) = sender_wallet.get_keypair() {
+                                                  let sig = kp.sign_hex(header_final.hash.as_bytes());
+                                                  header_final.signature_hex = sig;
+                                                  println!("SYSTEM: Auto-signed transaction for {}", from);
+                                              } else {
+                                                  println!("SYSTEM: Cannot sign for {} - no mnemonic", from);
+                                              }
+                                         } else {
+                                              println!("SYSTEM: Cannot sign for {} - wallet not found locally", from);
+                                         }
+                                     }
 
                                      // Append to Chain (DB)
                                      match c_guard.append_transfer(header_final, &from) {
