@@ -1,7 +1,7 @@
-use rocksdb::{DB, Options};
+use rocksdb::{Options, DB};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 pub struct Storage {
     db: Arc<DB>,
@@ -12,17 +12,17 @@ impl Storage {
         let path = Path::new(path);
         let mut opts = Options::default();
         opts.create_if_missing(true);
-        
+
         let db = DB::open(&opts, path).unwrap();
-        Storage {
-            db: Arc::new(db),
-        }
+        Storage { db: Arc::new(db) }
     }
 
     // Generic Helper: Put
     pub fn put<T: Serialize>(&self, key: &str, value: &T) -> Result<(), String> {
         let serialized = bincode::serialize(value).map_err(|e| e.to_string())?;
-        self.db.put(key.as_bytes(), serialized).map_err(|e| e.to_string())
+        self.db
+            .put(key.as_bytes(), serialized)
+            .map_err(|e| e.to_string())
     }
 
     // Generic Helper: Get
@@ -31,7 +31,7 @@ impl Storage {
             Ok(Some(data)) => {
                 let deserialized = bincode::deserialize(&data).map_err(|e| e.to_string())?;
                 Ok(Some(deserialized))
-            },
+            }
             Ok(None) => Ok(None),
             Err(e) => Err(e.to_string()),
         }
@@ -50,10 +50,10 @@ impl Storage {
         }
         // Convert hex hash to key "block:<hash>"
         self.put(&format!("block:{}", hash), block)?;
-        
+
         // Save by Height "height:<index>" -> hash
         self.put(&format!("height:{}", block.header.index), hash)?;
-        
+
         // Update Head? Handled by Chain logic, but storage could track it too.
         Ok(())
     }

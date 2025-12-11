@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize};
-use sha2::{Sha256, Digest};
-use chrono::Utc;
 use crate::crypto::KeyPair;
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// A full block: header + transactions
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -39,7 +39,7 @@ pub enum BlockType {
     Transfer {
         from: String,
         to: String,
-        asset: String,  // "Compass" or "cLTC", "cSOL", etc.
+        asset: String, // "Compass" or "cLTC", "cSOL", etc.
         amount: u64,
         nonce: u64,
         fee: u64,
@@ -51,7 +51,7 @@ pub enum BlockType {
         compass_asset: String,
         mint_amount: u64,
         owner: String,
-        tx_proof: String,  // External chain tx hash
+        tx_proof: String, // External chain tx hash
         oracle_signature: String,
         fee: u64,
     },
@@ -60,7 +60,7 @@ pub enum BlockType {
         compass_asset: String,
         burn_amount: u64,
         redeemer: String,
-        destination_address: String,  // External chain address
+        destination_address: String, // External chain address
         fee: u64,
     },
 }
@@ -80,11 +80,10 @@ impl BlockType {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockHeader {
     pub index: u64,
-    pub block_type: BlockType,     // use the enum, not String
+    pub block_type: BlockType, // use the enum, not String
     pub proposer: String,
     pub signature_hex: String,
     pub prev_hash: String,
@@ -107,38 +106,76 @@ impl BlockHeader {
         );
 
         match &self.block_type {
-            BlockType::PoH { tick, iterations, hash } => {
+            BlockType::PoH {
+                tick,
+                iterations,
+                hash,
+            } => {
                 data.push_str(&format!(
                     ":poh_tick={}:poh_iterations={}:poh_hash={}",
                     tick, iterations, hash
                 ));
             }
-            BlockType::Proposal { id, proposer, text, deadline } => {
+            BlockType::Proposal {
+                id,
+                proposer,
+                text,
+                deadline,
+            } => {
                 data.push_str(&format!(
                     ":proposal_id={}:proposal_proposer={}:proposal_text={}:proposal_deadline={}",
                     id, proposer, text, deadline
                 ));
             }
-            BlockType::Reward { recipient, amount, asset, reason } => {
+            BlockType::Reward {
+                recipient,
+                amount,
+                asset,
+                reason,
+            } => {
                 data.push_str(&format!(
                     ":reward_recipient={}:reward_amount={}:reward_asset={}:reward_reason={}",
                     recipient, amount, asset, reason
                 ));
             }
-            BlockType::Transfer { from, to, asset, amount, nonce, fee } => {
+            BlockType::Transfer {
+                from,
+                to,
+                asset,
+                amount,
+                nonce,
+                fee,
+            } => {
                 data.push_str(&format!(
                     ":transfer_from={}:transfer_to={}:transfer_asset={}:transfer_amount={}:transfer_nonce={}:fee={}",
                     from, to, asset, amount, nonce, fee
                 ));
             }
-            BlockType::Mint { vault_id, collateral_asset, collateral_amount, compass_asset, mint_amount, owner, tx_proof, oracle_signature, fee } => {
+            BlockType::Mint {
+                vault_id,
+                collateral_asset,
+                collateral_amount,
+                compass_asset,
+                mint_amount,
+                owner,
+                tx_proof,
+                oracle_signature,
+                fee,
+            } => {
                 data.push_str(&format!(
                     ":mint_vault={}:col_asset={}:col_amt={}:comp_asset={}:mint_amt={}:owner={}:proof={}:oracle_sig={}:fee={}",
                     vault_id, collateral_asset, collateral_amount, compass_asset, mint_amount, owner, tx_proof, oracle_signature, fee
                 ));
             }
-            BlockType::Burn { vault_id, compass_asset, burn_amount, redeemer, destination_address, fee } => {
-                 data.push_str(&format!(
+            BlockType::Burn {
+                vault_id,
+                compass_asset,
+                burn_amount,
+                redeemer,
+                destination_address,
+                fee,
+            } => {
+                data.push_str(&format!(
                     ":burn_vault={}:comp_asset={}:burn_amt={}:redeemer={}:dest={}:fee={}",
                     vault_id, compass_asset, burn_amount, redeemer, destination_address, fee
                 ));

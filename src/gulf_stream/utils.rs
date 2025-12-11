@@ -8,5 +8,9 @@ pub fn now_ms() -> u128 {
 }
 
 pub fn hex_prefix(bytes: &Vec<u8>, n: usize) -> String {
-    bytes.iter().take(n / 2).map(|b| format!("{:02x}", b)).collect()
+    bytes
+        .iter()
+        .take(n / 2)
+        .map(|b| format!("{:02x}", b))
+        .collect()
 }

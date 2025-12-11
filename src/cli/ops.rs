@@ -1,8 +1,8 @@
-use crate::client::rpc_client::RpcClient;
-use crate::rpc::types::{SubmitMintParams, SubmitBurnParams};
-use crate::wallet::WalletManager;
-use crate::crypto::KeyPair;
 use crate::block::{BlockHeader, BlockType};
+use crate::client::rpc_client::RpcClient;
+use crate::crypto::KeyPair;
+use crate::rpc::types::{SubmitBurnParams, SubmitMintParams};
+use crate::wallet::WalletManager;
 use chrono::Utc;
 
 pub async fn handle_mint_command(
@@ -32,19 +32,31 @@ pub async fn handle_mint_command(
     };
     let mnemonic = match &wallet.mnemonic {
         Some(m) => m,
-        None => { println!("Error: Wallet has no mnemonic"); return; }
+        None => {
+            println!("Error: Wallet has no mnemonic");
+            return;
+        }
     };
     let keypair = match KeyPair::from_mnemonic(mnemonic) {
         Ok(kp) => kp,
-        Err(e) => { println!("Error restoring keys: {}", e); return; }
+        Err(e) => {
+            println!("Error restoring keys: {}", e);
+            return;
+        }
     };
 
     // 3. Get Chain State
     let node_info = match client.get_node_info().await {
         Ok(info) => info,
-        Err(e) => { println!("Error fetching node info: {}", e); return; }
+        Err(e) => {
+            println!("Error fetching node info: {}", e);
+            return;
+        }
     };
-    let head_hash = node_info["head_hash"].as_str().map(|s| s.to_string()).unwrap_or_default();
+    let head_hash = node_info["head_hash"]
+        .as_str()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
     let height = node_info["height"].as_u64().unwrap_or(0);
 
     // 4. Construct Header to Sign
@@ -105,22 +117,37 @@ pub async fn handle_burn_command(
     let manager = WalletManager::load("client_wallets.json");
     let wallet = match manager.get_wallet(&from) {
         Some(w) => w,
-        None => { println!("Error: Wallet '{}' not found", from); return; }
+        None => {
+            println!("Error: Wallet '{}' not found", from);
+            return;
+        }
     };
     let mnemonic = match &wallet.mnemonic {
         Some(m) => m,
-        None => { println!("Error: Wallet has no mnemonic"); return; }
+        None => {
+            println!("Error: Wallet has no mnemonic");
+            return;
+        }
     };
     let keypair = match KeyPair::from_mnemonic(mnemonic) {
         Ok(kp) => kp,
-        Err(e) => { println!("Error restoring keys: {}", e); return; }
+        Err(e) => {
+            println!("Error restoring keys: {}", e);
+            return;
+        }
     };
 
     let node_info = match client.get_node_info().await {
         Ok(info) => info,
-        Err(e) => { println!("Error fetching node info: {}", e); return; }
+        Err(e) => {
+            println!("Error fetching node info: {}", e);
+            return;
+        }
     };
-    let head_hash = node_info["head_hash"].as_str().map(|s| s.to_string()).unwrap_or_default();
+    let head_hash = node_info["head_hash"]
+        .as_str()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
     let height = node_info["height"].as_u64().unwrap_or(0);
 
     let mut header = BlockHeader {

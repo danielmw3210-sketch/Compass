@@ -1,6 +1,6 @@
-use clap::Subcommand;
-use crate::wallet::{Wallet, WalletType, WalletManager};
 use crate::crypto::KeyPair;
+use crate::wallet::{Wallet, WalletManager, WalletType};
+use clap::Subcommand;
 
 #[derive(Subcommand)]
 pub enum WalletCommands {
@@ -31,14 +31,14 @@ pub enum AccountCommands {
     ExportPubkey {
         #[arg(long)]
         wallet: String,
-    }
+    },
 }
 
 pub fn handle_wallet_command(cmd: WalletCommands) {
     // For now, load/save from local file "wallets.json" in current dir
     // This is distinct from the Node's wallet manager, but sharing struct for now.
     let mut manager = WalletManager::load("client_wallets.json");
-    
+
     match cmd {
         WalletCommands::Create { name } => {
             let wallet = Wallet::new(&name, WalletType::User);
@@ -50,22 +50,22 @@ pub fn handle_wallet_command(cmd: WalletCommands) {
             }
             manager.wallets.push(wallet);
             manager.save("client_wallets.json");
-        },
+        }
         WalletCommands::Import { mnemonic, name } => {
             // Validate mnemonic
             match KeyPair::from_mnemonic(&mnemonic) {
                 Ok(kp) => {
-                     let mut wallet = Wallet::new(&name, WalletType::User);
-                     // Overwrite with imported keys
-                     wallet.mnemonic = Some(mnemonic);
-                     wallet.public_key = kp.public_key_hex();
-                     manager.wallets.push(wallet);
-                     manager.save("client_wallets.json");
-                     println!("Wallet '{}' imported successfully.", name);
-                },
+                    let mut wallet = Wallet::new(&name, WalletType::User);
+                    // Overwrite with imported keys
+                    wallet.mnemonic = Some(mnemonic);
+                    wallet.public_key = kp.public_key_hex();
+                    manager.wallets.push(wallet);
+                    manager.save("client_wallets.json");
+                    println!("Wallet '{}' imported successfully.", name);
+                }
                 Err(e) => println!("Failed to import: {}", e),
             }
-        },
+        }
         WalletCommands::List => {
             for w in manager.wallets {
                 println!("Name: {}\tAddress: {}", w.owner, w.public_key);
@@ -79,13 +79,13 @@ pub fn handle_account_command(cmd: AccountCommands) {
     match cmd {
         AccountCommands::Create { wallet } => {
             println!("Account creation not fully implemented via derived paths yet.");
-        },
+        }
         AccountCommands::List => {
-             // Same as wallet list for now
-             for w in manager.wallets {
+            // Same as wallet list for now
+            for w in manager.wallets {
                 println!("Account: {}\tPK: {}", w.owner, w.public_key);
             }
-        },
+        }
         AccountCommands::ExportPubkey { wallet } => {
             if let Some(w) = manager.get_wallet(&wallet) {
                 println!("{}", w.public_key);

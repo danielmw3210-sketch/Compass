@@ -1,13 +1,13 @@
-pub mod types;
 pub mod handlers;
+pub mod types;
 
-use axum::{Router, routing::post};
-use std::sync::{Arc, Mutex};
 use crate::chain::Chain;
+use axum::{routing::post, Router};
+use std::sync::{Arc, Mutex};
 use tower_http::cors::CorsLayer;
 
-use crate::network::PeerManager;
 use crate::gulf_stream::CompassGulfStreamManager;
+use crate::network::PeerManager;
 
 #[derive(Clone)]
 pub struct RpcState {
@@ -23,13 +23,17 @@ pub struct RpcServer {
 
 impl RpcServer {
     pub fn new(
-        chain: Arc<Mutex<Chain>>, 
-        peer_manager: Arc<Mutex<PeerManager>>, 
+        chain: Arc<Mutex<Chain>>,
+        peer_manager: Arc<Mutex<PeerManager>>,
         gulf_stream: Arc<Mutex<CompassGulfStreamManager>>,
-        port: u16
+        port: u16,
     ) -> Self {
         Self {
-            state: RpcState { chain, peer_manager, gulf_stream },
+            state: RpcState {
+                chain,
+                peer_manager,
+                gulf_stream,
+            },
             bind_addr: format!("0.0.0.0:{}", port),
         }
     }
@@ -43,7 +47,7 @@ impl RpcServer {
         let listener = tokio::net::TcpListener::bind(&self.bind_addr)
             .await
             .expect("Failed to bind RPC server");
-        
+
         println!("🌐 RPC server listening on {}", self.bind_addr);
         axum::serve(listener, app).await.expect("RPC server failed");
     }

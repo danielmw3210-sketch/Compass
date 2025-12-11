@@ -1,7 +1,7 @@
-use crate::gulf_stream::transactions::CompassGulfStreamTransaction;
-use crate::gulf_stream::validator::ValidatorSlot;
 use crate::gulf_stream::stats::{GulfStreamStats, QueueSizes};
+use crate::gulf_stream::transactions::CompassGulfStreamTransaction;
 use crate::gulf_stream::utils::now_ms;
+use crate::gulf_stream::validator::ValidatorSlot;
 use std::collections::{HashMap, VecDeque};
 
 #[derive(Debug, Clone)]
@@ -48,7 +48,12 @@ impl CompassGulfStreamManager {
     }
 
     /// Add a transaction into the Gulf Stream queues
-    pub fn add_transaction(&mut self, tx_hash: Vec<u8>, raw_tx: Vec<u8>, priority_fee: u64) -> bool {
+    pub fn add_transaction(
+        &mut self,
+        tx_hash: Vec<u8>,
+        raw_tx: Vec<u8>,
+        priority_fee: u64,
+    ) -> bool {
         if self.pending_transactions.contains_key(&tx_hash) {
             println!("Transaction already exists");
             return false;
@@ -101,14 +106,17 @@ impl CompassGulfStreamManager {
     /// Cleanup expired transactions
     pub fn cleanup_expired_transactions(&mut self, max_age_seconds: u64) {
         let cutoff = now_ms() - (max_age_seconds as u128 * 1000);
-        self.pending_transactions.retain(|_, tx| tx.timestamp_ms >= cutoff);
-        self.processing_transactions.retain(|_, tx| tx.timestamp_ms >= cutoff);
+        self.pending_transactions
+            .retain(|_, tx| tx.timestamp_ms >= cutoff);
+        self.processing_transactions
+            .retain(|_, tx| tx.timestamp_ms >= cutoff);
     }
 
     /// Update current slot based on validator schedule
     pub fn update_current_slot(&mut self) {
         let now = now_ms();
-        self.current_slot = self.validator_schedule
+        self.current_slot = self
+            .validator_schedule
             .iter()
             .find(|slot| slot.start_time_ms <= now && now <= slot.end_time_ms)
             .cloned();
@@ -118,7 +126,8 @@ impl CompassGulfStreamManager {
     pub fn update_next_leader(&mut self) {
         if let Some(current) = &self.current_slot {
             let next_slot_number = current.slot_number + 1;
-            self.next_leader = self.validator_schedule
+            self.next_leader = self
+                .validator_schedule
                 .iter()
                 .find(|slot| slot.slot_number == next_slot_number)
                 .map(|slot| slot.validator_id.clone());

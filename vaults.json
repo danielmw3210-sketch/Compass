@@ -1,0 +1,37 @@
+{
+  "vaults": {
+    "Compass:Daniel:LTC": {
+      "collateral_asset": "LTC",
+      "compass_asset": "Compass:Daniel:LTC",
+      "vault_address": "SharedOracleVault",
+      "exchange_rate": 890,
+      "collateral_balance": 6285248,
+      "minted_supply": 5600000001,
+      "accumulated_fees": 15752,
+      "mint_fee_rate": 0.0025,
+      "redeem_fee_rate": 0.005
+    },
+    "Compass:Daniel:SOL": {
+      "collateral_asset": "SOL",
+      "compass_asset": "Compass:Daniel:SOL",
+      "vault_address": "SharedOracleVault",
+      "exchange_rate": 0,
+      "collateral_balance": 9975379050,
+      "minted_supply": 4000000000,
+      "accumulated_fees": 25000950,
+      "mint_fee_rate": 0.0025,
+      "redeem_fee_rate": 0.005
+    },
+    "Compass:Daniel:BTC": {
+      "collateral_asset": "BTC",
+      "compass_asset": "Compass:Daniel:BTC",
+      "vault_address": "SharedOracleVault",
+      "exchange_rate": 21546151,
+      "collateral_balance": 46412,
+      "minted_supply": 1000000000000,
+      "accumulated_fees": 116,
+      "mint_fee_rate": 0.0025,
+      "redeem_fee_rate": 0.005
+    }
+  }
+}

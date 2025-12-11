@@ -1,9 +1,9 @@
-pub mod wallet;
 pub mod node;
-pub mod tx;
 pub mod ops;
+pub mod tx;
+pub mod wallet;
 
-use clap::{Subcommand, Parser};
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "compass")]

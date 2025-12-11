@@ -1,10 +1,16 @@
-use crate::wallet::WalletManager;
+use crate::block::{BlockHeader, BlockType};
 use crate::client::rpc_client::RpcClient;
 use crate::crypto::KeyPair;
-use crate::block::{BlockHeader, BlockType};
+use crate::wallet::WalletManager;
 use chrono::Utc;
 
-pub async fn handle_transfer_command(from: String, to: String, amount: u64, asset: String, rpc_url: Option<String>) {
+pub async fn handle_transfer_command(
+    from: String,
+    to: String,
+    amount: u64,
+    asset: String,
+    rpc_url: Option<String>,
+) {
     // 1. Get Wallet / Keys
     let manager = WalletManager::load("client_wallets.json");
     let wallet = match manager.get_wallet(&from) {
@@ -18,7 +24,10 @@ pub async fn handle_transfer_command(from: String, to: String, amount: u64, asse
     let mnemonic = match &wallet.mnemonic {
         Some(m) => m,
         None => {
-            println!("Error: Wallet '{}' does not have a mnemonic (cannot sign)", from);
+            println!(
+                "Error: Wallet '{}' does not have a mnemonic (cannot sign)",
+                from
+            );
             return;
         }
     };
@@ -55,15 +64,18 @@ pub async fn handle_transfer_command(from: String, to: String, amount: u64, asse
         }
     };
 
-    let head_hash = node_info["head_hash"].as_str().map(|s| s.to_string()).unwrap_or_default();
+    let head_hash = node_info["head_hash"]
+        .as_str()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
     let height = node_info["height"].as_u64().unwrap_or(0);
 
     // 5. Construct Block Header (Intent)
     // In this "Tx = Block" model, we construct the header to sign it.
     let mut header = BlockHeader {
         index: height, // Note: This might be slightly off if block produced since. But sig verifies content.
-                       // Actually, checking chain.rs: verify uses header.index? No.
-                       // It mainly verifies signature against hash.
+        // Actually, checking chain.rs: verify uses header.index? No.
+        // It mainly verifies signature against hash.
         block_type: BlockType::Transfer {
             from: from.clone(),
             to: to.clone(),
@@ -74,7 +86,7 @@ pub async fn handle_transfer_command(from: String, to: String, amount: u64, asse
         },
         proposer: from.clone(),
         signature_hex: String::new(), // To be filled
-        prev_hash: head_hash, // This creates the race condition, but it's what we have.
+        prev_hash: head_hash,         // This creates the race condition, but it's what we have.
         hash: String::new(),
         timestamp: Utc::now().timestamp() as u64,
     };
@@ -87,10 +99,13 @@ pub async fn handle_transfer_command(from: String, to: String, amount: u64, asse
 
     // 7. Submit
     println!("Submitting transfer...");
-    match client.submit_transaction(&from, &to, &asset, amount, nonce, &signature).await {
+    match client
+        .submit_transaction(&from, &to, &asset, amount, nonce, &signature)
+        .await
+    {
         Ok(tx_hash) => {
             println!("Success! Tx Hash: {}", tx_hash);
-        },
+        }
         Err(e) => {
             println!("Transaction failed: {}", e);
         }

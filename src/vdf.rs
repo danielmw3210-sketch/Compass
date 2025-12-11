@@ -1,4 +1,4 @@
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 /// Represents the state of the VDF
 #[derive(Debug, Clone)]
@@ -19,7 +19,7 @@ impl VDFState {
     /// Returns the new hash
     pub fn execute(&mut self, iterations: u64) -> Vec<u8> {
         let mut hash = self.current_hash.clone();
-        
+
         for _ in 0..iterations {
             let mut hasher = Sha256::new();
             hasher.update(&hash);

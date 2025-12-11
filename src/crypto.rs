@@ -1,8 +1,8 @@
+use bip39::{Language, Mnemonic};
 use ed25519_dalek::{Keypair, PublicKey, Signature, Signer, Verifier};
+use hex;
 use rand::rngs::OsRng;
 use rand::RngCore; // Imported for fill_bytes
-use hex;
-use bip39::{Mnemonic, Language};
 
 pub struct KeyPair {
     pub keypair: Keypair,
@@ -15,7 +15,7 @@ impl KeyPair {
         let keypair = Keypair::generate(&mut csprng);
         KeyPair { keypair }
     }
-    
+
     /// Generate a new 12-word mnemonic
     pub fn generate_mnemonic() -> String {
         let mut entropy = [0u8; 16]; // 128 bits = 12 words
@@ -30,13 +30,13 @@ impl KeyPair {
         let mnemonic = Mnemonic::parse_in_normalized(Language::English, phrase)
             .map_err(|e| format!("Invalid mnemonic: {}", e))?;
         let seed = mnemonic.to_seed("");
-        
+
         // Use first 32 bytes for Ed25519 SecretKey
-        let secret = ed25519_dalek::SecretKey::from_bytes(&seed[0..32])
-            .map_err(|e| e.to_string())?;
+        let secret =
+            ed25519_dalek::SecretKey::from_bytes(&seed[0..32]).map_err(|e| e.to_string())?;
         let public = ed25519_dalek::PublicKey::from(&secret);
         let keypair = ed25519_dalek::Keypair { secret, public };
-        
+
         Ok(KeyPair { keypair })
     }
 
@@ -80,7 +80,10 @@ impl KeyPair {
 /// Verify a signature against a message with a provided public key (hex)
 pub fn verify_with_pubkey_hex(message: &[u8], signature_hex: &str, pubkey_hex: &str) -> bool {
     if let (Ok(sig_bytes), Ok(pk_bytes)) = (hex::decode(signature_hex), hex::decode(pubkey_hex)) {
-        if let (Ok(signature), Ok(pubkey)) = (Signature::from_bytes(&sig_bytes), PublicKey::from_bytes(&pk_bytes)) {
+        if let (Ok(signature), Ok(pubkey)) = (
+            Signature::from_bytes(&sig_bytes),
+            PublicKey::from_bytes(&pk_bytes),
+        ) {
             return pubkey.verify(message, &signature).is_ok();
         }
     }

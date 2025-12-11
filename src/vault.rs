@@ -1,8 +1,11 @@
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
-use std::fs;
 use ed25519_dalek::{PublicKey, Signature, Verifier};
 use hex;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+
+pub mod keys;
+pub use keys::VaultKeyManager;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Vault {
@@ -15,6 +18,8 @@ pub struct Vault {
     pub accumulated_fees: u64,    // Fees collected
     pub mint_fee_rate: f64,       // e.g. 0.0025
     pub redeem_fee_rate: f64,     // e.g. 0.0050
+    #[serde(default)]
+    pub derivation_path: String,  // HD wallet derivation path (e.g., "m/44'/0'/123'/456'")
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -46,7 +51,13 @@ impl VaultManager {
     }
 
     /// Register a new vault type (e.g. "Compass-SOL")
-    pub fn register_vault(&mut self, collateral: &str, compass_asset: &str, address: &str, rate: u64) -> Result<(), String> {
+    pub fn register_vault(
+        &mut self,
+        collateral: &str,
+        compass_asset: &str,
+        address: &str,
+        rate: u64,
+    ) -> Result<(), String> {
         if self.vaults.contains_key(compass_asset) {
             return Err("Vault already exists for this asset".to_string());
         }
@@ -60,40 +71,94 @@ impl VaultManager {
             accumulated_fees: 0,
             mint_fee_rate: 0.0025,   // 0.25% Default
             redeem_fee_rate: 0.0050, // 0.50% Default
+            derivation_path: "".to_string(), // Default empty for now
         };
         self.vaults.insert(compass_asset.to_string(), vault);
         Ok(())
     }
 
-
+    /// Generate deterministic vault address (simplified version)
+    /// Returns (address_identifier, derivation_path)
+    /// Note: For production, integrate with actual blockchain address generation
+    pub fn generate_vault_address(
+        owner: &str,
+        collateral_asset: &str,
+        master_seed: &[u8; 64],
+    ) -> (String, String) {
+        use sha2::{Sha256, Digest};
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        // Create deterministic indices
+        let mut hasher = DefaultHasher::new();
+        owner.to_string().hash(&mut hasher);
+        let owner_hash = (hasher.finish() % 2_147_483_648) as u32;
+        
+        let mut hasher = DefaultHasher::new();
+        collateral_asset.to_string().hash(&mut hasher);
+        let asset_hash = (hasher.finish() % 2_147_483_648) as u32;
+        
+        // Create derivation path
+        let path_str = format!("m/44'/0'/{}'/{}'", owner_hash, asset_hash);
+        
+        // Generate deterministic address from seed + path
+        let mut hasher = Sha256::new();
+        hasher.update(master_seed);
+        hasher.update(owner.as_bytes());
+        hasher.update(collateral_asset.as_bytes());
+        let hash = hasher.finalize();
+        
+        // Create address identifier (for now, hex representation)
+        // In production, this would be converted to proper blockchain address format
+        let address = match collateral_asset {
+            "BTC" => format!("bc1q{}", hex::encode(&hash[..20])),
+            "LTC" => format!("ltc1q{}", hex::encode(&hash[..20])),
+            "SOL" => format!("sol1{}", hex::encode(&hash[..20])),
+            _ => format!("addr1{}", hex::encode(&hash[..20])),
+        };
+        
+        (address, path_str)
+    }
 
     /// Get info for dual-nature display
     pub fn get_asset_info(&self, compass_asset: &str) -> Option<(u64, u64, String)> {
-        self.vaults.get(compass_asset).map(|v| (v.collateral_balance, v.minted_supply, v.collateral_asset.clone()))
+        self.vaults.get(compass_asset).map(|v| {
+            (
+                v.collateral_balance,
+                v.minted_supply,
+                v.collateral_asset.clone(),
+            )
+        })
     }
 
     /// Claim a deposit and Mint User-Defined Amount
     /// Message signed: "DEPOSIT:<COLLATERAL>:<AMOUNT>:<TX_HASH>:<MINT_AMOUNT>:<OWNER>"
     pub fn deposit_and_mint(
-        &mut self, 
+        &mut self,
         collateral_ticker: &str, // e.g. "LTC"
         collateral_amount: u64,
         requested_mint_amount: u64,
         owner_id: &str, // e.g. "Daniel"
         tx_hash: &str,
         oracle_sig_hex: &str,
-        oracle_pubkey_hex: &str
-    ) -> Result<(String, u64), String> { // Returns (Asset Name, Minted Amount)
+        oracle_pubkey_hex: &str,
+    ) -> Result<(String, u64), String> {
+        // Returns (Asset Name, Minted Amount)
         // 1. Verify Signature FIRST
         let pubkey_bytes = hex::decode(oracle_pubkey_hex).map_err(|_| "Invalid pubkey hex")?;
         let pubkey = PublicKey::from_bytes(&pubkey_bytes).map_err(|_| "Invalid pubkey bytes")?;
-        
+
         let sig_bytes = hex::decode(oracle_sig_hex).map_err(|_| "Invalid sig hex")?;
         let signature = Signature::from_bytes(&sig_bytes).map_err(|_| "Invalid sig bytes")?;
 
         // Proof includes User Intent (Mint Amount) + Owner Identity
-        let msg = format!("DEPOSIT:{}:{}:{}:{}:{}", collateral_ticker, collateral_amount, tx_hash, requested_mint_amount, owner_id);
-        pubkey.verify(msg.as_bytes(), &signature).map_err(|_| "Invalid Oracle Signature! Deposit not verified.")?;
+        let msg = format!(
+            "DEPOSIT:{}:{}:{}:{}:{}",
+            collateral_ticker, collateral_amount, tx_hash, requested_mint_amount, owner_id
+        );
+        pubkey
+            .verify(msg.as_bytes(), &signature)
+            .map_err(|_| "Invalid Oracle Signature! Deposit not verified.")?;
 
         // 2. Determine Asset Name (Traceable Owner)
         // e.g. "Compass:Daniel:LTC"
@@ -104,13 +169,14 @@ impl VaultManager {
             Vault {
                 collateral_asset: collateral_ticker.to_string(),
                 compass_asset: asset_name.clone(),
-                vault_address: "SharedOracleVault".to_string(), // In reality, might be specific per user, but for now shared vault address.
-                exchange_rate: 0, // Dynamic, calculated per state
+                vault_address: "SharedOracleVault".to_string(),
+                exchange_rate: 0,
                 collateral_balance: 0,
                 minted_supply: 0,
                 accumulated_fees: 0,
                 mint_fee_rate: 0.0025,
                 redeem_fee_rate: 0.0050,
+                derivation_path: String::new(), // Will be set when using HD wallets
             }
         });
 
@@ -122,38 +188,56 @@ impl VaultManager {
         vault.collateral_balance += net_collateral;
         vault.accumulated_fees += fee;
         vault.minted_supply += requested_mint_amount;
-        
+
         // Update implied rate (just for display/tracking, not enforcement since user decides)
         if vault.collateral_balance > 0 {
-             vault.exchange_rate = vault.minted_supply / vault.collateral_balance;
+            vault.exchange_rate = vault.minted_supply / vault.collateral_balance;
         }
 
-        println!("   [Fee] Charged {} Units ({}%)", fee, vault.mint_fee_rate * 100.0);
+        println!(
+            "   [Fee] Charged {} Units ({}%)",
+            fee,
+            vault.mint_fee_rate * 100.0
+        );
         println!("   [Mint] Created {} {}", requested_mint_amount, asset_name);
-        println!("   [Backing] 1 {} backed by ~{:.8} {}", asset_name, (net_collateral as f64 / requested_mint_amount as f64), collateral_ticker);
+        println!(
+            "   [Backing] 1 {} backed by ~{:.8} {}",
+            asset_name,
+            (net_collateral as f64 / requested_mint_amount as f64),
+            collateral_ticker
+        );
 
         Ok((asset_name, requested_mint_amount))
     }
 
     /// Called when user burns Compass to redeem collateral
     /// Returns the amount of Collateral to release
-    pub fn burn_and_redeem(&mut self, compass_asset: &str, burn_amount: u64) -> Result<u64, String> {
-        let vault = self.vaults.get_mut(compass_asset).ok_or("Vault not found")?;
-        
+    pub fn burn_and_redeem(
+        &mut self,
+        compass_asset: &str,
+        burn_amount: u64,
+    ) -> Result<u64, String> {
+        let vault = self
+            .vaults
+            .get_mut(compass_asset)
+            .ok_or("Vault not found")?;
+
         if burn_amount > vault.minted_supply {
             return Err("Burn amount exceeds minted supply (Critical Error)".to_string());
         }
 
         // 1. Calculate Collateral Value of the burnt tokens
-        if vault.exchange_rate == 0 { return Err("Invalid exchange rate".to_string()); }
+        if vault.exchange_rate == 0 {
+            return Err("Invalid exchange rate".to_string());
+        }
         let gross_collateral_value = burn_amount / vault.exchange_rate;
 
         if gross_collateral_value == 0 {
-             return Err("Burn amount too small to redeem any collateral".to_string());
+            return Err("Burn amount too small to redeem any collateral".to_string());
         }
 
         if vault.collateral_balance < gross_collateral_value {
-             return Err("Critical Error: Vault Undercollateralized! Cannot redeem.".to_string());
+            return Err("Critical Error: Vault Undercollateralized! Cannot redeem.".to_string());
         }
 
         // 2. Calculate Fee (0.5%)
@@ -165,8 +249,15 @@ impl VaultManager {
         vault.collateral_balance -= gross_collateral_value; // Deduct gross (User + Fee)
         vault.accumulated_fees += fee; // Keep fee
 
-        println!("   [Redeem] Burning {} Compass -> Releasing {} Collateral", burn_amount, gross_collateral_value);
-        println!("   [Fee] Charged {} Units ({}%)", fee, vault.redeem_fee_rate * 100.0);
+        println!(
+            "   [Redeem] Burning {} Compass -> Releasing {} Collateral",
+            burn_amount, gross_collateral_value
+        );
+        println!(
+            "   [Fee] Charged {} Units ({}%)",
+            fee,
+            vault.redeem_fee_rate * 100.0
+        );
         println!("   [Payout] {} Units", net_payout);
 
         Ok(net_payout)

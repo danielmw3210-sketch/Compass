@@ -1,9 +1,9 @@
-use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use serde::{Serialize, Deserialize};
-use std::sync::{Arc, Mutex};
-use std::collections::HashSet;
 use crate::market::OrderSide;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TransactionPayload {
@@ -66,10 +66,10 @@ impl PeerManager {
 
 /// Start a TCP server that listens for incoming connections
 pub async fn start_server(
-    port: u16, 
+    port: u16,
     peer_manager: Arc<Mutex<PeerManager>>,
     gossip_tx: tokio::sync::broadcast::Sender<NetMessage>,
-    chain: Arc<Mutex<crate::chain::Chain>>
+    chain: Arc<Mutex<crate::chain::Chain>>,
 ) {
     let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr).await.unwrap();
@@ -85,20 +85,27 @@ pub async fn start_server(
             let mut buf = vec![0u8; 1024 * 1024]; // 1MB buffer for larger messages (blocks)
             let n = match socket.read(&mut buf).await {
                 Ok(n) if n > 0 => n,
-                _ => return, 
+                _ => return,
             };
 
             let received_data = &buf[..n];
             if let Ok(msg) = bincode::deserialize::<NetMessage>(received_data) {
                 // Check if it's a RequestBlocks message
-                if let NetMessage::RequestBlocks { start_height, end_height } = msg {
-                    println!("Received RequestBlocks({}..{}) from {}", start_height, end_height, peer_addr);
-                    
+                if let NetMessage::RequestBlocks {
+                    start_height,
+                    end_height,
+                } = msg
+                {
+                    println!(
+                        "Received RequestBlocks({}..{}) from {}",
+                        start_height, end_height, peer_addr
+                    );
+
                     let blocks = {
                         let c_lock = chain.lock().unwrap();
                         c_lock.get_blocks_range(start_height, end_height)
                     };
-                    
+
                     // Respond directly
                     let resp = NetMessage::SendBlocks(blocks);
                     let resp_bytes = bincode::serialize(&resp).unwrap();
@@ -109,15 +116,15 @@ pub async fn start_server(
 
                 // Handle Handshake
                 if let NetMessage::Handshake { port } = msg {
-                     // ... logic reused ...
-                     let peer_ip = peer_addr.ip().to_string();
-                     let full_peer_addr = format!("{}:{}", peer_ip, port);
-                     {
-                         let mut pm = peer_manager.lock().unwrap();
-                         pm.add_peer(full_peer_addr.clone());
-                     }
+                    // ... logic reused ...
+                    let peer_ip = peer_addr.ip().to_string();
+                    let full_peer_addr = format!("{}:{}", peer_ip, port);
+                    {
+                        let mut pm = peer_manager.lock().unwrap();
+                        pm.add_peer(full_peer_addr.clone());
+                    }
                 }
-                
+
                 // Gossip / Process (Send to main channel)
                 let _ = gossip_tx.send(msg);
             } else {
@@ -128,26 +135,23 @@ pub async fn start_server(
 }
 
 /// Broadcast a message to all known peers
-pub async fn broadcast_message(
-    peer_manager: Arc<Mutex<PeerManager>>,
-    msg: NetMessage
-) {
+pub async fn broadcast_message(peer_manager: Arc<Mutex<PeerManager>>, msg: NetMessage) {
     let peers: Vec<String> = {
         let pm = peer_manager.lock().unwrap();
         pm.peers.iter().cloned().collect()
     };
-    
+
     let serialized = bincode::serialize(&msg).unwrap();
 
     for peer in peers {
         let msg_bytes = serialized.clone();
         tokio::spawn(async move {
-             if let Ok(mut stream) = TcpStream::connect(&peer).await {
-                 let _ = stream.write_all(&msg_bytes).await;
-             } else {
-                 println!("Failed to connect to peer {}", peer);
-                 // Remove peer?
-             }
+            if let Ok(mut stream) = TcpStream::connect(&peer).await {
+                let _ = stream.write_all(&msg_bytes).await;
+            } else {
+                println!("Failed to connect to peer {}", peer);
+                // Remove peer?
+            }
         });
     }
 }
@@ -156,7 +160,7 @@ pub async fn broadcast_message(
 pub async fn connect_to_peer(peer_addr: &str, my_port: u16, peer_manager: Arc<Mutex<PeerManager>>) {
     if let Ok(mut stream) = TcpStream::connect(peer_addr).await {
         println!("Connected to bootstrap peer {}", peer_addr);
-        
+
         // Add to list
         {
             let mut pm = peer_manager.lock().unwrap();

@@ -1,38 +1,38 @@
-mod crypto;
 mod block;
 mod chain;
-mod wallet;
-mod vdf;
-mod vault;
-mod oracle;
-mod market;
+mod client;
+mod crypto;
 mod gulf_stream; // Added module declaration
-mod storage; // Added storage module
+mod market;
+mod oracle;
 mod rpc; // RPC server
-mod client; // RPC client
+mod storage; // Added storage module
+mod vault;
+mod vdf;
+mod wallet; // RPC client
 
 mod cli; // CLI module
 mod network;
 
-use network::{NetMessage, TransactionPayload, connect_and_send}; 
-use tokio::io::{AsyncReadExt, AsyncWriteExt}; // Added AsyncReadExt and AsyncWriteExt traits
-use sha2::Digest; // Import Digest trait
-use crypto::KeyPair;
 use block::{
-    create_poh_block, create_vote_block,
-    create_proposal_block, create_transfer_block, current_unix_timestamp_ms,
+    create_poh_block, create_proposal_block, create_transfer_block, create_vote_block,
+    current_unix_timestamp_ms,
 };
+use crypto::KeyPair;
+use network::{connect_and_send, NetMessage, TransactionPayload};
+use sha2::Digest; // Import Digest trait
+use tokio::io::{AsyncReadExt, AsyncWriteExt}; // Added AsyncReadExt and AsyncWriteExt traits
 
 use chain::Chain;
-use wallet::{WalletManager, WalletType};
-use vault::VaultManager;
-use market::{Market, OrderSide};
 use gulf_stream::manager::CompassGulfStreamManager;
-use std::io::{self, Write};
-use std::thread;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use market::{Market, OrderSide};
 use std::fs::OpenOptions;
+use std::io::{self, Write};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+use vault::VaultManager;
+use wallet::{WalletManager, WalletType};
 
 use clap::Parser;
 use cli::{Cli, Commands};
@@ -50,16 +50,16 @@ fn log_to_file(msg: &str) {
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    
+
     // Check if any specific command is provided
     if let Some(command) = cli.command {
         match command {
             Commands::Wallet { cmd } => {
                 cli::wallet::handle_wallet_command(cmd);
-            },
+            }
             Commands::Account { cmd } => {
                 cli::wallet::handle_account_command(cmd);
-            },
+            }
             Commands::Node { cmd } => {
                 // If "compass node start" is called
                 match cmd {
@@ -71,20 +71,51 @@ async fn main() {
                         cli::node::handle_node_command(cmd).await;
                     }
                 }
-            },
-             Commands::Transfer { from, to, amount, asset } => {
-                 cli::tx::handle_transfer_command(from, to, amount, asset, None).await;
-             },
-             Commands::Balance { address } => {
-                 println!("Balance check for {}", address);
-                 // TODO: Implement handle_balance_command via RPC
-             },
-             Commands::Mint { vault_id, amount, asset, collateral_asset, collateral_amount, proof, oracle_sig, owner } => {
-                 cli::ops::handle_mint_command(vault_id, amount, asset, collateral_asset, collateral_amount, proof, oracle_sig, owner, None).await;
-             },
-             Commands::Burn { vault_id, amount, asset, dest_addr, from } => {
-                 cli::ops::handle_burn_command(vault_id, amount, asset, dest_addr, from, None).await;
-             }
+            }
+            Commands::Transfer {
+                from,
+                to,
+                amount,
+                asset,
+            } => {
+                cli::tx::handle_transfer_command(from, to, amount, asset, None).await;
+            }
+            Commands::Balance { address } => {
+                println!("Balance check for {}", address);
+                // TODO: Implement handle_balance_command via RPC
+            }
+            Commands::Mint {
+                vault_id,
+                amount,
+                asset,
+                collateral_asset,
+                collateral_amount,
+                proof,
+                oracle_sig,
+                owner,
+            } => {
+                cli::ops::handle_mint_command(
+                    vault_id,
+                    amount,
+                    asset,
+                    collateral_asset,
+                    collateral_amount,
+                    proof,
+                    oracle_sig,
+                    owner,
+                    None,
+                )
+                .await;
+            }
+            Commands::Burn {
+                vault_id,
+                amount,
+                asset,
+                dest_addr,
+                from,
+            } => {
+                cli::ops::handle_burn_command(vault_id, amount, asset, dest_addr, from, None).await;
+            }
         }
     } else {
         // No subcommand? Use existing logic:
@@ -97,7 +128,7 @@ async fn main() {
 // --- CLIENT MODE (User) ---
 async fn run_client_mode() {
     println!("\n=== Compass Client ===");
-    
+
     // 1. Login / Wallet Selection
     let mut wallet_manager = WalletManager::load("wallets.json");
     let mut market = Market::load("market.json");
@@ -105,17 +136,17 @@ async fn run_client_mode() {
 
     loop {
         if current_user.is_empty() {
-             println!("\n1. Login (Existing User)");
-             println!("2. Create New User");
-             println!("3. Transfer Funds"); // Added Transfer
-             println!("4. Exit");
-             print!("Select: ");
-             io::stdout().flush().unwrap();
-             
-             let mut input = String::new();
-             io::stdin().read_line(&mut input).unwrap();
-             match input.trim() {
-                 "1" => {
+            println!("\n1. Login (Existing User)");
+            println!("2. Create New User");
+            println!("3. Transfer Funds"); // Added Transfer
+            println!("4. Exit");
+            print!("Select: ");
+            io::stdout().flush().unwrap();
+
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).unwrap();
+            match input.trim() {
+                "1" => {
                     print!("Username: ");
                     io::stdout().flush().unwrap();
                     let mut name = String::new();
@@ -127,15 +158,15 @@ async fn run_client_mode() {
                     } else {
                         println!("User not found.");
                     }
-                 },
-                 "2" => {
+                }
+                "2" => {
                     print!("New Username: ");
                     io::stdout().flush().unwrap();
                     let mut name = String::new();
                     io::stdin().read_line(&mut name).unwrap();
                     let name = name.trim().to_string();
                     if wallet_manager.get_wallet(&name).is_some() {
-                         println!("User already exists.");
+                        println!("User already exists.");
                     } else {
                         // Create Wallet
                         let new_wallet = wallet::Wallet::new(&name, WalletType::User);
@@ -144,27 +175,31 @@ async fn run_client_mode() {
                         current_user = name;
                         println!("Wallet created! Logged in as {}", current_user);
                     }
-                 },
-                 "3" => {
+                }
+                "3" => {
                     // Transfer Funds
                     print!("User (Sender): ");
                     io::stdout().flush().unwrap();
-                    let mut u = String::new(); io::stdin().read_line(&mut u).unwrap();
+                    let mut u = String::new();
+                    io::stdin().read_line(&mut u).unwrap();
                     let u = u.trim().to_string();
-                    
+
                     print!("Recipient: ");
                     io::stdout().flush().unwrap();
-                    let mut r = String::new(); io::stdin().read_line(&mut r).unwrap();
-                    
+                    let mut r = String::new();
+                    io::stdin().read_line(&mut r).unwrap();
+
                     print!("Asset: ");
                     io::stdout().flush().unwrap();
-                    let mut a = String::new(); io::stdin().read_line(&mut a).unwrap();
-                    
+                    let mut a = String::new();
+                    io::stdin().read_line(&mut a).unwrap();
+
                     print!("Amount: ");
                     io::stdout().flush().unwrap();
-                    let mut s = String::new(); io::stdin().read_line(&mut s).unwrap();
+                    let mut s = String::new();
+                    io::stdin().read_line(&mut s).unwrap();
                     let amt: u64 = s.trim().parse().unwrap_or(0);
-                    
+
                     // Create Payload
                     let payload = TransactionPayload::Transfer {
                         from: u,
@@ -174,168 +209,206 @@ async fn run_client_mode() {
                         nonce: 0,
                         signature: "stub_sig".to_string(),
                     };
-                    
+
                     connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
                     println!("Transfer Submitted to Network!");
-                 },
-                 "4" => std::process::exit(0),
-                 _ => println!("Invalid."),
-             }
+                }
+                "4" => std::process::exit(0),
+                _ => println!("Invalid."),
+            }
         } else {
             // Logged In Dashboard
             // Refresh wallet from file in case Node updated it (simulated shared storage)
             wallet_manager = WalletManager::load("wallets.json");
-            
+
             println!("\n--- Dashboard: {} ---", current_user);
             let bal = wallet_manager.get_balance(&current_user, "Compass-LTC"); // TODO: List all assets
-            println!("Balance: ??? (Use 'View balances' to see all)"); 
-            
+            println!("Balance: ??? (Use 'View balances' to see all)");
+
             println!("1. View Balances");
             println!("2. Transfer Funds");
             println!("3. Create Mint Contract (LTC)");
             println!("4. Redeem (Burn)");
             println!("5. Trade (Market)");
-            println!("6. Logout");
+            println!("6. Get Vault Address");
+            println!("7. Logout");
             print!("Select: ");
             io::stdout().flush().unwrap();
-            
+
             let mut input = String::new();
             io::stdin().read_line(&mut input).unwrap();
             match input.trim() {
                 "1" => {
-                     if let Some(w) = wallet_manager.get_wallet(&current_user) {
-                         println!("Assets:");
-                         let vaults = VaultManager::load("vaults.json");
-                         for (asset, amt) in &w.balances {
-                             let mut info_str = String::new();
-                             if let Some((col_bal, supply, ticker)) = vaults.get_asset_info(asset) {
-                                  if supply > 0 {
-                                      let share = *amt as f64 / supply as f64;
-                                      let implied_val = share * col_bal as f64;
-                                      info_str = format!(" (~{:.8} {})", implied_val, ticker);
-                                  }
-                             }
-                             println!(" - {}: {}{}", asset, amt, info_str);
-                         }
-                     }
-                     
-                     // Also show blockchain balances via RPC
-                     println!("\n=== Blockchain Balances (On-Chain) ===");
-                     let rpc_client = crate::client::RpcClient::new("http://127.0.0.1:8899".to_string());
-                     
-                     match rpc_client.get_account_info(&current_user).await {
-                         Ok(info) => {
-                             if let Some(balances) = info.get("balances").and_then(|b| b.as_object()) {
-                                 if balances.is_empty() {
-                                     println!(" (No assets found on blockchain)");
-                                 } else {
-                                     for (asset, amount) in balances {
-                                         println!(" - {}: {}", asset, amount);
-                                     }
-                                 }
-                             }
-                             if let Some(nonce) = info.get("nonce").and_then(|n| n.as_u64()) {
-                                 println!("Nonce: {}", nonce);
-                             }
-                         },
-                         Err(e) => {
-                             println!("⚠️  Could not fetch blockchain balances: {}", e);
-                             println!("   (Make sure the node is running)");
-                         }
-                     }
-                },
+                    if let Some(w) = wallet_manager.get_wallet(&current_user) {
+                        println!("Assets:");
+                        let vaults = VaultManager::load("vaults.json");
+                        for (asset, amt) in &w.balances {
+                            let mut info_str = String::new();
+                            if let Some((col_bal, supply, ticker)) = vaults.get_asset_info(asset) {
+                                if supply > 0 {
+                                    let share = *amt as f64 / supply as f64;
+                                    let implied_val = share * col_bal as f64;
+                                    info_str = format!(" (~{:.8} {})", implied_val, ticker);
+                                }
+                            }
+                            println!(" - {}: {}{}", asset, amt, info_str);
+                        }
+                    }
+
+                    // Also show blockchain balances via RPC
+                    println!("\n=== Blockchain Balances (On-Chain) ===");
+                    let rpc_client =
+                        crate::client::RpcClient::new("http://127.0.0.1:8899".to_string());
+
+                    match rpc_client.get_account_info(&current_user).await {
+                        Ok(info) => {
+                            let vault_info = info.get("vault_info").and_then(|v| v.as_object());
+                            
+                            if let Some(balances) = info.get("balances").and_then(|b| b.as_object())
+                            {
+                                if balances.is_empty() {
+                                    println!(" (No assets found on blockchain)");
+                                } else {
+                                    for (asset, amount) in balances {
+                                        let amount_u64 = amount.as_u64().unwrap_or(0);
+                                        let amount_display = amount_u64 as f64 / 100_000_000.0;
+                                        
+                                        // Check if this asset has vault info
+                                        if let Some(vault_data) = vault_info.and_then(|v| v.get(asset)) {
+                                            let collateral = vault_data.get("collateral_balance").and_then(|v| v.as_u64()).unwrap_or(0);
+                                            let ratio = vault_data.get("backing_ratio").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                                            let collateral_asset = vault_data.get("collateral_asset").and_then(|v| v.as_str()).unwrap_or("?");
+                                            
+                                            let collateral_display = collateral as f64 / 100_000_000.0;
+                                            let inverse_ratio = if ratio > 0.0 { 1.0 / ratio } else { 0.0 };
+                                            
+                                            println!(" - {}: {:.8} ({:.2} Compass per 1 {}, backed by {:.8} {}, 1 Compass = {:.8} {})", 
+                                                asset, 
+                                                amount_display,
+                                                ratio,
+                                                collateral_asset,
+                                                collateral_display,
+                                                collateral_asset,
+                                                inverse_ratio,
+                                                collateral_asset
+                                            );
+                                        } else {
+                                            println!(" - {}: {:.8}", asset, amount_display);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(nonce) = info.get("nonce").and_then(|n| n.as_u64()) {
+                                println!("Nonce: {}", nonce);
+                            }
+                        }
+                        Err(e) => {
+                            println!("⚠️  Could not fetch blockchain balances: {}", e);
+                            println!("   (Make sure the node is running)");
+                        }
+                    }
+                }
                 "2" => {
-                     // Transfer Funds
-                     println!("--- Transfer Funds ---");
-                     
-                     print!("Recipient: ");
-                     io::stdout().flush().unwrap();
-                     let mut to = String::new();
-                     io::stdin().read_line(&mut to).unwrap();
-                     let to = to.trim().to_string();
-                     
-                     print!("Asset (Compass/cLTC/cSOL): ");
-                     io::stdout().flush().unwrap();
-                     let mut asset = String::new();
-                     io::stdin().read_line(&mut asset).unwrap();
-                     let asset = asset.trim().to_string();
-                     
-                     print!("Amount: ");
-                     io::stdout().flush().unwrap();
-                     let mut amount_str = String::new();
-                     io::stdin().read_line(&mut amount_str).unwrap();
-                     let amount: u64 = amount_str.trim().parse().unwrap_or(0);
-                     
-                     if amount == 0 {
-                         println!("Invalid amount");
-                         continue;
-                     }
-                     
-                     // Create transfer payload
-                     let payload = TransactionPayload::Transfer {
-                         from: current_user.clone(),
-                         to,
-                         asset,
-                         amount,
-                         nonce: 0,
-                         signature: String::new(), // Will be signed by node
-                     };
-                     
-                     // Send to node
-                     println!("Submitting transfer to node...");
-                     connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
-                     println!("Transfer submitted! Check node logs for confirmation.");
-                },
+                    // Transfer Funds
+                    println!("--- Transfer Funds ---");
+
+                    print!("Recipient: ");
+                    io::stdout().flush().unwrap();
+                    let mut to = String::new();
+                    io::stdin().read_line(&mut to).unwrap();
+                    let to = to.trim().to_string();
+
+                    print!("Asset (Compass/cLTC/cSOL): ");
+                    io::stdout().flush().unwrap();
+                    let mut asset = String::new();
+                    io::stdin().read_line(&mut asset).unwrap();
+                    let asset = asset.trim().to_string();
+
+                    print!("Amount: ");
+                    io::stdout().flush().unwrap();
+                    let mut amount_str = String::new();
+                    io::stdin().read_line(&mut amount_str).unwrap();
+                    let amount: u64 = amount_str.trim().parse().unwrap_or(0);
+
+                    if amount == 0 {
+                        println!("Invalid amount");
+                        continue;
+                    }
+
+                    // Create transfer payload
+                    let payload = TransactionPayload::Transfer {
+                        from: current_user.clone(),
+                        to,
+                        asset,
+                        amount,
+                        nonce: 0,
+                        signature: String::new(), // Will be signed by node
+                    };
+
+                    // Send to node
+                    println!("Submitting transfer to node...");
+                    connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
+                    println!("Transfer submitted! Check node logs for confirmation.");
+                }
                 "3" => {
-                     println!("--- Mint Contract ---");
-                     println!("Note: You must obtain an Oracle Signature from the Node for your deposit first.");
-                     
-                     print!("TX Hash: ");
-                     io::stdout().flush().unwrap();
-                     let mut tx = String::new();
-                     io::stdin().read_line(&mut tx).unwrap();
-                     
-                     print!("Collateral Amount (Sats/Units): ");
+                    println!("--- Mint Contract ---");
+                    println!("Note: Oracle will auto-sign your mint request.");
+
+                    print!("Collateral Asset (LTC/SOL/etc): ");
+                    io::stdout().flush().unwrap();
+                    let mut collateral_asset = String::new();
+                    io::stdin().read_line(&mut collateral_asset).unwrap();
+                    let collateral_asset = collateral_asset.trim().to_string();
+
+                    print!("TX Hash (Deposit Proof): ");
+                    io::stdout().flush().unwrap();
+                    let mut tx_hash = String::new();
+                    io::stdin().read_line(&mut tx_hash).unwrap();
+                    let tx_hash = tx_hash.trim().to_string();
+
+                     print!("Collateral Amount (e.g., 0.001 LTC): ");
                      io::stdout().flush().unwrap();
                      let mut col_str = String::new();
                      io::stdin().read_line(&mut col_str).unwrap();
-                     let col_amt: u64 = col_str.trim().parse().unwrap_or(0);
+                     let col_amt_float: f64 = col_str.trim().parse().unwrap_or(0.0);
+                     let col_amt: u64 = (col_amt_float * 100_000_000.0) as u64; // Convert to satoshis
                      
-                     print!("Requested Compass Amount: ");
+                     print!("Requested Compass Amount (e.g., 100.5): ");
                      io::stdout().flush().unwrap();
                      let mut mint_str = String::new();
                      io::stdin().read_line(&mut mint_str).unwrap();
-                     let mint_amt: u64 = mint_str.trim().parse().unwrap_or(0);
-                     
-                     print!("Oracle Signature: ");
-                     io::stdout().flush().unwrap();
-                     let mut sig = String::new();
-                     io::stdin().read_line(&mut sig).unwrap();
-                     
-                     print!("Oracle Public Key: ");
-                     io::stdout().flush().unwrap();
-                     let mut pubkey_hex = String::new();
-                     io::stdin().read_line(&mut pubkey_hex).unwrap();
-                     let admin_pubkey = pubkey_hex.trim().to_string(); // Use user input
+                     let mint_amt_float: f64 = mint_str.trim().parse().unwrap_or(0.0);
+                     let mint_amt: u64 = (mint_amt_float * 100_000_000.0) as u64; // Convert to smallest unit
 
-                     // Load Vaults
-                     let mut vaults = VaultManager::load("vaults.json");
-                     
-                     // Execute
-                     match vaults.deposit_and_mint("LTC", col_amt, mint_amt, &current_user, tx.trim(), sig.trim(), &admin_pubkey) {
-                         Ok((asset, minted)) => {
-                             println!("Success! Minted {} {}", minted, asset);
-                             // Update Wallet
-                             wallet_manager.credit(&current_user, &asset, minted);
-                             wallet_manager.save("wallets.json");
-                             vaults.save("vaults.json");
-                         },
-                         Err(e) => println!("Mint Failed: {}", e),
-                     }
-                },
+                    if col_amt == 0 || mint_amt == 0 {
+                        println!("Invalid amounts");
+                        continue;
+                    }
+
+                    // Create Mint Payload
+                    let mint_params = crate::rpc::types::SubmitMintParams {
+                        vault_id: format!("Compass-{}", collateral_asset),
+                        collateral_asset: collateral_asset.clone(),
+                        collateral_amount: col_amt,
+                        compass_asset: format!("Compass-{}", collateral_asset),
+                        mint_amount: mint_amt,
+                        owner: current_user.clone(),
+                        tx_proof: tx_hash,
+                        oracle_signature: String::new(), // Will be filled by Node
+                        fee: 0,
+                        signature: String::new(), // Will be signed by Node
+                    };
+
+                    let payload = TransactionPayload::Mint(mint_params);
+
+                    // Send to node
+                    println!("Submitting mint request to node...");
+                    connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
+                    println!("Mint submitted! Check node logs for confirmation.");
+                }
                 "4" => {
-                     println!("Redemption is currently for specific assets. (Not fully ported to Traceable logic yet)");
-                },
+                    println!("Redemption is currently for specific assets. (Not fully ported to Traceable logic yet)");
+                }
                 "5" => {
                     println!("\n--- Market ---");
                     println!("1. View Orderbook");
@@ -345,71 +418,131 @@ async fn run_client_mode() {
                     io::stdout().flush().unwrap();
                     let mut m_in = String::new();
                     io::stdin().read_line(&mut m_in).unwrap();
-                    
+
                     match m_in.trim() {
                         "1" => {
                             print!("Base Asset (e.g. Compass:Alice:LTC): ");
                             io::stdout().flush().unwrap();
-                            let mut b = String::new(); io::stdin().read_line(&mut b).unwrap();
+                            let mut b = String::new();
+                            io::stdin().read_line(&mut b).unwrap();
                             print!("Quote Asset (e.g. Compass): ");
                             io::stdout().flush().unwrap();
-                            let mut q = String::new(); io::stdin().read_line(&mut q).unwrap();
-                            
+                            let mut q = String::new();
+                            io::stdin().read_line(&mut q).unwrap();
+
                             let key = format!("{}/{}", b.trim(), q.trim());
                             if let Some(book) = market.books.get(&key) {
                                 println!("--- BIDS (Buy) ---");
                                 for order in &book.bids {
-                                    println!("[#{}] {} @ {}", order.id, order.amount - order.amount_filled, order.price);
+                                    println!(
+                                        "[#{}] {} @ {}",
+                                        order.id,
+                                        order.amount - order.amount_filled,
+                                        order.price
+                                    );
                                 }
                                 println!("--- ASKS (Sell) ---");
                                 for order in &book.asks {
-                                    println!("[#{}] {} @ {}", order.id, order.amount - order.amount_filled, order.price);
+                                    println!(
+                                        "[#{}] {} @ {}",
+                                        order.id,
+                                        order.amount - order.amount_filled,
+                                        order.price
+                                    );
                                 }
                             } else {
                                 println!("No book found for {}", key);
                             }
-                        },
+                        }
                         "2" | "3" => {
-                            let side = if m_in.trim() == "2" { OrderSide::Buy } else { OrderSide::Sell };
-                            
+                            let side = if m_in.trim() == "2" {
+                                OrderSide::Buy
+                            } else {
+                                OrderSide::Sell
+                            };
+
                             print!("Base Asset (e.g. Compass:Alice:LTC): ");
                             io::stdout().flush().unwrap();
-                            let mut b = String::new(); io::stdin().read_line(&mut b).unwrap();
+                            let mut b = String::new();
+                            io::stdin().read_line(&mut b).unwrap();
                             print!("Quote Asset (e.g. Compass): ");
                             io::stdout().flush().unwrap();
-                            let mut q = String::new(); io::stdin().read_line(&mut q).unwrap();
-                            
+                            let mut q = String::new();
+                            io::stdin().read_line(&mut q).unwrap();
+
                             print!("Amount: ");
                             io::stdout().flush().unwrap();
-                            let mut a_s = String::new(); io::stdin().read_line(&mut a_s).unwrap();
+                            let mut a_s = String::new();
+                            io::stdin().read_line(&mut a_s).unwrap();
                             let amt: u64 = a_s.trim().parse().unwrap_or(0);
 
                             print!("Price: ");
                             io::stdout().flush().unwrap();
-                            let mut p_s = String::new(); io::stdin().read_line(&mut p_s).unwrap();
+                            let mut p_s = String::new();
+                            io::stdin().read_line(&mut p_s).unwrap();
                             match p_s.trim().parse::<u64>() {
                                 Ok(pr) => {
-                                     let payload = TransactionPayload::PlaceOrder {
-                                         user: current_user.clone(),
-                                         side,
-                                         base: b.trim().to_string(),
-                                         quote: q.trim().to_string(),
-                                         amount: amt,
-                                         price: pr,
-                                         signature: "stub_sig".to_string(),
-                                     };
-                                     connect_and_send("127.0.0.1:9000", NetMessage::SubmitTx(payload)).await;
-                                     println!("Order Submitted to Network!");
-                                     // market.save(); // No longer saving locally in client
-                                     // wallet_manager.save();
-                                },
+                                    let payload = TransactionPayload::PlaceOrder {
+                                        user: current_user.clone(),
+                                        side,
+                                        base: b.trim().to_string(),
+                                        quote: q.trim().to_string(),
+                                        amount: amt,
+                                        price: pr,
+                                        signature: "stub_sig".to_string(),
+                                    };
+                                    connect_and_send(
+                                        "127.0.0.1:9000",
+                                        NetMessage::SubmitTx(payload),
+                                    )
+                                    .await;
+                                    println!("Order Submitted to Network!");
+                                    // market.save(); // No longer saving locally in client
+                                    // wallet_manager.save();
+                                }
                                 Err(_) => println!("Invalid Price"),
                             }
-                        },
+                        }
                         _ => println!("Invalid."),
                     }
-                }, 
-                "6" => current_user.clear(),
+                }
+                "6" => {
+                    // Get Vault Address
+                    println!("\n=== Get Vault Deposit Address ===");
+                    print!("Collateral Asset (BTC/LTC/SOL): ");
+                    io::stdout().flush().unwrap();
+                    let mut asset_input = String::new();
+                    io::stdin().read_line(&mut asset_input).unwrap();
+                    let collateral_asset = asset_input.trim().to_uppercase();
+                    
+                    // Load vault key manager
+                    let vault_keys = crate::vault::VaultKeyManager::load_or_generate("vault_master.seed");
+                    let master_seed = vault_keys.get_seed();
+                    
+                    // Generate vault address
+                    let (vault_address, derivation_path) = crate::vault::VaultManager::generate_vault_address(
+                        &current_user,
+                        &collateral_asset,
+                        master_seed,
+                    );
+                    
+                    let vault_id = format!("Compass:{}:{}", current_user, collateral_asset);
+                    
+                    println!("\n✓ Vault Address Generated");
+                    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    println!("Vault ID:        {}", vault_id);
+                    println!("Deposit Address: {}", vault_address);
+                    println!("Derivation Path: {}", derivation_path);
+                    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+                    println!("\n📝 Instructions:");
+                    println!("1. Send {} to the address above", collateral_asset);
+                    println!("2. Wait for confirmations (BTC: 6+, LTC: 12+, SOL: 32+)");
+                    println!("3. Use 'Create Mint Contract' with your TX hash");
+                    println!("4. Oracle will verify and mint Compass tokens");
+                    println!("\n⚠️  IMPORTANT: This address is unique to you!");
+                    println!("   Do not share it with others.\n");
+                }
+                "7" => current_user.clear(),
                 _ => println!("Invalid."),
             }
         }
@@ -422,13 +555,12 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     let port = 9000; // P2P port remains fixed for now, or could be arg.
     let peer_addr = peer_val.clone(); // Use passed peer address
     let follower_mode = peer_addr.is_some();
-    
+
     let rpc_port = rpc_port.unwrap_or(8899);
 
     if follower_mode {
         println!("Running in FOLLOWER mode - will sync from peer, not generate blocks");
     }
-
 
     // --- Setup admin ---
     let admin = Arc::new(KeyPair::new());
@@ -447,18 +579,18 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     // --- Network Setup ---
     let my_p2p_port = 9000;
     let peer_manager = Arc::new(Mutex::new(crate::network::PeerManager::new(my_p2p_port)));
-    
+
     // Channel for P2P messages (Gossip)
-    let (gossip_tx, mut gossip_rx) = tokio::sync::broadcast::channel::<crate::network::NetMessage>(100);
+    let (gossip_tx, mut gossip_rx) =
+        tokio::sync::broadcast::channel::<crate::network::NetMessage>(100);
 
     // --- Start P2P Server ---
 
-    
     // Connect to peer if specified
     if let Some(paddr) = peer_val {
         let pm_connect = peer_manager.clone();
         tokio::spawn(async move {
-             crate::network::connect_to_peer(&paddr, my_p2p_port, pm_connect).await;
+            crate::network::connect_to_peer(&paddr, my_p2p_port, pm_connect).await;
         });
     }
 
@@ -476,7 +608,22 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     let wallets = Arc::new(Mutex::new(wallet_manager));
     let vaults = Arc::new(Mutex::new(VaultManager::load("vaults.json")));
     let market = Arc::new(Mutex::new(Market::load("market.json"))); // Load Market
-    let gulf_stream = Arc::new(Mutex::new(CompassGulfStreamManager::new("Node1".to_string(), 1000)));
+    let gulf_stream = Arc::new(Mutex::new(CompassGulfStreamManager::new(
+        "Node1".to_string(),
+        1000,
+    )));
+
+    // --- Initialize Oracle Service ---
+    let oracle_config = crate::oracle::OracleConfig::default();
+    let oracle_keypair = wallets.lock().unwrap()
+        .get_wallet("Daniel")
+        .and_then(|w| w.get_keypair())
+        .expect("Oracle wallet (Daniel) not found");
+    let oracle = Arc::new(Mutex::new(crate::oracle::OracleService::new(
+        oracle_config,
+        oracle_keypair,
+    )));
+    println!("Oracle service initialized (using Daniel's wallet)");
 
     // --- Start RPC Server ---
     let rpc_chain = Arc::clone(&chain);
@@ -491,24 +638,24 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     // --- Handle Gossip / P2P Messages ---
     let chain_p2p = chain.clone();
     let gs_p2p = gulf_stream.clone();
-    
+
     // Spawn message processor
     tokio::spawn(async move {
         while let Ok(msg) = gossip_rx.recv().await {
             match msg {
                 crate::network::NetMessage::SubmitTx(payload) => {
-                     println!("[P2P] Received Transaction from Network");
-                     let raw_tx = bincode::serialize(&payload).unwrap();
-                     let tx_hash = sha2::Sha256::digest(&raw_tx).to_vec(); // Simple hash assuming Vec<u8> key
-                     
-                     let mut gs = gs_p2p.lock().unwrap();
-                     gs.add_transaction(tx_hash, raw_tx, 0); // Priority 0 by default
-                     println!("[GulfStream] Queued Tx (Simulated)");
-                },
+                    println!("[P2P] Received Transaction from Network");
+                    let raw_tx = bincode::serialize(&payload).unwrap();
+                    let tx_hash = sha2::Sha256::digest(&raw_tx).to_vec(); // Simple hash assuming Vec<u8> key
+
+                    let mut gs = gs_p2p.lock().unwrap();
+                    gs.add_transaction(tx_hash, raw_tx, 0); // Priority 0 by default
+                    println!("[GulfStream] Queued Tx (Simulated)");
+                }
                 crate::network::NetMessage::NewPeer { addr } => {
                     println!("[P2P] New Peer Discovered via Gossip: {}", addr);
                     // Add to PeerManager? (Done in handler already, but maybe we connect?)
-                },
+                }
                 _ => {} // Ignore Ping/Pong/etc here
             }
         }
@@ -550,32 +697,37 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
         thread::spawn(move || {
             let mut tick: u64 = 0;
             let mut seed = b"COMPASS_GENESIS_SEED".to_vec();
-            
+
             // Restore state from Chain if exists (Updated for Storage)
             {
                 let chain_guard = chain.lock().unwrap();
                 let head = chain_guard.head_hash();
                 if let Some(h) = head {
-                     // Get head block
-                     if let Ok(Some(block)) = chain_guard.storage.get_block(&h) {
-                          // Simple restore: use head VDF hash as seed, and height as tick
-                          // This assumes strictly one PoH block per height (ok for PoH chain)
-                          // In reality, we might mix block types.
-                          // Ideally we scan backwards for last PoH block.
-                          // For prototype, let's just use head logic if it IS a PoH block.
-                          if let block::BlockType::PoH { tick: last_tick, hash: ref last_hash, .. } = block.header.block_type {
-                                tick = last_tick;
-                                if let Ok(decoded_hash) = hex::decode(last_hash) {
-                                    seed = decoded_hash;
-                                }
-                                println!("Restored PoH State: Tick={}, VDF Hash={}", tick, last_hash);
-                          }
-                     }
+                    // Get head block
+                    if let Ok(Some(block)) = chain_guard.storage.get_block(&h) {
+                        // Simple restore: use head VDF hash as seed, and height as tick
+                        // This assumes strictly one PoH block per height (ok for PoH chain)
+                        // In reality, we might mix block types.
+                        // Ideally we scan backwards for last PoH block.
+                        // For prototype, let's just use head logic if it IS a PoH block.
+                        if let block::BlockType::PoH {
+                            tick: last_tick,
+                            hash: ref last_hash,
+                            ..
+                        } = block.header.block_type
+                        {
+                            tick = last_tick;
+                            if let Ok(decoded_hash) = hex::decode(last_hash) {
+                                seed = decoded_hash;
+                            }
+                            println!("Restored PoH State: Tick={}, VDF Hash={}", tick, last_hash);
+                        }
+                    }
                 }
             }
 
             let mut vdf_state = vdf::VDFState::new(seed);
-            
+
             // Target: ~400ms per block (Solana style)
             // Based on logs: ~290k H/s on this machine.
             // 120,000 / 290,000 ~= 0.41s
@@ -593,19 +745,21 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
 
                     // Bootstrap genesis if empty (rarely happens here if we restored, but good for clean start)
                     if chain.head_hash().is_none() {
-                         let genesis = create_poh_block(
+                        let genesis = create_poh_block(
                             chain.height, // Added index
-                            "GENESIS".to_string(), 
-                            0, 
-                            0, 
+                            "GENESIS".to_string(),
+                            0,
+                            0,
                             start_hash.clone(), // initial seed
-                            &admin
+                            &admin,
                         );
                         // Genesis has no prev_hash (GENESIS)
                         // append_poh verifies.
                         // We must be careful about "GENESIS" hash check.
                         // Impl in Chain allows GENESIS if no head.
-                        chain.append_poh(genesis, &admin.public_key_hex()).expect("Genesis PoH failed");
+                        chain
+                            .append_poh(genesis, &admin.public_key_hex())
+                            .expect("Genesis PoH failed");
                         println!("Genesis PoH block created.");
                     }
 
@@ -620,8 +774,8 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                         &admin,
                     );
                     if let Err(e) = chain.append_poh(poh, &admin.public_key_hex()) {
-                         println!("PoH Append Error: {}", e);
-                         // Don't crash loop, just retry?
+                        println!("PoH Append Error: {}", e);
+                        // Don't crash loop, just retry?
                     }
                 }
 
@@ -630,14 +784,20 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                     let chain = chain.lock().unwrap();
                     let millis = duration.as_millis();
                     // Avoid divide by zero
-                    let hps = if millis > 0 { (iterations_per_tick as u128 * 1000) / millis } else { 0 };
-                    
-                    println!("PoH Tick #{}: {} hashes in {}ms (~{} H/s)", 
-                        tick, iterations_per_tick, millis, hps);
+                    let hps = if millis > 0 {
+                        (iterations_per_tick as u128 * 1000) / millis
+                    } else {
+                        0
+                    };
+
+                    println!(
+                        "PoH Tick #{}: {} hashes in {}ms (~{} H/s)",
+                        tick, iterations_per_tick, millis, hps
+                    );
                     log_to_file(&format!("PoH Tick #{}: {}ms (~{} H/s)", tick, millis, hps));
                     // chain.save_to_json // REMOVED (No need, DB persists instantly)
                 }
-                
+
                 // Sleep to control block production rate (1 block per second)
                 // Calculate how much time to sleep to reach 1 second total
                 let elapsed_ms = duration.as_millis() as u64;
@@ -652,15 +812,8 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
         println!("PoH generation DISABLED (follower mode)");
     }
 
-    // --- Oracle / Smart Contract Setup ---
-    let oracle_service = Arc::new(tokio::sync::Mutex::new(oracle::OracleService::new(
-        "ltc1qunzw2r558tm6ln7fnxhqxqy0mkz8kkdretf75h", 
-        admin.clone()
-    )));
-
     // (Old RPC and Network setup removed in favor of P2P integration above)
     // The main loop keeps running...
-
 
     // --- Transaction Processor Loop ---
     tokio::spawn({
@@ -668,7 +821,8 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
         let wallets = Arc::clone(&wallets);
         let market = Arc::clone(&market);
         let chain = Arc::clone(&chain);
-        
+        let oracle: Arc<Mutex<crate::oracle::OracleService>> = Arc::clone(&oracle);
+
         async move {
             loop {
                 // 1. Get Pending Txs
@@ -679,7 +833,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                     let keys: Vec<Vec<u8>> = gs.pending_transactions.keys().cloned().collect();
                     for k in keys {
                         if let Some(tx) = gs.pending_transactions.get(&k) {
-                             txs_to_process.push(tx.clone());
+                            txs_to_process.push(tx.clone());
                         }
                         gs.confirm_transaction(&k); // Move to processing/confirmed
                     }
@@ -693,85 +847,184 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                     let mut c_guard = chain.lock().unwrap();
 
                     for tx in txs_to_process {
-                         if let Ok(payload) = bincode::deserialize::<TransactionPayload>(&tx.raw_tx) {
-                             match payload {
-                                 TransactionPayload::Transfer { from, to, asset, amount, nonce, signature } => {
-                                     // Construct Block Logic using Chain
-                                     let prev_hash = c_guard.head_hash().unwrap_or_default();
-                                     let index = c_guard.height;
-                                     let timestamp = current_unix_timestamp_ms(); // Use global helper or system time
-                                     
-                                     let header = crate::block::BlockHeader {
-                                         index,
-                                         timestamp: timestamp as u64,
-                                         prev_hash: prev_hash.clone(),
-                                         hash: "".to_string(), // Recalculated
-                                         proposer: "Validator1".to_string(), // Placeholder or Miner ID
-                                         signature_hex: signature.clone(),
-                                         block_type: crate::block::BlockType::Transfer {
-                                             from: from.clone(),
-                                             to: to.clone(),
-                                             asset: asset.clone(),
-                                             amount,
-                                             nonce, 
-                                             fee: 0, 
-                                         }
-                                     };
-                                     
-                                     // Calculate Self Hash
-                                     let mut header_final = header.clone();
-                                     header_final.hash = header_final.calculate_hash();
-                                     
-                                     // Auto-Sign for Legacy/Hosted Wallets and Get PubKey
-                                     let mut pub_key_hex = String::new();
-                                     
-                                     if let Some(sender_wallet) = w_guard.get_wallet(&from) {
-                                         pub_key_hex = sender_wallet.public_key.clone();
-                                         
-                                         if header_final.signature_hex.is_empty() || header_final.signature_hex == "stub_sig" {
-                                              // Fix Nonce (Hosted Wallet Feature)
-                                              let correct_nonce = c_guard.storage.get_nonce(&from).unwrap_or(0) + 1;
-                                              if let crate::block::BlockType::Transfer { nonce, .. } = &mut header_final.block_type {
-                                                  println!("SYSTEM: Correcting nonce for {} from {} to {}", from, *nonce, correct_nonce);
-                                                  *nonce = correct_nonce;
-                                              }
-                                              
-                                              // Recalculate Hash
-                                              header_final.hash = header_final.calculate_hash();
+                        if let Ok(payload) = bincode::deserialize::<TransactionPayload>(&tx.raw_tx)
+                        {
+                            match payload {
+                                TransactionPayload::Transfer {
+                                    from,
+                                    to,
+                                    asset,
+                                    amount,
+                                    nonce,
+                                    signature,
+                                } => {
+                                    // Construct Block Logic using Chain
+                                    let prev_hash = c_guard.head_hash().unwrap_or_default();
+                                    let index = c_guard.height;
+                                    let timestamp = current_unix_timestamp_ms(); // Use global helper or system time
 
-                                              if let Some(kp) = sender_wallet.get_keypair() {
-                                                  let sig = kp.sign_hex(header_final.hash.as_bytes());
-                                                  header_final.signature_hex = sig.clone(); // Clone for print
-                                                  println!("SYSTEM: Auto-signed transaction for {}", from);
-                                                  println!("DEBUG: Signed Hash: {}", header_final.hash);
-                                                  println!("DEBUG: Generated Sig: {}", sig);
-                                              } else {
-                                                  println!("SYSTEM: Cannot sign for {} - no mnemonic", from);
-                                              }
-                                         }
-                                     } else {
-                                          println!("SYSTEM: Public Key lookup failed for {} - wallet not found locally", from);
-                                     }
+                                    let header = crate::block::BlockHeader {
+                                        index,
+                                        timestamp: timestamp as u64,
+                                        prev_hash: prev_hash.clone(),
+                                        hash: "".to_string(), // Recalculated
+                                        proposer: "Validator1".to_string(), // Placeholder or Miner ID
+                                        signature_hex: signature.clone(),
+                                        block_type: crate::block::BlockType::Transfer {
+                                            from: from.clone(),
+                                            to: to.clone(),
+                                            asset: asset.clone(),
+                                            amount,
+                                            nonce,
+                                            fee: 0,
+                                        },
+                                    };
 
-                                     // Append to Chain (DB)
-                                     match c_guard.append_transfer(header_final, &pub_key_hex) {
-                                         Ok(_) => println!("EXEC: Mined Transfer Block {} -> {}", from, to),
-                                         Err(e) => println!("EXEC: Mining Failed: {}", e),
-                                     }
-                                 },
-                                 TransactionPayload::PlaceOrder { user, side, base, quote, amount, price, .. } => {
-                                      println!("EXEC: Place Order for {}", user);
-                                      let _ = m_guard.place_order(&user, side, &base, &quote, amount, price, &mut w_guard);
-                                 },
-                                 TransactionPayload::Mint(_) | TransactionPayload::Burn(_) => {
-                                     // Already handled?
-                                 }
-                             }
-                         }
+                                    // Calculate Self Hash
+                                    let mut header_final = header.clone();
+                                    header_final.hash = header_final.calculate_hash();
+
+                                    // Auto-Sign for Legacy/Hosted Wallets and Get PubKey
+                                    let mut pub_key_hex = String::new();
+
+                                    if let Some(sender_wallet) = w_guard.get_wallet(&from) {
+                                        pub_key_hex = sender_wallet.public_key.clone();
+
+                                        if header_final.signature_hex.is_empty()
+                                            || header_final.signature_hex == "stub_sig"
+                                        {
+                                            // Fix Nonce (Hosted Wallet Feature)
+                                            let correct_nonce =
+                                                c_guard.storage.get_nonce(&from).unwrap_or(0) + 1;
+                                            if let crate::block::BlockType::Transfer {
+                                                nonce, ..
+                                            } = &mut header_final.block_type
+                                            {
+                                                println!(
+                                                    "SYSTEM: Correcting nonce for {} from {} to {}",
+                                                    from, *nonce, correct_nonce
+                                                );
+                                                *nonce = correct_nonce;
+                                            }
+
+                                            // Recalculate Hash
+                                            header_final.hash = header_final.calculate_hash();
+
+                                            if let Some(kp) = sender_wallet.get_keypair() {
+                                                let sig = kp.sign_hex(header_final.hash.as_bytes());
+                                                header_final.signature_hex = sig.clone(); // Clone for print
+                                                println!(
+                                                    "SYSTEM: Auto-signed transaction for {}",
+                                                    from
+                                                );
+                                                println!(
+                                                    "DEBUG: Signed Hash: {}",
+                                                    header_final.hash
+                                                );
+                                                println!("DEBUG: Generated Sig: {}", sig);
+                                            } else {
+                                                println!(
+                                                    "SYSTEM: Cannot sign for {} - no mnemonic",
+                                                    from
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        println!("SYSTEM: Public Key lookup failed for {} - wallet not found locally", from);
+                                    }
+
+                                    // Append to Chain (DB)
+                                    match c_guard.append_transfer(header_final, &pub_key_hex) {
+                                        Ok(_) => println!(
+                                            "EXEC: Mined Transfer Block {} -> {}",
+                                            from, to
+                                        ),
+                                        Err(e) => println!("EXEC: Mining Failed: {}", e),
+                                    }
+                                }
+                                TransactionPayload::PlaceOrder {
+                                    user,
+                                    side,
+                                    base,
+                                    quote,
+                                    amount,
+                                    price,
+                                    ..
+                                } => {
+                                    println!("EXEC: Place Order for {}", user);
+                                    let _ = m_guard.place_order(
+                                        &user,
+                                        side,
+                                        &base,
+                                        &quote,
+                                        amount,
+                                        price,
+                                        &mut w_guard,
+                                    );
+                                }
+                                TransactionPayload::Mint(mint_params) => {
+                                    println!("[EXEC] Processing Mint for {}", mint_params.owner);
+                                    
+                                    // TODO: Integrate Oracle verification (requires async refactor)
+                                    // For now, using simulated Oracle signing
+                                    let oracle_kp = w_guard.get_wallet("Daniel").and_then(|w| w.get_keypair());
+                                    if let Some(kp) = oracle_kp {
+                                        let oracle_pubkey = kp.public_key_hex();
+                                        let oracle_msg = format!("DEPOSIT:{}:{}:{}:{}:{}", 
+                                            mint_params.collateral_asset, mint_params.collateral_amount, 
+                                            mint_params.tx_proof, mint_params.mint_amount, mint_params.owner);
+                                        let oracle_sig = kp.sign_hex(oracle_msg.as_bytes());
+                                        
+                                        let prev_hash = c_guard.head_hash().unwrap_or_default();
+                                        let header = crate::block::BlockHeader {
+                                            index: c_guard.height,
+                                            timestamp: current_unix_timestamp_ms() as u64,
+                                            prev_hash,
+                                            hash: String::new(),
+                                            proposer: "Validator1".to_string(),
+                                            signature_hex: String::new(),
+                                            block_type: crate::block::BlockType::Mint {
+                                                vault_id: mint_params.vault_id.clone(),
+                                                collateral_asset: mint_params.collateral_asset.clone(),
+                                                collateral_amount: mint_params.collateral_amount,
+                                                compass_asset: mint_params.compass_asset.clone(),
+                                                mint_amount: mint_params.mint_amount,
+                                                owner: mint_params.owner.clone(),
+                                                tx_proof: mint_params.tx_proof.clone(),
+                                                oracle_signature: oracle_sig,
+                                                fee: mint_params.fee,
+                                            }
+                                        };
+                                        
+                                        let mut header_final = header;
+                                        header_final.hash = header_final.calculate_hash();
+                                        
+                                        if let Some(owner_wallet) = w_guard.get_wallet(&mint_params.owner) {
+                                            if let Some(owner_kp) = owner_wallet.get_keypair() {
+                                                let header_sig = owner_kp.sign_hex(header_final.hash.as_bytes());
+                                                header_final.signature_hex = header_sig;
+                                                println!("SYSTEM: Auto-signed mint header for {}", mint_params.owner);
+                                            }
+                                        }
+                                        
+                                        match c_guard.append_mint(header_final, &oracle_pubkey) {
+                                            Ok(_) => println!("EXEC: Mined Mint Block - {} received {} {}", 
+                                                mint_params.owner, mint_params.mint_amount, mint_params.compass_asset),
+                                            Err(e) => println!("EXEC: Mint Failed: {}", e),
+                                        }
+                                    } else {
+                                        println!("EXEC: Mint Failed - Oracle wallet not found");
+                                    }
+                                },
+                                TransactionPayload::Burn(_) => {
+                                    println!("EXEC: Burn not yet implemented");
+                                }
+                            }
+                        }
                     }
                     // Save State
-                     // w_guard.save("wallets.json"); // DISABLED: Node should not overwrite client-managed file
-                     m_guard.save("market.json");
+                    // w_guard.save("wallets.json"); // DISABLED: Node should not overwrite client-managed file
+                    m_guard.save("market.json");
                 }
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
@@ -779,58 +1032,69 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
         }
     });
 
-
-
     // --- Sync Loop (Active) ---
     // Only sync if peer address is explicitly provided
     if let Some(peer_addr) = peer_addr {
         let chain = Arc::clone(&chain);
-        let wallets = Arc::clone(&wallets); // Need to update state if blocks processed? 
-        // Currently append_block doesn't execute txs automatically on history sync?
-        // Ideally we re-process, but for prototype just appending to chain is good step 1.
-        
+        let wallets = Arc::clone(&wallets); // Need to update state if blocks processed?
+                                            // Currently append_block doesn't execute txs automatically on history sync?
+                                            // Ideally we re-process, but for prototype just appending to chain is good step 1.
+
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_secs(1)).await; // Sync every 1 second
-                
+
                 let my_height = {
                     let chain = chain.lock().unwrap();
                     chain.height
                 };
 
-                println!("Sync: Requesting blocks from {} starting at {}", peer_addr, my_height);
+                println!(
+                    "Sync: Requesting blocks from {} starting at {}",
+                    peer_addr, my_height
+                );
 
                 if let Ok(mut stream) = tokio::net::TcpStream::connect(&peer_addr).await {
-                     let req = NetMessage::RequestBlocks { start_height: my_height, end_height: my_height + 18 }; // 18 blocks per second
-                     let data = bincode::serialize(&req).unwrap();
-                     if stream.write_all(&data).await.is_ok() {
-                         // Read response
-                         let mut buf = vec![0u8; 10_000_000]; // 10MB buffer for large block batches
-                         if let Ok(n) = stream.read(&mut buf).await {
-                             if n > 0 {
-                                 if let Ok(NetMessage::SendBlocks(blocks)) = bincode::deserialize(&buf[..n]) {
-                                     println!("Sync: Received {} blocks", blocks.len());
-                                     let mut chain = chain.lock().unwrap();
-                                     for block in blocks {
-                                         // Append downloaded block
-                                         if let Err(e) = chain.sync_block(block.header) {
+                    let req = NetMessage::RequestBlocks {
+                        start_height: my_height,
+                        end_height: my_height + 18,
+                    }; // 18 blocks per second
+                    let data = bincode::serialize(&req).unwrap();
+                    if stream.write_all(&data).await.is_ok() {
+                        // Read response
+                        let mut buf = vec![0u8; 10_000_000]; // 10MB buffer for large block batches
+                        if let Ok(n) = stream.read(&mut buf).await {
+                            if n > 0 {
+                                if let Ok(NetMessage::SendBlocks(blocks)) =
+                                    bincode::deserialize(&buf[..n])
+                                {
+                                    println!("Sync: Received {} blocks", blocks.len());
+                                    let mut chain = chain.lock().unwrap();
+                                    for block in blocks {
+                                        // Append downloaded block
+                                        if let Err(e) = chain.sync_block(block.header) {
                                             println!("Sync Error: Failed to append block: {}", e);
                                             break;
-                                         } else {
-                                            println!("Sync: Appended block height {}", chain.height);
-                                         }
-                                     } 
-                                 }
-                             }
-                         }
-                     }
+                                        } else {
+                                            println!(
+                                                "Sync: Appended block height {}",
+                                                chain.height
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
                     println!("Sync: Failed to connect to {}", peer_addr);
                 }
             }
         });
     } else {
-        println!("No peer specified. Running in standalone mode. Use --peer <address> to enable sync.");
+        println!(
+            "No peer specified. Running in standalone mode. Use --peer <address> to enable sync."
+        );
     }
 
     // --- Admin Menu Loop (Main Thread) ---
@@ -881,8 +1145,11 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                     |msg| admin.sign_hex(msg),
                     || current_unix_timestamp_ms(),
                     |id| chain.proposal_id_exists(id),
-                ).expect("proposal failed");
-                chain.append_proposal(proposal, &admin_pubkey_hex).expect("append proposal failed");
+                )
+                .expect("proposal failed");
+                chain
+                    .append_proposal(proposal, &admin_pubkey_hex)
+                    .expect("append proposal failed");
                 println!("Proposal appended.");
             }
             "3" => {
@@ -908,7 +1175,9 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                     chain.head_hash().unwrap_or_default(),
                     &voter,
                 );
-                chain.append_vote(vote_block, &voter.public_key_hex()).expect("append vote failed");
+                chain
+                    .append_vote(vote_block, &voter.public_key_hex())
+                    .expect("append vote failed");
                 println!("Vote appended.");
             }
             "4" => {
@@ -931,7 +1200,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                 io::stdout().flush().unwrap();
                 let mut col = String::new();
                 io::stdin().read_line(&mut col).unwrap();
-                
+
                 print!("Compass Asset (e.g. Compass-SOL): ");
                 io::stdout().flush().unwrap();
                 let mut name = String::new();
@@ -941,7 +1210,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                 io::stdout().flush().unwrap();
                 let mut addr = String::new();
                 io::stdin().read_line(&mut addr).unwrap();
-                
+
                 print!("Rate (Compass per 1 Collateral): ");
                 io::stdout().flush().unwrap();
                 let mut rate_str = String::new();
@@ -953,7 +1222,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                     Ok(_) => {
                         println!("Vault Registered!");
                         vaults.save("vaults.json");
-                    },
+                    }
                     Err(e) => println!("Error: {}", e),
                 }
             }
@@ -961,30 +1230,43 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                 // Admin Tool to Sign User Requests
                 print!("Collateral Ticker (e.g. LTC): ");
                 io::stdout().flush().unwrap();
-                let mut t = String::new(); io::stdin().read_line(&mut t).unwrap();
-                
+                let mut t = String::new();
+                io::stdin().read_line(&mut t).unwrap();
+
                 print!("Collateral Amount (Sats): ");
                 io::stdout().flush().unwrap();
-                let mut a = String::new(); io::stdin().read_line(&mut a).unwrap();
+                let mut a = String::new();
+                io::stdin().read_line(&mut a).unwrap();
                 let amt: u64 = a.trim().parse().unwrap_or(0);
 
                 print!("User's Desired Mint Amount: ");
                 io::stdout().flush().unwrap();
-                let mut m = String::new(); io::stdin().read_line(&mut m).unwrap();
+                let mut m = String::new();
+                io::stdin().read_line(&mut m).unwrap();
                 let mint: u64 = m.trim().parse().unwrap_or(0);
-                
+
                 print!("TX Hash: ");
                 io::stdout().flush().unwrap();
-                let mut tx = String::new(); io::stdin().read_line(&mut tx).unwrap();
-                
+                let mut tx = String::new();
+                io::stdin().read_line(&mut tx).unwrap();
+
                 print!("User Identity (OwnerID): ");
                 io::stdout().flush().unwrap();
-                let mut u = String::new(); io::stdin().read_line(&mut u).unwrap();
-                
+                let mut u = String::new();
+                io::stdin().read_line(&mut u).unwrap();
+
                 let sig = admin.sign_hex(
-                    format!("DEPOSIT:{}:{}:{}:{}:{}", t.trim(), amt, tx.trim(), mint, u.trim()).as_bytes()
+                    format!(
+                        "DEPOSIT:{}:{}:{}:{}:{}",
+                        t.trim(),
+                        amt,
+                        tx.trim(),
+                        mint,
+                        u.trim()
+                    )
+                    .as_bytes(),
                 );
-                
+
                 println!("\n=== GENERATED SIGNATURE ===");
                 println!("Signature: {}", sig);
                 println!("Oracle PubKey: {}", admin_pubkey_hex);

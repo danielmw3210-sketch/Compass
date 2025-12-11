@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 
@@ -30,7 +30,7 @@ impl Wallet {
         use crate::crypto::KeyPair;
         let mnemonic = KeyPair::generate_mnemonic();
         let kp = KeyPair::from_mnemonic(&mnemonic).unwrap_or_else(|_| KeyPair::new());
-        
+
         Wallet {
             owner: owner.to_string(),
             balances: HashMap::new(),
@@ -94,7 +94,9 @@ pub struct WalletManager {
 
 impl WalletManager {
     pub fn new() -> Self {
-        WalletManager { wallets: Vec::new() }
+        WalletManager {
+            wallets: Vec::new(),
+        }
     }
 
     pub fn create_wallet(&mut self, creator: &Wallet, owner: &str, wallet_type: WalletType) {
