@@ -12,6 +12,7 @@ pub enum TransactionPayload {
         to: String,
         asset: String,
         amount: u64,
+        nonce: u64,
         signature: String, // Hex encoded
     },
     PlaceOrder {

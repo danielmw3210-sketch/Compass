@@ -345,6 +345,7 @@ async fn handle_submit_transaction(
                     to: tx.to, 
                     asset: tx.asset, 
                     amount: tx.amount, 
+                    nonce: tx.nonce,
                     signature: tx.signature 
                 }
             );

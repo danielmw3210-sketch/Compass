@@ -16,6 +16,7 @@ mod network;
 
 use network::{NetMessage, TransactionPayload, connect_and_send}; 
 use tokio::io::{AsyncReadExt, AsyncWriteExt}; // Added AsyncReadExt and AsyncWriteExt traits
+use sha2::Digest; // Import Digest trait
 use crypto::KeyPair;
 use block::{
     create_poh_block, create_vote_block,
@@ -170,6 +171,7 @@ async fn run_client_mode() {
                         to: r.trim().to_string(),
                         asset: a.trim().to_string(),
                         amount: amt,
+                        nonce: 0,
                         signature: "stub_sig".to_string(),
                     };
                     
@@ -275,6 +277,7 @@ async fn run_client_mode() {
                          to,
                          asset,
                          amount,
+                         nonce: 0,
                          signature: String::new(), // Will be signed by node
                      };
                      
@@ -495,23 +498,11 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
             match msg {
                 crate::network::NetMessage::SubmitTx(payload) => {
                      println!("[P2P] Received Transaction from Network");
-                     // For now, simple logic: Try to append to Chain (if we are Leader/Miner)
-                     // In real L1: Push to Gulf Stream -> Leader builds block.
-                     // Here we act as single-node miner, so we just process it.
-                     // Note: Payload structure needs conversion or handling.
-                     // Since `append_transfer` takes BlockHeader, we need to wrap it?
-                     // Or `SubmitTx` here should be the `BlockHeader` itself (Tx=Block)?
-                     // `TransactionPayload` has fields. We construct Header locally?
-                     // Wait, `TransactionPayload` has `signature`.
-                     // We can reconstruct `BlockHeader`.
-                     // BUT, `BlockHeader` needs `prev_hash` which might differ from sender's view.
-                     // This confirms why "Tx=Block" needs Gulf Stream to Re-sequence.
+                     let raw_tx = bincode::serialize(&payload).unwrap();
+                     let tx_hash = sha2::Sha256::digest(&raw_tx).to_vec(); // Simple hash assuming Vec<u8> key
                      
-                     // For Prototype: Just log it.
-                     // "Gulf Stream" fully built out means we add to `gulf_stream` manager.
                      let mut gs = gs_p2p.lock().unwrap();
-                     // gs.add_transaction(...) // Requires raw bytes
-                     // We have Payload.
+                     gs.add_transaction(tx_hash, raw_tx, 0); // Priority 0 by default
                      println!("[GulfStream] Queued Tx (Simulated)");
                 },
                 crate::network::NetMessage::NewPeer { addr } => {
@@ -676,6 +667,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
         let gulf_stream = Arc::clone(&gulf_stream);
         let wallets = Arc::clone(&wallets);
         let market = Arc::clone(&market);
+        let chain = Arc::clone(&chain);
         
         async move {
             loop {
@@ -694,20 +686,46 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                 }
 
                 // 2. Execute Txs
+                // 2. Execute Txs
                 if !txs_to_process.is_empty() {
                     let mut w_guard = wallets.lock().unwrap();
                     let mut m_guard = market.lock().unwrap();
+                    let mut c_guard = chain.lock().unwrap();
 
                     for tx in txs_to_process {
                          if let Ok(payload) = bincode::deserialize::<TransactionPayload>(&tx.raw_tx) {
                              match payload {
-                                 TransactionPayload::Transfer { from, to, asset, amount, .. } => {
-                                     // Verify sig (TODO). For now, execute.
-                                     if w_guard.debit(&from, &asset, amount) {
-                                         w_guard.credit(&to, &asset, amount);
-                                         println!("EXEC: Transfer {} {} from {} to {}", amount, asset, from, to);
-                                     } else {
-                                         println!("EXEC: Transfer Failed (Insuff Balance) {} -> {}", from, to);
+                                 TransactionPayload::Transfer { from, to, asset, amount, nonce, signature } => {
+                                     // Construct Block Logic using Chain
+                                     let prev_hash = c_guard.head_hash().unwrap_or_default();
+                                     let index = c_guard.height;
+                                     let timestamp = current_unix_timestamp_ms(); // Use global helper or system time
+                                     
+                                     let header = crate::block::BlockHeader {
+                                         index,
+                                         timestamp: timestamp as u64,
+                                         prev_hash: prev_hash.clone(),
+                                         hash: "".to_string(), // Recalculated
+                                         proposer: "Validator1".to_string(), // Placeholder or Miner ID
+                                         signature_hex: signature.clone(),
+                                         block_type: crate::block::BlockType::Transfer {
+                                             from: from.clone(),
+                                             to: to.clone(),
+                                             asset: asset.clone(),
+                                             amount,
+                                             nonce, 
+                                             fee: 0, 
+                                         }
+                                     };
+                                     
+                                     // Calculate Self Hash
+                                     let mut header_final = header.clone();
+                                     header_final.hash = header_final.calculate_hash();
+
+                                     // Append to Chain (DB)
+                                     match c_guard.append_transfer(header_final, &from) {
+                                         Ok(_) => println!("EXEC: Mined Transfer Block {} -> {}", from, to),
+                                         Err(e) => println!("EXEC: Mining Failed: {}", e),
                                      }
                                  },
                                  TransactionPayload::PlaceOrder { user, side, base, quote, amount, price, .. } => {
@@ -715,14 +733,14 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                                       let _ = m_guard.place_order(&user, side, &base, &quote, amount, price, &mut w_guard);
                                  },
                                  TransactionPayload::Mint(_) | TransactionPayload::Burn(_) => {
-                                     println!("EXEC: Mint/Burn (Already handled via block/vault logic - skipping manual wallet adjustment here)");
+                                     // Already handled?
                                  }
                              }
                          }
                     }
                     // Save State
-                    w_guard.save("wallets.json");
-                    m_guard.save("market.json");
+                     w_guard.save("wallets.json");
+                     m_guard.save("market.json");
                 }
 
                 tokio::time::sleep(Duration::from_millis(100)).await;
