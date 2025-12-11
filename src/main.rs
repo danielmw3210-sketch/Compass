@@ -722,23 +722,39 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                                      let mut header_final = header.clone();
                                      header_final.hash = header_final.calculate_hash();
                                      
-                                     // Auto-Sign for Legacy/Hosted Wallets
-                                     if header_final.signature_hex.is_empty() || header_final.signature_hex == "stub_sig" {
-                                         if let Some(sender_wallet) = w_guard.get_wallet(&from) {
+                                     // Auto-Sign for Legacy/Hosted Wallets and Get PubKey
+                                     let mut pub_key_hex = String::new();
+                                     
+                                     if let Some(sender_wallet) = w_guard.get_wallet(&from) {
+                                         pub_key_hex = sender_wallet.public_key.clone();
+                                         
+                                         if header_final.signature_hex.is_empty() || header_final.signature_hex == "stub_sig" {
+                                              // Fix Nonce (Hosted Wallet Feature)
+                                              let correct_nonce = c_guard.storage.get_nonce(&from).unwrap_or(0) + 1;
+                                              if let crate::block::BlockType::Transfer { nonce, .. } = &mut header_final.block_type {
+                                                  println!("SYSTEM: Correcting nonce for {} from {} to {}", from, *nonce, correct_nonce);
+                                                  *nonce = correct_nonce;
+                                              }
+                                              
+                                              // Recalculate Hash
+                                              header_final.hash = header_final.calculate_hash();
+
                                               if let Some(kp) = sender_wallet.get_keypair() {
                                                   let sig = kp.sign_hex(header_final.hash.as_bytes());
-                                                  header_final.signature_hex = sig;
+                                                  header_final.signature_hex = sig.clone(); // Clone for print
                                                   println!("SYSTEM: Auto-signed transaction for {}", from);
+                                                  println!("DEBUG: Signed Hash: {}", header_final.hash);
+                                                  println!("DEBUG: Generated Sig: {}", sig);
                                               } else {
                                                   println!("SYSTEM: Cannot sign for {} - no mnemonic", from);
                                               }
-                                         } else {
-                                              println!("SYSTEM: Cannot sign for {} - wallet not found locally", from);
                                          }
+                                     } else {
+                                          println!("SYSTEM: Public Key lookup failed for {} - wallet not found locally", from);
                                      }
 
                                      // Append to Chain (DB)
-                                     match c_guard.append_transfer(header_final, &from) {
+                                     match c_guard.append_transfer(header_final, &pub_key_hex) {
                                          Ok(_) => println!("EXEC: Mined Transfer Block {} -> {}", from, to),
                                          Err(e) => println!("EXEC: Mining Failed: {}", e),
                                      }

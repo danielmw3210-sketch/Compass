@@ -216,6 +216,10 @@ impl Chain {
             return Err("missing signature".to_string());
         }
         if !verify_with_pubkey_hex(recompute.as_bytes(), sig_hex, sender_pubkey_hex) {
+            println!("DEBUG: Sig Verify Failed!");
+            println!("DEBUG: Hash (Recomputed): {}", recompute);
+            println!("DEBUG: Signature: {}", sig_hex);
+            println!("DEBUG: PubKey: {}", sender_pubkey_hex);
             return Err("invalid signature".to_string());
         }
 
