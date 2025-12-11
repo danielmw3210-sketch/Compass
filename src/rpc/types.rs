@@ -110,3 +110,37 @@ pub struct ValidatorStats {
 pub struct GetValidatorStatsParams {
     pub validator: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SubmitComputeParams {
+    pub job_id: String,
+    pub model_id: String,
+    pub inputs: Vec<u8>,
+    pub max_compute_units: u64,
+    pub signature: String,
+    pub owner_id: String, // Added owner for billing
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetPendingComputeJobsParams {
+    // Optional filter by model_id if worker only supports one model
+    pub model_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PendingJob {
+    pub job_id: String,
+    pub model_id: String,
+    pub inputs: Vec<u8>,
+    pub max_compute_units: u64,
+    pub tx_hash: String,
+    pub owner_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SubmitResultParams {
+    pub job_id: String,
+    pub worker_id: String,
+    pub result_data: Vec<u8>,
+    pub signature: String,
+}

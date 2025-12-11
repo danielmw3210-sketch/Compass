@@ -280,4 +280,51 @@ impl RpcClient {
             .await?;
         Ok(res["tx_hash"].as_str().unwrap_or("").to_string())
     }
+
+    pub async fn submit_compute(
+        &self,
+        job_id: String,
+        model_id: String,
+        inputs: Vec<u8>,
+        max_compute_units: u64,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+         let params = crate::rpc::types::SubmitComputeParams {
+            job_id,
+            model_id,
+            inputs,
+            max_compute_units,
+            signature: "stub_sig".to_string(), // TODO: sign
+            owner_id: "client_user".to_string(), // TODO: Pass actual user
+        };
+        let resp: serde_json::Value = self.send_request("submitCompute", serde_json::to_value(params).unwrap()).await.map_err(|e| format!("RPC error: {}", e))?;
+        let result = resp.get("tx_hash").ok_or("No tx_hash field")?.as_str().ok_or("tx_hash not a string")?;
+        Ok(result.to_string())
+    }
+    
+    pub async fn get_pending_compute_jobs(
+        &self,
+        model_id: Option<String>,
+    ) -> Result<Vec<crate::rpc::types::PendingJob>, Box<dyn std::error::Error>> {
+        let params = crate::rpc::types::GetPendingComputeJobsParams { model_id };
+        let resp: serde_json::Value = self.send_request("getPendingComputeJobs", serde_json::to_value(params).unwrap()).await.map_err(|e| format!("RPC error: {}", e))?;
+        let jobs: Vec<crate::rpc::types::PendingJob> = serde_json::from_value(resp)?;
+        Ok(jobs)
+    }
+
+    pub async fn submit_result(
+        &self,
+        job_id: String,
+        worker_id: String,
+        result_data: Vec<u8>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+         let params = crate::rpc::types::SubmitResultParams {
+            job_id,
+            worker_id,
+            result_data,
+            signature: "stub_worker_sig".to_string(),
+        };
+        let resp: serde_json::Value = self.send_request("submitResult", serde_json::to_value(params).unwrap()).await.map_err(|e| format!("RPC error: {}", e))?;
+        let result = resp.get("tx_hash").ok_or("No tx_hash field")?.as_str().ok_or("tx_hash not a string")?;
+        Ok(result.to_string())
+    }
 }

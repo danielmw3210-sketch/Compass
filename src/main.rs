@@ -116,6 +116,10 @@ async fn main() {
             } => {
                 cli::ops::handle_burn_command(vault_id, amount, asset, dest_addr, from, None).await;
             }
+            Commands::Worker { node_url, model_id } => {
+                let worker = crate::client::AiWorker::new(node_url, model_id);
+                worker.start().await;
+            }
         }
     } else {
         // No subcommand? Use existing logic:
@@ -138,8 +142,11 @@ async fn run_client_mode() {
         if current_user.is_empty() {
             println!("\n1. Login (Existing User)");
             println!("2. Create New User");
+            println!("2. Create New User");
             println!("3. Transfer Funds"); // Added Transfer
-            println!("4. Exit");
+            println!("4. Validator Dashboard");
+            println!("5. Request AI Compute");
+            println!("6. Exit");
             print!("Select: ");
             io::stdout().flush().unwrap();
 
@@ -795,18 +802,21 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
     println!("Oracle service initialized (using Daniel's wallet)");
 
     // --- Start RPC Server ---
-    let rpc_chain = Arc::clone(&chain);
-    let rpc_pm = Arc::clone(&peer_manager);
-    let rpc_gs = Arc::clone(&gulf_stream);
+    let rpc_state = crate::rpc::RpcState {
+        chain: Arc::clone(&chain),
+        gulf_stream: Arc::clone(&gulf_stream),
+        peer_manager: Arc::clone(&peer_manager),
+    };
     let rpc_port_clone = rpc_port;
     tokio::spawn(async move {
-        let server = crate::rpc::RpcServer::new(rpc_chain, rpc_pm, rpc_gs, rpc_port_clone);
+        let server = crate::rpc::RpcServer::new(rpc_state, rpc_port_clone);
         server.start().await;
     });
 
     // --- Handle Gossip / P2P Messages ---
     let chain_p2p = chain.clone();
     let gs_p2p = gulf_stream.clone();
+    let pm_p2p = peer_manager.clone();
 
     // Spawn message processor
     tokio::spawn(async move {
@@ -823,11 +833,57 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
                 }
                 crate::network::NetMessage::NewPeer { addr } => {
                     println!("[P2P] New Peer Discovered via Gossip: {}", addr);
-                    // Add to PeerManager? (Done in handler already, but maybe we connect?)
                 }
-                _ => {} // Ignore Ping/Pong/etc here
+                crate::network::NetMessage::GetHeight => {
+                    let h = chain_p2p.lock().unwrap().height;
+                    println!("[P2P] Received GetHeight request. Replying with {}", h);
+                    let msg = crate::network::NetMessage::HeightResponse { height: h };
+                    crate::network::broadcast_message(pm_p2p.clone(), msg).await;
+                }
+                crate::network::NetMessage::HeightResponse { height } => {
+                    let my_height = chain_p2p.lock().unwrap().height;
+                    if height > my_height {
+                        println!("[P2P] Peer height {} > Local {}. Requesting blocks...", height, my_height);
+                        let msg = crate::network::NetMessage::RequestBlocks { start: my_height, end: height };
+                        crate::network::broadcast_message(pm_p2p.clone(), msg).await;
+                    }
+                }
+                crate::network::NetMessage::RequestBlocks { start, end } => {
+                    println!("[P2P] RequestBlocks {}-{}", start, end);
+                    // Limit range to avoid overflow
+                    let limit = 50; 
+                    let actual_end = if end - start > limit { start + limit } else { end };
+                    
+                    let blocks = chain_p2p.lock().unwrap().get_blocks_range(start, actual_end);
+                    let response = crate::network::NetMessage::BlockResponse { blocks };
+                    crate::network::broadcast_message(pm_p2p.clone(), response).await;
+                }
+                crate::network::NetMessage::BlockResponse { blocks } => {
+                    println!("[P2P] Received {} blocks from peer", blocks.len());
+                    let mut c = chain_p2p.lock().unwrap();
+                     for b in blocks {
+                         if b.header.index >= c.height {
+                             println!("Syncing block {} (Hash: {})", b.header.index, b.header.hash);
+                             // We use sync_block (trusts peer for now, or validates internally)
+                             if let Err(e) = c.sync_block(b.header) {
+                                 println!("Failed to sync block: {}", e);
+                             }
+                         }
+                     }
+                }
+                _ => {} 
             }
         }
+    });
+
+    // --- Initial Sync Trigger ---
+    // Broadcast GetHeight to find peers with longer chains
+    let pm_sync = peer_manager.clone();
+    tokio::spawn(async move {
+        // Wait a bit for connections to establish
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        println!("[Sync] Requesting network height...");
+        crate::network::broadcast_message(pm_sync, crate::network::NetMessage::GetHeight).await;
     });
 
     // --- Genesis Balance Initialization ---
@@ -862,7 +918,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
         let wallets = Arc::clone(&wallets); // Needed for validator rewards
         let admin = Arc::clone(&admin);
 
-        thread::spawn(move || {
+        tokio::spawn(async move {
             let mut tick: u64 = 0;
             let mut seed = b"COMPASS_GENESIS_SEED".to_vec();
 
@@ -903,9 +959,25 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
 
             loop {
                 // Run VDF Work (CPU intensive!)
+                // NOTE: In strict async, CPU bound work block the runtime.
+                // ideally we use spawn_blocking, but for simplicity here we keep it inline
+                // or await yield. Since it's ~400ms it might be okay for prototype.
+                // Better: vdf_state.execute should be spawn_blocking.
                 let start = std::time::Instant::now();
-                let start_hash = vdf_state.current_hash.clone();
-                let end_hash = vdf_state.execute(iterations_per_tick);
+                
+                // Offload VDF to blocking thread to not starve Tokio runtime
+                let (start_hash, end_hash) = {
+                    let mut s = vdf_state.clone();
+                    let iterations = iterations_per_tick;
+                    let sh = s.current_hash.clone();
+                    let eh = tokio::task::spawn_blocking(move || {
+                        s.execute(iterations)
+                    }).await.expect("VDF task failed");
+                    vdf_state.current_hash = eh.clone();
+                    vdf_state.total_iterations += iterations;
+                    (sh, eh)
+                };
+                
                 let duration = start.elapsed();
 
                 {
@@ -948,20 +1020,29 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
                         // ✅ PoH block successfully appended - Reward validator!
                         // Mint COMPUTE tokens as reward (10 COMPUTE per block)
                         let compute_reward = 10_00000000u64; // 10 COMPUTE (8 decimals)
-                        let mut validator_wallet = wallets.lock().unwrap();
-                        validator_wallet.credit("Daniel", "COMPUTE", compute_reward);
-                        validator_wallet.save("wallets.json");
                         
-                        // Update Validator Statistics
-                        if let Err(e) = chain.update_validator_stats("Daniel", compute_reward, duration.as_millis() as u64) {
-                            println!("Warning: Failed to update stats: {}", e);
-                        }
+                        // Drop chain lock before getting wallet lock? Ideally yes to avoid deadlock risk.
+                        // But WalletManager is separate mutex. 
+                        // Let's create a separate scope or just call after.
                     }
+                     // Update Validator Statistics (inside lock)
+                     if let Err(e) = chain.update_validator_stats("Daniel", 10_00000000u64, duration.as_millis() as u64) {
+                         println!("Warning: Failed to update stats: {}", e);
+                     }
+                } // Chain lock dropped
+
+                // Rewards (New Scope to avoid holding chain lock)
+                {
+                    let mut validator_wallet = wallets.lock().unwrap();
+                    validator_wallet.credit("Daniel", "COMPUTE", 10_00000000u64);
+                    validator_wallet.save("wallets.json");
                 }
+
 
                 // Log periodically (outside lock)
                 if tick % 10 == 0 || tick == 1 {
-                    let chain = chain.lock().unwrap();
+                    // Just read stats?
+                    // let chain = chain.lock().unwrap(); // Lock again just for logging if needed?
                     let millis = duration.as_millis();
                     // Avoid divide by zero
                     let hps = if millis > 0 {
@@ -975,7 +1056,6 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
                         tick, iterations_per_tick, millis, hps
                     );
                     log_to_file(&format!("PoH Tick #{}: {}ms (~{} H/s)", tick, millis, hps));
-                    // chain.save_to_json // REMOVED (No need, DB persists instantly)
                 }
 
                 // Sleep to control block production rate (1 block per second)
@@ -984,7 +1064,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
                 let target_ms = 1000; // 1 second per block
                 if elapsed_ms < target_ms {
                     let sleep_ms = target_ms - elapsed_ms;
-                    thread::sleep(Duration::from_millis(sleep_ms));
+                    tokio::time::sleep(tokio::time::Duration::from_millis(sleep_ms)).await;
                 }
             }
         });
@@ -1198,7 +1278,40 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
                                 },
                                 TransactionPayload::Burn(_) => {
                                     println!("EXEC: Burn not yet implemented");
-                                }
+                                },
+                                // Process Compute Job (Payment)
+                                TransactionPayload::ComputeJob { job_id, model_id, max_compute_units, .. } => {
+                                     println!("Processing Compute Job: {} (Model: {})", job_id, model_id);
+                                     // 1. Deduct from User (Payment)
+                                     // For now, valid if signature valid (Mock).
+                                     // Real logic: 
+                                     // let cost = max_compute_units * PRICE_PER_UNIT;
+                                     // wallets.deduct(sender, cost);
+                                     
+                                     // We just log it for Phase 6 Step 1
+                                },
+                                
+                                // Process Compute Result (Reward)
+                                TransactionPayload::Result { job_id, worker_id, result_data: _, .. } => {
+                                    println!("Processing Result for Job: {} from Worker: {}", job_id, worker_id);
+                                    // 1. Verify Job exists (omitted for prototype)
+                                    // 2. Reward Worker
+                                    let reward = 10u64; // Flat reward for now
+                                    let mut w_lock = wallets.lock().unwrap();
+                                    if let Some(worker_wallet) = w_lock.get_wallet_mut(&worker_id) {
+                                        // TODO: Mint new tokens or transfer from Escrow?
+                                        // For prototype, we just "mint"/increment balance.
+                                        // But Wallet struct doesn't have balance field publicly mutable usually.
+                                        // We use `storage` to update balance.
+                                    }
+                                    
+                                    // Update Storage
+                                    {
+                                        let mut c = chain.lock().unwrap();
+                                        c.storage.update_balance(&worker_id, "COMPUTE", 10); // Reward 10 tokens
+                                    }
+                                    println!("Worker {} rewarded 10 COMPUTE tokens.", worker_id);
+                                },
                             }
                         }
                     }
@@ -1235,33 +1348,24 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>, p2p_port
                 );
 
                 if let Ok(mut stream) = tokio::net::TcpStream::connect(&peer_addr).await {
-                    let req = NetMessage::RequestBlocks {
-                        start_height: my_height,
-                        end_height: my_height + 18,
-                    }; // 18 blocks per second
-                    let data = bincode::serialize(&req).unwrap();
-                    if stream.write_all(&data).await.is_ok() {
-                        // Read response
-                        let mut buf = vec![0u8; 10_000_000]; // 10MB buffer for large block batches
-                        if let Ok(n) = stream.read(&mut buf).await {
-                            if n > 0 {
-                                if let Ok(NetMessage::SendBlocks(blocks)) =
-                                    bincode::deserialize(&buf[..n])
-                                {
-                                    println!("Sync: Received {} blocks", blocks.len());
-                                    let mut chain = chain.lock().unwrap();
-                                    for block in blocks {
-                                        // Append downloaded block
-                                        if let Err(e) = chain.sync_block(block.header) {
-                                            println!("Sync Error: Failed to append block: {}", e);
-                                            break;
-                                        } else {
-                                            println!(
-                                                "Sync: Appended block height {}",
-                                                chain.height
-                                            );
-                                        }
-                                    }
+                    let payload = NetMessage::RequestBlocks {
+                        start: my_height,
+                        end: my_height + 18,
+                    };
+                    let bytes = bincode::serialize(&payload).unwrap();
+                    stream.write_all(&bytes).await.unwrap();
+                    let mut buf = vec![0u8; 1024 * 1024];
+                    if let Ok(n) = stream.read(&mut buf).await {
+                        if let Ok(NetMessage::BlockResponse { blocks }) =
+                            bincode::deserialize::<NetMessage>(&buf[..n])
+                        {
+                            println!("Received {} blocks.", blocks.len());
+                            let mut c = chain.lock().unwrap();
+                            for b in blocks {
+                                if let Err(e) = c.sync_block(b.header) {
+                                    println!("Sync error: {}", e);
+                                } else {
+                                    println!("Synced block index {}", c.height - 1);
                                 }
                             }
                         }

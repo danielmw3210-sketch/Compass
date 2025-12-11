@@ -74,6 +74,14 @@ pub enum Commands {
         #[arg(long)]
         dest_addr: String, // External address
         #[arg(long)]
+        #[arg(long)]
         from: String, // Wallet Name (Redeemer)
+    },
+    /// Start AI Worker
+    Worker {
+        #[arg(long, default_value = "http://localhost:8899")]
+        node_url: String,
+        #[arg(long, default_value = "llama-2-7b-q4")]
+        model_id: String,
     },
 }

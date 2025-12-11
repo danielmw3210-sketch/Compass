@@ -11,9 +11,9 @@ use crate::network::PeerManager;
 
 #[derive(Clone)]
 pub struct RpcState {
-    pub chain: Arc<Mutex<Chain>>,
-    pub peer_manager: Arc<Mutex<PeerManager>>,
-    pub gulf_stream: Arc<Mutex<CompassGulfStreamManager>>,
+    pub chain: Arc<Mutex<crate::chain::Chain>>,
+    pub gulf_stream: Arc<Mutex<crate::gulf_stream::CompassGulfStreamManager>>,
+    pub peer_manager: Arc<Mutex<crate::network::PeerManager>>, // Added for gossip
 }
 
 pub struct RpcServer {
@@ -23,17 +23,11 @@ pub struct RpcServer {
 
 impl RpcServer {
     pub fn new(
-        chain: Arc<Mutex<Chain>>,
-        peer_manager: Arc<Mutex<PeerManager>>,
-        gulf_stream: Arc<Mutex<CompassGulfStreamManager>>,
+        state: RpcState,
         port: u16,
     ) -> Self {
         Self {
-            state: RpcState {
-                chain,
-                peer_manager,
-                gulf_stream,
-            },
+            state,
             bind_addr: format!("0.0.0.0:{}", port),
         }
     }

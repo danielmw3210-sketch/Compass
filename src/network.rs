@@ -27,18 +27,33 @@ pub enum TransactionPayload {
     // New types for Gulf Stream
     Mint(crate::rpc::types::SubmitMintParams),
     Burn(crate::rpc::types::SubmitBurnParams),
+    ComputeJob {
+        job_id: String,
+        model_id: String, // e.g. "llama-2-7b-q4"
+        inputs: Vec<u8>,  // JSON or binary input
+        // Max compute units (tokens) willing to pay for
+        max_compute_units: u64,
+    },
+    Result {
+        job_id: String,
+        worker_id: String,
+        result_data: Vec<u8>,
+        signature: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum NetMessage {
     SubmitTx(TransactionPayload),
+    // Sync Protocol
+    GetHeight,
+    HeightResponse { height: u64 },
+    RequestBlocks { start: u64, end: u64 },
+    BlockResponse { blocks: Vec<crate::block::Block> },
     Transaction(Vec<u8>), // Legacy raw bytes
     Ping,
     Pong,
     Handshake { port: u16 }, // Tell peer our listening port
-    // Sync Messages
-    RequestBlocks { start_height: u64, end_height: u64 },
-    SendBlocks(Vec<crate::block::Block>),
     // Gossip
     NewPeer { addr: String },
     GetPeers,
@@ -139,22 +154,22 @@ pub async fn start_server(
             
                 // Check if it's a RequestBlocks message
                 if let NetMessage::RequestBlocks {
-                    start_height,
-                    end_height,
+                    start,
+                    end,
                 } = msg
                 {
                     println!(
                         "Received RequestBlocks({}..{}) from {}",
-                        start_height, end_height, peer_addr
+                        start, end, peer_addr
                     );
 
                     let blocks = {
                         let c_lock = chain.lock().unwrap();
-                        c_lock.get_blocks_range(start_height, end_height)
+                        c_lock.get_blocks_range(start, end)
                     };
 
                     // Respond directly
-                    let resp = NetMessage::SendBlocks(blocks);
+                    let resp = NetMessage::BlockResponse { blocks };
                     let resp_bytes = bincode::serialize(&resp).unwrap();
                     let _ = socket.write_all(&resp_bytes).await;
                     // Dont forward execution

@@ -25,6 +25,35 @@ impl Storage {
             .map_err(|e| e.to_string())
     }
 
+    pub fn get_balance(&self, wallet_id: &str, asset: &str) -> Result<u64, String> {
+        let key = format!("bal:{}:{}", wallet_id, asset);
+        match self.db.get(key.as_bytes()) {
+            Ok(Some(val)) => {
+                let bytes: [u8; 8] = val.try_into().unwrap();
+                Ok(u64::from_be_bytes(bytes))
+            }
+            Ok(None) => Ok(0),
+            Err(e) => Err(format!("DB error: {}", e)),
+        }
+    }
+
+    pub fn set_balance(&self, wallet_id: &str, asset: &str, amount: u64) -> Result<(), String> {
+        let key = format!("bal:{}:{}", wallet_id, asset);
+        let bytes = amount.to_be_bytes();
+        self.db.put(key.as_bytes(), bytes).map_err(|e| format!("DB Write error: {}", e))
+    }
+
+    pub fn update_balance(&self, wallet_id: &str, asset: &str, amount: u64) -> Result<(), String> {
+        let key = format!("bal:{}:{}", wallet_id, asset);
+        
+        let current = self.get_balance(wallet_id, asset).unwrap_or(0);
+        let new_bal = current + amount; // For now just add, but should handle sub too if negative? 
+        // Oh wait, this is for rewards (add). 
+        
+        let bytes = new_bal.to_be_bytes();
+        self.db.put(key.as_bytes(), bytes).map_err(|e| format!("DB Write error: {}", e))
+    }
+
     // Generic Helper: Get
     pub fn get<T: for<'a> Deserialize<'a>>(&self, key: &str) -> Result<Option<T>, String> {
         match self.db.get(key.as_bytes()) {
@@ -71,15 +100,7 @@ impl Storage {
     }
 
     // 2. Account State (Balances and Nonces)
-    pub fn get_balance(&self, wallet_id: &str, asset: &str) -> Result<u64, String> {
-        let key = format!("balance:{}:{}", wallet_id, asset);
-        Ok(self.get::<u64>(&key)?.unwrap_or(0))
-    }
-
-    pub fn set_balance(&self, wallet_id: &str, asset: &str, amount: u64) -> Result<(), String> {
-        let key = format!("balance:{}:{}", wallet_id, asset);
-        self.put(&key, &amount)
-    }
+    // get_balance is defined above
 
     pub fn get_nonce(&self, wallet_id: &str) -> Result<u64, String> {
         let key = format!("nonce:{}", wallet_id);
