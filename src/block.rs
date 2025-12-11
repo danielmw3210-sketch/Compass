@@ -1,13 +1,16 @@
 use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
+use chrono::Utc;
 use crate::crypto::KeyPair;
 
+/// A full block: header + transactions
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
     pub transactions: Vec<Vec<u8>>,
 }
 
+/// Different kinds of blocks Compass can produce
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockType {
     PoH {
@@ -39,8 +42,27 @@ pub enum BlockType {
         asset: String,  // "Compass" or "cLTC", "cSOL", etc.
         amount: u64,
         nonce: u64,
+        fee: u64,
     },
-    // Future: FinanceAnchor ...
+    Mint {
+        vault_id: String,
+        collateral_asset: String,
+        collateral_amount: u64,
+        compass_asset: String,
+        mint_amount: u64,
+        owner: String,
+        tx_proof: String,  // External chain tx hash
+        oracle_signature: String,
+        fee: u64,
+    },
+    Burn {
+        vault_id: String,
+        compass_asset: String,
+        burn_amount: u64,
+        redeemer: String,
+        destination_address: String,  // External chain address
+        fee: u64,
+    },
 }
 
 impl BlockType {
@@ -52,19 +74,22 @@ impl BlockType {
             BlockType::Reward { .. } => 5,
             BlockType::Vote { .. } => 6,
             BlockType::Transfer { .. } => 7,
+            BlockType::Mint { .. } => 8,
+            BlockType::Burn { .. } => 9,
         }
     }
 }
 
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockHeader {
-    pub index: u64, 
-    pub block_type: BlockType,
+    pub index: u64,
+    pub block_type: BlockType,     // use the enum, not String
     pub proposer: String,
+    pub signature_hex: String,
+    pub prev_hash: String,
+    pub hash: String,
     pub timestamp: u64,
-    pub signature_hex: Option<String>,
-    pub prev_hash: Option<String>,
-    pub hash: Option<String>,
 }
 
 impl BlockHeader {
@@ -78,7 +103,7 @@ impl BlockHeader {
             self.block_type.to_code(),
             self.proposer,
             self.timestamp,
-            self.prev_hash.clone().unwrap_or_default()
+            self.prev_hash,
         );
 
         match &self.block_type {
@@ -100,10 +125,22 @@ impl BlockHeader {
                     recipient, amount, asset, reason
                 ));
             }
-            BlockType::Transfer { from, to, asset, amount, nonce } => {
+            BlockType::Transfer { from, to, asset, amount, nonce, fee } => {
                 data.push_str(&format!(
-                    ":transfer_from={}:transfer_to={}:transfer_asset={}:transfer_amount={}:transfer_nonce={}",
-                    from, to, asset, amount, nonce
+                    ":transfer_from={}:transfer_to={}:transfer_asset={}:transfer_amount={}:transfer_nonce={}:fee={}",
+                    from, to, asset, amount, nonce, fee
+                ));
+            }
+            BlockType::Mint { vault_id, collateral_asset, collateral_amount, compass_asset, mint_amount, owner, tx_proof, oracle_signature, fee } => {
+                data.push_str(&format!(
+                    ":mint_vault={}:col_asset={}:col_amt={}:comp_asset={}:mint_amt={}:owner={}:proof={}:oracle_sig={}:fee={}",
+                    vault_id, collateral_asset, collateral_amount, compass_asset, mint_amount, owner, tx_proof, oracle_signature, fee
+                ));
+            }
+            BlockType::Burn { vault_id, compass_asset, burn_amount, redeemer, destination_address, fee } => {
+                 data.push_str(&format!(
+                    ":burn_vault={}:comp_asset={}:burn_amt={}:redeemer={}:dest={}:fee={}",
+                    vault_id, compass_asset, burn_amount, redeemer, destination_address, fee
                 ));
             }
             _ => {}
@@ -127,7 +164,7 @@ pub fn current_unix_timestamp_ms() -> u64 {
         .as_millis() as u64
 }
 
-/// Proposal logic
+// Proposal logic
 #[derive(Debug)]
 pub enum ProposalError {
     NotAdmin,
@@ -143,7 +180,7 @@ pub fn create_proposal_block(
     admin_wallet_id: String,
     proposal_text: String,
     deadline_ms: u64,
-    prev_hash: Option<String>,
+    prev_hash: String,
     sign_hex_fn: impl Fn(&[u8]) -> String,
     id_gen_fn: impl Fn() -> u64,
     id_exists_fn: impl Fn(u64) -> bool,
@@ -167,21 +204,19 @@ pub fn create_proposal_block(
         return Err(ProposalError::IdCollision);
     }
 
-    let proposal_variant = BlockType::Proposal {
-        id,
-        proposer: admin_wallet_id.clone(),
-        text: proposal_text.clone(),
-        deadline: deadline_ms,
-    };
-
     let mut header = BlockHeader {
         index,
-        block_type: proposal_variant,
+        block_type: BlockType::Proposal {
+            id,
+            proposer: admin_wallet_id.clone(),
+            text: proposal_text,
+            deadline: deadline_ms,
+        },
         proposer: admin_wallet_id,
-        timestamp: now,
-        signature_hex: None,
+        signature_hex: String::new(),
         prev_hash,
-        hash: None,
+        hash: String::new(),
+        timestamp: now,
     };
 
     let pre_sign_hash = header.calculate_hash();
@@ -189,8 +224,9 @@ pub fn create_proposal_block(
     if sig_hex.is_empty() {
         return Err(ProposalError::SigningFailed);
     }
-    header.signature_hex = Some(sig_hex);
-    header.hash = Some(header.calculate_hash());
+
+    header.signature_hex = sig_hex;
+    header.hash = header.calculate_hash();
 
     Ok(header)
 }
@@ -206,8 +242,7 @@ pub fn create_poh_block(
 ) -> BlockHeader {
     let timestamp = current_unix_timestamp_ms();
     let hash_hex = hex::encode(&end_vdf_hash);
-    
-    // Construct header FIRST to get correct hash to sign
+
     let mut header = BlockHeader {
         index,
         block_type: BlockType::PoH {
@@ -217,16 +252,16 @@ pub fn create_poh_block(
         },
         proposer: "admin".to_string(),
         timestamp,
-        signature_hex: None, // Will sign below
-        prev_hash: Some(prev_hash),
-        hash: None,
+        signature_hex: String::new(),
+        prev_hash,
+        hash: String::new(),
     };
-    
-    let pre_sign_hash = header.calculate_hash();
-    let signature_hex = admin.sign_hex(pre_sign_hash.as_bytes()); // Sign canonical hash
 
-    header.signature_hex = Some(signature_hex);
-    header.hash = Some(header.calculate_hash());
+    let pre_sign_hash = header.calculate_hash();
+    let signature_hex = admin.sign_hex(pre_sign_hash.as_bytes());
+
+    header.signature_hex = signature_hex;
+    header.hash = header.calculate_hash();
     header
 }
 
@@ -236,7 +271,7 @@ pub fn create_vote_block(
     voter_wallet_id: String,
     proposal_id: u64,
     choice: bool,
-    prev_hash: Option<String>,
+    prev_hash: String,
     voter: &KeyPair,
 ) -> BlockHeader {
     let mut header = BlockHeader {
@@ -248,15 +283,15 @@ pub fn create_vote_block(
         },
         proposer: voter_wallet_id,
         timestamp: current_unix_timestamp_ms(),
-        signature_hex: None,
+        signature_hex: String::new(),
         prev_hash,
-        hash: None,
+        hash: String::new(),
     };
 
     let pre_sign_hash = header.calculate_hash();
     let sig_hex = voter.sign_hex(pre_sign_hash.as_bytes());
-    header.signature_hex = Some(sig_hex);
-    header.hash = Some(header.calculate_hash());
+    header.signature_hex = sig_hex;
+    header.hash = header.calculate_hash();
 
     header
 }
@@ -269,7 +304,7 @@ pub fn create_reward_block(
     amount: u64,
     asset: String,
     reason: String,
-    prev_hash: Option<String>,
+    prev_hash: String,
     admin: &KeyPair,
 ) -> BlockHeader {
     let mut header = BlockHeader {
@@ -282,15 +317,15 @@ pub fn create_reward_block(
         },
         proposer: admin_wallet_id.clone(),
         timestamp: current_unix_timestamp_ms(),
-        signature_hex: None,
+        signature_hex: String::new(),
         prev_hash,
-        hash: None,
+        hash: String::new(),
     };
 
     let pre_sign_hash = header.calculate_hash();
     let sig_hex = admin.sign_hex(pre_sign_hash.as_bytes());
-    header.signature_hex = Some(sig_hex);
-    header.hash = Some(header.calculate_hash());
+    header.signature_hex = sig_hex;
+    header.hash = header.calculate_hash();
 
     header
 }
@@ -303,7 +338,8 @@ pub fn create_transfer_block(
     asset: String,
     amount: u64,
     nonce: u64,
-    prev_hash: Option<String>,
+    fee: u64,
+    prev_hash: String,
     sender_keypair: &KeyPair,
 ) -> BlockHeader {
     let mut header = BlockHeader {
@@ -314,18 +350,19 @@ pub fn create_transfer_block(
             asset,
             amount,
             nonce,
+            fee,
         },
-        proposer: from, // Sender is the proposer
+        proposer: from,
         timestamp: current_unix_timestamp_ms(),
-        signature_hex: None,
+        signature_hex: String::new(),
         prev_hash,
-        hash: None,
+        hash: String::new(),
     };
 
     let pre_sign_hash = header.calculate_hash();
     let sig_hex = sender_keypair.sign_hex(pre_sign_hash.as_bytes());
-    header.signature_hex = Some(sig_hex);
-    header.hash = Some(header.calculate_hash());
+    header.signature_hex = sig_hex;
+    header.hash = header.calculate_hash();
 
     header
 }

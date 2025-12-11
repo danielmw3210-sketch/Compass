@@ -8,9 +8,13 @@ mod oracle;
 mod market;
 mod gulf_stream; // Added module declaration
 mod storage; // Added storage module
+mod rpc; // RPC server
+mod client; // RPC client
 
+mod cli; // CLI module
 mod network;
-use network::{NetMessage, TransactionPayload, start_server, connect_and_send}; 
+
+use network::{NetMessage, TransactionPayload, connect_and_send}; 
 use tokio::io::{AsyncReadExt, AsyncWriteExt}; // Added AsyncReadExt and AsyncWriteExt traits
 use crypto::KeyPair;
 use block::{
@@ -22,12 +26,15 @@ use chain::Chain;
 use wallet::{WalletManager, WalletType};
 use vault::VaultManager;
 use market::{Market, OrderSide};
-use gulf_stream::manager::CompassGulfStreamManager; // Import Gulf Stream
+use gulf_stream::manager::CompassGulfStreamManager;
 use std::io::{self, Write};
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::fs::OpenOptions;
+
+use clap::Parser;
+use cli::{Cli, Commands};
 
 /// Simple file logger
 fn log_to_file(msg: &str) {
@@ -41,10 +48,47 @@ fn log_to_file(msg: &str) {
 
 #[tokio::main]
 async fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.contains(&"--node".to_string()) {
-        run_node_mode().await;
+    let cli = Cli::parse();
+    
+    // Check if any specific command is provided
+    if let Some(command) = cli.command {
+        match command {
+            Commands::Wallet { cmd } => {
+                cli::wallet::handle_wallet_command(cmd);
+            },
+            Commands::Account { cmd } => {
+                cli::wallet::handle_account_command(cmd);
+            },
+            Commands::Node { cmd } => {
+                // If "compass node start" is called
+                match cmd {
+                    cli::node::NodeCommands::Start { rpc_port } => {
+                        // Start the full node
+                        run_node_mode(Some(rpc_port), cli.peer).await;
+                    }
+                    cli::node::NodeCommands::Status | cli::node::NodeCommands::Peers => {
+                        cli::node::handle_node_command(cmd).await;
+                    }
+                }
+            },
+             Commands::Transfer { from, to, amount, asset } => {
+                 cli::tx::handle_transfer_command(from, to, amount, asset, None).await;
+             },
+             Commands::Balance { address } => {
+                 println!("Balance check for {}", address);
+                 // TODO: Implement handle_balance_command via RPC
+             },
+             Commands::Mint { vault_id, amount, asset, collateral_asset, collateral_amount, proof, oracle_sig, owner } => {
+                 cli::ops::handle_mint_command(vault_id, amount, asset, collateral_asset, collateral_amount, proof, oracle_sig, owner, None).await;
+             },
+             Commands::Burn { vault_id, amount, asset, dest_addr, from } => {
+                 cli::ops::handle_burn_command(vault_id, amount, asset, dest_addr, from, None).await;
+             }
+        }
     } else {
+        // No subcommand? Use existing logic:
+        // If --node was a flag in old version, now it's a subcommand "node start"
+        // If previously it ran client interactive mode by default:
         run_client_mode().await;
     }
 }
@@ -173,24 +217,29 @@ async fn run_client_mode() {
                          }
                      }
                      
-                     // Also show blockchain balances
+                     // Also show blockchain balances via RPC
                      println!("\n=== Blockchain Balances (On-Chain) ===");
-                     let storage = crate::storage::Storage::new("compass_db");
-                     let assets = vec!["Compass", "cLTC", "cSOL", "cBTC"];
-                     let mut found_any = false;
-                     for asset in assets {
-                         if let Ok(balance) = storage.get_balance(&current_user, asset) {
-                             if balance > 0 {
-                                 println!(" - {}: {}", asset, balance);
-                                 found_any = true;
+                     let rpc_client = crate::client::RpcClient::new("http://127.0.0.1:8899".to_string());
+                     
+                     match rpc_client.get_account_info(&current_user).await {
+                         Ok(info) => {
+                             if let Some(balances) = info.get("balances").and_then(|b| b.as_object()) {
+                                 if balances.is_empty() {
+                                     println!(" (No assets found on blockchain)");
+                                 } else {
+                                     for (asset, amount) in balances {
+                                         println!(" - {}: {}", asset, amount);
+                                     }
+                                 }
                              }
+                             if let Some(nonce) = info.get("nonce").and_then(|n| n.as_u64()) {
+                                 println!("Nonce: {}", nonce);
+                             }
+                         },
+                         Err(e) => {
+                             println!("⚠️  Could not fetch blockchain balances: {}", e);
+                             println!("   (Make sure the node is running)");
                          }
-                     }
-                     if !found_any {
-                         println!(" (No assets found on blockchain)");
-                     }
-                     if let Ok(nonce) = storage.get_nonce(&current_user) {
-                         println!("Nonce: {}", nonce);
                      }
                 },
                 "2" => {
@@ -365,37 +414,18 @@ async fn run_client_mode() {
 }
 
 // --- NODE MODE (Infrastructure) ---
-async fn run_node_mode() {
+async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
     println!("Starting Compass Node...");
-
-    // --- Parse CLI args ---
-    let args: Vec<String> = std::env::args().collect();
-    let mut port = 9000u16;
-    let mut peer_addr: Option<String> = None;
-    let mut follower_mode = false;
+    let port = 9000; // P2P port remains fixed for now, or could be arg.
+    let peer_addr = peer_val.clone(); // Use passed peer address
+    let follower_mode = peer_addr.is_some();
     
-    let mut i = 0;
-    while i < args.len() {
-        if args[i] == "--port" && i + 1 < args.len() {
-            port = args[i + 1].parse().unwrap_or(9000);
-            i += 2;
-        } else if args[i] == "--peer" && i + 1 < args.len() {
-            peer_addr = Some(args[i + 1].clone());
-            i += 2;
-        } else if args[i] == "--follower" {
-            follower_mode = true;
-            i += 1;
-        } else {
-            i += 1;
-        }
-    }
+    let rpc_port = rpc_port.unwrap_or(8899);
 
     if follower_mode {
         println!("Running in FOLLOWER mode - will sync from peer, not generate blocks");
-        if peer_addr.is_none() {
-            println!("WARNING: Follower mode requires --peer argument!");
-        }
     }
+
 
     // --- Setup admin ---
     let admin = Arc::new(KeyPair::new());
@@ -411,6 +441,28 @@ async fn run_node_mode() {
         println!("Created admin wallet for Daniel");
     }
 
+    // --- Network Setup ---
+    let my_p2p_port = 9000;
+    let peer_manager = Arc::new(Mutex::new(crate::network::PeerManager::new(my_p2p_port)));
+    
+    // Channel for P2P messages (Gossip)
+    let (gossip_tx, mut gossip_rx) = tokio::sync::broadcast::channel::<crate::network::NetMessage>(100);
+
+    // --- Start P2P Server ---
+    let pm_clone = peer_manager.clone();
+    let gtx_clone = gossip_tx.clone();
+    tokio::spawn(async move {
+        crate::network::start_server(my_p2p_port, pm_clone, gtx_clone).await;
+    });
+    
+    // Connect to peer if specified
+    if let Some(paddr) = peer_val {
+        let pm_connect = peer_manager.clone();
+        tokio::spawn(async move {
+             crate::network::connect_to_peer(&paddr, my_p2p_port, pm_connect).await;
+        });
+    }
+
     // --- Load chain ---
     let storage_arc = Arc::new(crate::storage::Storage::new("compass_db"));
     let chain = Arc::new(Mutex::new(Chain::new(storage_arc)));
@@ -418,6 +470,54 @@ async fn run_node_mode() {
     let vaults = Arc::new(Mutex::new(VaultManager::load("vaults.json")));
     let market = Arc::new(Mutex::new(Market::load("market.json"))); // Load Market
     let gulf_stream = Arc::new(Mutex::new(CompassGulfStreamManager::new("Node1".to_string(), 1000)));
+
+    // --- Start RPC Server ---
+    let rpc_chain = Arc::clone(&chain);
+    let rpc_pm = Arc::clone(&peer_manager);
+    let rpc_gs = Arc::clone(&gulf_stream);
+    let rpc_port_clone = rpc_port;
+    tokio::spawn(async move {
+        let server = crate::rpc::RpcServer::new(rpc_chain, rpc_pm, rpc_gs, rpc_port_clone);
+        server.start().await;
+    });
+
+    // --- Handle Gossip / P2P Messages ---
+    let chain_p2p = chain.clone();
+    let gs_p2p = gulf_stream.clone();
+    
+    // Spawn message processor
+    tokio::spawn(async move {
+        while let Ok(msg) = gossip_rx.recv().await {
+            match msg {
+                crate::network::NetMessage::SubmitTx(payload) => {
+                     println!("[P2P] Received Transaction from Network");
+                     // For now, simple logic: Try to append to Chain (if we are Leader/Miner)
+                     // In real L1: Push to Gulf Stream -> Leader builds block.
+                     // Here we act as single-node miner, so we just process it.
+                     // Note: Payload structure needs conversion or handling.
+                     // Since `append_transfer` takes BlockHeader, we need to wrap it?
+                     // Or `SubmitTx` here should be the `BlockHeader` itself (Tx=Block)?
+                     // `TransactionPayload` has fields. We construct Header locally?
+                     // Wait, `TransactionPayload` has `signature`.
+                     // We can reconstruct `BlockHeader`.
+                     // BUT, `BlockHeader` needs `prev_hash` which might differ from sender's view.
+                     // This confirms why "Tx=Block" needs Gulf Stream to Re-sequence.
+                     
+                     // For Prototype: Just log it.
+                     // "Gulf Stream" fully built out means we add to `gulf_stream` manager.
+                     let mut gs = gs_p2p.lock().unwrap();
+                     // gs.add_transaction(...) // Requires raw bytes
+                     // We have Payload.
+                     println!("[GulfStream] Queued Tx (Simulated)");
+                },
+                crate::network::NetMessage::NewPeer { addr } => {
+                    println!("[P2P] New Peer Discovered via Gossip: {}", addr);
+                    // Add to PeerManager? (Done in handler already, but maybe we connect?)
+                },
+                _ => {} // Ignore Ping/Pong/etc here
+            }
+        }
+    });
 
     // --- Genesis Balance Initialization ---
     {
@@ -563,116 +663,9 @@ async fn run_node_mode() {
         admin.clone()
     )));
 
-    // --- Networking Setup ---
-    {
-        let gulf_stream = Arc::clone(&gulf_stream);
-        let chain = Arc::clone(&chain); // Pass chain to listener
-        let bind_addr = format!("0.0.0.0:{}", port);
-        let admin_pubkey_for_network = admin_pubkey_hex.clone(); // Clone for network handler
-        let admin_keypair_for_network = admin.clone(); // Clone admin keypair for signing transfers
-        tokio::spawn(async move {
-            let listener = tokio::net::TcpListener::bind(&bind_addr).await.unwrap();
-            println!("Compass node listening on {}", bind_addr);
+    // (Old RPC and Network setup removed in favor of P2P integration above)
+    // The main loop keeps running...
 
-            loop {
-                let (mut socket, peer) = listener.accept().await.unwrap();
-                println!("Incoming connection from {}", peer);
-                let gulf_stream = Arc::clone(&gulf_stream);
-                let chain = Arc::clone(&chain);
-                let admin_pubkey = admin_pubkey_for_network.clone(); // Clone for this connection
-                let admin_keypair = admin_keypair_for_network.clone(); // Clone for this connection
-
-                tokio::spawn(async move {
-                    let mut buf = vec![0u8; 65536]; // Increased buffer for blocks
-                    match socket.read(&mut buf).await {
-                        Ok(n) if n > 0 => {
-                            if let Ok(msg) = bincode::deserialize::<NetMessage>(&buf[..n]) {
-                                match msg {
-                                    NetMessage::SubmitTx(payload) => {
-                                        match payload {
-                                            TransactionPayload::Transfer { from, to, asset, amount, signature } => {
-                                                println!("Received Transfer: {} -> {}, {} {}", from, to, amount, asset);
-                                                
-                                                // Get sender's current nonce
-                                                let nonce = {
-                                                    let chain_lock = chain.lock().unwrap();
-                                                    chain_lock.storage.get_nonce(&from).unwrap_or(0) + 1
-                                                };
-
-                                                // Create transfer block
-                                                let transfer_header = {
-                                                    let chain_lock = chain.lock().unwrap();
-                                                    let prev_hash = chain_lock.head_hash();
-                                                    let index = chain_lock.height;
-                                                    
-                                                    // Use admin keypair for signing (temporary - should use sender's keypair)
-                                                    create_transfer_block(
-                                                        index,
-                                                        from.clone(),
-                                                        to,
-                                                        asset,
-                                                        amount,
-                                                        nonce,
-                                                        prev_hash,
-                                                        &admin_keypair
-                                                    )
-                                                };
-
-                                                // Execute transfer
-                                                let mut chain_lock = chain.lock().unwrap();
-                                                // TODO: Get real sender public key from wallet manager
-                                                let sender_pubkey = admin_pubkey.clone(); // Temporary: use admin key
-                                                match chain_lock.append_transfer(transfer_header, &sender_pubkey) {
-                                                    Ok(_) => println!("Transfer executed successfully!"),
-                                                    Err(e) => println!("Transfer failed: {}", e),
-                                                }
-                                            },
-                                            _ => {
-                                                // Queue other transaction types in GulfStream
-                                                let mut gs = gulf_stream.lock().unwrap();
-                                                let tx_hash = format!("{:?}", payload).as_bytes().to_vec();
-                                                let raw_tx = bincode::serialize(&payload).unwrap();
-                                                if gs.add_transaction(tx_hash.clone(), raw_tx, 100) {
-                                                    println!("GulfStream: TX Queued {:?}", payload);
-                                                }
-                                            }
-                                        }
-                                    },
-                                    NetMessage::Ping => println!("Received Ping"),
-                                    NetMessage::RequestBlocks { start_height, end_height } => {
-                                        println!("Peer requested blocks {} to {}", start_height, end_height);
-                                        let blocks = {
-                                            let chain = chain.lock().unwrap();
-                                            let mut blocks = Vec::new();
-                                            println!("DEBUG: Chain height is {}, looking for blocks {} to {}", chain.height, start_height, end_height);
-                                            for h in start_height..=end_height {
-                                                if let Ok(Some(block)) = chain.storage.get_block_by_height(h) {
-                                                    blocks.push(block);
-                                                } else {
-                                                    println!("DEBUG: Block at height {} not found, stopping", h);
-                                                    break; // End of chain or gap
-                                                }
-                                            }
-                                            println!("DEBUG: Returning {} blocks", blocks.len());
-                                            blocks
-                                        };
-                                        // Send back
-                                        let resp = NetMessage::SendBlocks(blocks);
-                                        let data = bincode::serialize(&resp).unwrap();
-                                        if let Err(e) = socket.write_all(&data).await {
-                                            println!("Failed to send blocks: {}", e);
-                                        }
-                                    },
-                                    _ => {},
-                                }
-                            }
-                        }
-                        _ => {},
-                    }
-                });
-            }
-        });
-    }
 
     // --- Transaction Processor Loop ---
     tokio::spawn({
@@ -717,6 +710,9 @@ async fn run_node_mode() {
                                       println!("EXEC: Place Order for {}", user);
                                       let _ = m_guard.place_order(&user, side, &base, &quote, amount, price, &mut w_guard);
                                  },
+                                 TransactionPayload::Mint(_) | TransactionPayload::Burn(_) => {
+                                     println!("EXEC: Mint/Burn (Already handled via block/vault logic - skipping manual wallet adjustment here)");
+                                 }
                              }
                          }
                     }
@@ -828,7 +824,7 @@ async fn run_node_mode() {
                     admin_wallet_id.clone(),
                     text.trim().to_string(),
                     deadline,
-                    chain.head_hash(),
+                    chain.head_hash().unwrap_or_default(),
                     |msg| admin.sign_hex(msg),
                     || current_unix_timestamp_ms(),
                     |id| chain.proposal_id_exists(id),
@@ -856,7 +852,7 @@ async fn run_node_mode() {
                     "Daniel".to_string(),
                     proposal_id,
                     choice,
-                    chain.head_hash(),
+                    chain.head_hash().unwrap_or_default(),
                     &voter,
                 );
                 chain.append_vote(vote_block, &voter.public_key_hex()).expect("append vote failed");

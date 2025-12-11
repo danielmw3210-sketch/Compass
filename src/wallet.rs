@@ -15,20 +15,41 @@ pub enum WalletType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Wallet {
     pub owner: String,
-    /// Map of Asset Symbol -> Amount (e.g., "C-SOL" -> 50000)
     pub balances: HashMap<String, u64>,
     pub wallet_type: WalletType,
-    pub nonce: u64, // replay protection
+    pub nonce: u64,
+    #[serde(default)]
+    pub mnemonic: Option<String>,
+    #[serde(default)]
+    pub public_key: String,
 }
 
 impl Wallet {
-    /// Create a new wallet with a given type
+    /// Create a new wallet with a given type (Generates new keys)
     pub fn new(owner: &str, wallet_type: WalletType) -> Self {
+        use crate::crypto::KeyPair;
+        let mnemonic = KeyPair::generate_mnemonic();
+        let kp = KeyPair::from_mnemonic(&mnemonic).unwrap_or_else(|_| KeyPair::new());
+        
         Wallet {
             owner: owner.to_string(),
             balances: HashMap::new(),
             wallet_type,
             nonce: 0,
+            mnemonic: Some(mnemonic),
+            public_key: kp.public_key_hex(),
+        }
+    }
+
+    /// Create a watch-only wallet or account entry (Node side)
+    pub fn new_account(owner: &str) -> Self {
+        Wallet {
+            owner: owner.to_string(),
+            balances: HashMap::new(),
+            wallet_type: WalletType::User,
+            nonce: 0,
+            mnemonic: None,
+            public_key: String::new(), // In real app, account ID *is* pubkey
         }
     }
 
@@ -98,6 +119,8 @@ impl WalletManager {
                 balances,
                 wallet_type: WalletType::User,
                 nonce: 0,
+                mnemonic: None,
+                public_key: String::new(),
             });
         }
     }
