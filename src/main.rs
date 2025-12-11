@@ -770,7 +770,7 @@ async fn run_node_mode(rpc_port: Option<u16>, peer_val: Option<String>) {
                          }
                     }
                     // Save State
-                     w_guard.save("wallets.json");
+                     // w_guard.save("wallets.json"); // DISABLED: Node should not overwrite client-managed file
                      m_guard.save("market.json");
                 }
 
