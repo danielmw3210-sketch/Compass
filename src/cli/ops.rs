@@ -80,7 +80,7 @@ pub async fn handle_mint_command(
         timestamp: Utc::now().timestamp() as u64,
     };
 
-    header.hash = header.calculate_hash();
+    header.hash = header.calculate_hash().expect("Failed to calculate hash");
     let signature = keypair.sign_hex(header.hash.as_bytes());
 
     // 5. Submit
@@ -97,6 +97,7 @@ pub async fn handle_mint_command(
         signature,
         prev_hash: Some(head_hash),
         timestamp: Some(header.timestamp),
+        public_key: keypair.public_key_hex(),
     };
 
     match client.submit_mint(params).await {
@@ -156,6 +157,7 @@ pub async fn handle_burn_command(
         index: height,
         block_type: BlockType::Burn {
             vault_id: vault_id.clone(),
+            collateral_asset: "Legacy".to_string(), // Placeholder
             compass_asset: asset.clone(),
             burn_amount: amount,
             redeemer: from.clone(),
@@ -169,7 +171,7 @@ pub async fn handle_burn_command(
         timestamp: Utc::now().timestamp() as u64,
     };
 
-    header.hash = header.calculate_hash();
+    header.hash = header.calculate_hash().expect("Failed to calculate hash");
     let signature = keypair.sign_hex(header.hash.as_bytes());
 
     let params = SubmitBurnParams {

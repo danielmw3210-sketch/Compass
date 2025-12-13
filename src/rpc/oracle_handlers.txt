@@ -1,0 +1,108 @@
+
+
+/// Handle submitOracleVerificationJob
+async fn handle_submit_oracle_verification_job(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    let req: SubmitOracleVerificationJobParams = serde_json::from_value(params).map_err(|e| RpcError {
+        code: -32602,
+        message: format!("Invalid params: {}", e),
+    })?;
+
+    let job_id = uuid::Uuid::new_v4().to_string();
+    
+    // Get current oracle price if available
+    let oracle_price = {
+        let vm = state.vaults.lock().unwrap();
+        vm.oracle_prices.get(&req.ticker).map(|(price, _)| price.to_string())
+    };
+
+    let job = OracleVerificationJob {
+        job_id: job_id.clone(),
+        ticker: req.ticker.clone(),
+        oracle_price,
+        max_compute_units: req.max_compute_units,
+        submission_time: crate::block::current_unix_timestamp_ms(),
+    };
+
+    // Store in pending jobs (for now, just log - workers will poll via getPendingOracleJobs)
+    println!("📊 Oracle Verification Job Created: {} for ticker {}", job_id, req.ticker);
+
+    Ok(serde_json::json!({
+        "job_id": job_id,
+        "ticker": req.ticker,
+        "status": "pending"
+    }))
+}
+
+/// Handle getPendingOracleJobs
+async fn handle_get_pending_oracle_jobs(
+    state: RpcState,
+) -> Result<serde_json::Value, RpcError> {
+    // For production: Store pending jobs in state/database
+    // For now, return empty array (jobs are ephemeral)
+    Ok(serde_json::json!({
+        "jobs": []
+    }))
+}
+
+/// Handle submitOracleVerificationResult
+async fn handle_submit_oracle_verification_result(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    let req: SubmitOracleVerificationResultParams = serde_json::from_value(params).map_err(|e| RpcError {
+        code: -32602,
+        message: format!("Invalid params: {}", e),
+    })?;
+
+    // Create OracleVerification transaction
+    let payload = crate::network::TransactionPayload::OracleVerification {
+        job_id: req.job_id.clone(),
+        ticker: req.ticker.clone(),
+        oracle_price: req.oracle_price.clone(),
+        external_prices: req.external_prices.clone(),
+        avg_external_price: req.avg_external_price.clone(),
+        deviation_pct: req.deviation_pct.clone(),
+        passed: req.passed,
+        worker_id: req.worker_id.clone(),
+        signature: req.signature.clone(),
+    };
+
+    // Verify signature
+    if !payload.verify() {
+        return Err(RpcError {
+            code: -32603,
+            message: "Invalid worker signature".to_string(),
+        });
+    }
+
+    // Add to GulfStream
+    let raw_tx = bincode::serialize(&payload).unwrap();
+    use sha2::Digest;
+    let tx_hash = sha2::Sha256::digest(&raw_tx).to_vec();
+    let tx_hash_hex = hex::encode(&tx_hash);
+
+    {
+        let mut gs = state.gulf_stream.lock().unwrap();
+        let added = gs.add_transaction(tx_hash.clone(), raw_tx.clone(), 0);
+        if !added {
+            return Err(RpcError {
+                code: -32603,
+                message: "Transaction rejected (duplicate or queue full)".to_string(),
+            });
+        }
+    }
+
+    println!("✅ Oracle Verification Result Submitted: {} ({})", req.ticker, if req.passed { "PASS" } else { "FAIL" });
+    println!("   Worker: {}", req.worker_id);
+    println!("   Oracle Price: {} | External Avg: {} | Deviation: {}%", 
+        req.oracle_price, req.avg_external_price, req.deviation_pct);
+
+    Ok(serde_json::json!({
+        "tx_hash": tx_hash_hex,
+        "job_id": req.job_id,
+        "status": "submitted"
+    }))
+}

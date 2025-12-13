@@ -1,0 +1,290 @@
+{
+  "active_bets": [
+    {
+      "timestamp": 1765642572,
+      "prediction": "BTC_SHORT",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": null
+    }
+  ],
+  "settled_bets": [
+    {
+      "timestamp": 1765641558,
+      "prediction": "DIRECT_L1_OPTIMIZED",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765641623
+      }
+    },
+    {
+      "timestamp": 1765641623,
+      "prediction": "OPTIMISTIC_L2_OPTIMIZED",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -86,
+        "evaluated_at": 1765641695
+      }
+    },
+    {
+      "timestamp": 1765641695,
+      "prediction": "SOL_BULLISH",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765641773
+      }
+    },
+    {
+      "timestamp": 1765641773,
+      "prediction": "OPTIMISTIC_L2_OPTIMIZED",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -86,
+        "evaluated_at": 1765641791
+      }
+    },
+    {
+      "timestamp": 1765641791,
+      "prediction": "SOL_BEARISH",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765641856
+      }
+    },
+    {
+      "timestamp": 1765641856,
+      "prediction": "SOL_BULLISH",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765641931
+      }
+    },
+    {
+      "timestamp": 1765641931,
+      "prediction": "DIRECT_L1_OPTIMIZED",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642005
+      }
+    },
+    {
+      "timestamp": 1765642005,
+      "prediction": "BTC_SHORT",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642083
+      }
+    },
+    {
+      "timestamp": 1765642083,
+      "prediction": "BTC_LONG",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642100
+      }
+    },
+    {
+      "timestamp": 1765642100,
+      "prediction": "SOL_BULLISH",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642165
+      }
+    },
+    {
+      "timestamp": 1765642165,
+      "prediction": "OPTIMISTIC_L2_OPTIMIZED",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -86,
+        "evaluated_at": 1765642237
+      }
+    },
+    {
+      "timestamp": 1765642237,
+      "prediction": "OPTIMISTIC_L2_OPTIMIZED",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -86,
+        "evaluated_at": 1765642314
+      }
+    },
+    {
+      "timestamp": 1765642314,
+      "prediction": "SOL_BULLISH",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642332
+      }
+    },
+    {
+      "timestamp": 1765642332,
+      "prediction": "BTC_LONG",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642397
+      }
+    },
+    {
+      "timestamp": 1765642397,
+      "prediction": "DIRECT_L1_OPTIMIZED",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642472
+      }
+    },
+    {
+      "timestamp": 1765642472,
+      "prediction": "BTC_SHORT",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642490
+      }
+    },
+    {
+      "timestamp": 1765642490,
+      "prediction": "SOL_BULLISH",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642555
+      }
+    },
+    {
+      "timestamp": 1765642555,
+      "prediction": "SOL_BULLISH",
+      "confidence": 0.85,
+      "stake_amount": 86,
+      "market_gas": 25.0,
+      "market_sol": 150.0,
+      "market_tvl": 40000000000.0,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 73,
+        "evaluated_at": 1765642572
+      }
+    }
+  ],
+  "total_staked": 1634,
+  "total_won": 1022,
+  "total_lost": 344,
+  "max_history": 1000
+}

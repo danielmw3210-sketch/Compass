@@ -153,18 +153,69 @@ impl OrderBook {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NFTListing {
+    pub listing_id: u64,
+    pub token_id: String,
+    pub seller: String,
+    pub price: u64,
+    pub currency: String, // "Compass"
+    pub active: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)] // Removed generic Debug
 pub struct Market {
     // Key: "Base/Quote" e.g. "Compass:Alice:LTC/Compass"
     pub books: HashMap<String, OrderBook>,
+    // Key: token_id
+    pub nft_listings: HashMap<String, NFTListing>,
     pub next_order_id: u64,
+    #[serde(skip)]
+    pub storage: Option<std::sync::Arc<crate::storage::Storage>>,
+}
+
+impl std::fmt::Debug for Market {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Market")
+         .field("books", &self.books)
+         .field("nft_listings", &self.nft_listings)
+         .field("next_order_id", &self.next_order_id)
+         .finish()
+    }
 }
 
 impl Market {
     pub fn new() -> Self {
         Self {
             books: HashMap::new(),
+            nft_listings: HashMap::new(),
             next_order_id: 1,
+            storage: None,
         }
+    }
+
+    pub fn new_with_storage(storage: std::sync::Arc<crate::storage::Storage>) -> Self {
+        let mut m = Self::new();
+        m.storage = Some(storage.clone());
+        
+        // Load Meta
+        if let Ok(Some(id)) = storage.get_market_meta() {
+            m.next_order_id = id;
+        }
+        
+        // Load Books
+        let books = storage.get_all_order_books();
+        for b in books {
+            let key = format!("{}/{}", b.base_asset, b.quote_asset);
+            m.books.insert(key, b);
+        }
+
+        // Load Listings
+        let listings = storage.get_all_nft_listings();
+        for l in listings {
+            m.nft_listings.insert(l.token_id.clone(), l);
+        }
+        
+        m
     }
 
     pub fn load(path: &str) -> Self {
@@ -177,9 +228,31 @@ impl Market {
     }
 
     pub fn save(&self, path: &str) {
-        use std::fs;
-        let data = serde_json::to_string_pretty(self).unwrap();
-        fs::write(path, data).expect("Unable to save market");
+        if let Some(s) = &self.storage {
+             // Sled Persist
+             for (k, b) in &self.books {
+                 let _ = s.save_order_book(k, b); 
+             }
+             // Save Listings?
+             // Since we haven't added save_nft_listing to Storage yet, this part needs Storage update.
+             // We will implement `save_nft_listing` in Storage next.
+             // For now, we will add the call assuming it exists or will exist.
+             // Actually, I can't call it if it doesn't exist yet (compilation error).
+             // Strategy: I will add the logic to Market, but comment out the storage call until Storage is updated? 
+             // No, I should update Storage first if I want to compile. 
+             // But I'm editing Market now. 
+             // I will comment out the specific storage call for listings here and add a TODO, 
+             // then immediately go fix Storage, then uncomment.
+             // OR: I rely on JSON for listings temporarily? No, `Market` uses `storage` if present.
+             // I will rely on `storage.save_market_with_listings`? No.
+             
+             let _ = s.save_market_meta(self.next_order_id);
+             let _ = s.flush();
+        } else {
+             use std::fs;
+             let data = serde_json::to_string_pretty(self).unwrap();
+             fs::write(path, data).expect("Unable to save market");
+        }
     }
 
     pub fn place_order(
@@ -208,6 +281,12 @@ impl Market {
         if !wallets.debit(user, req_asset, req_amt) {
             return Err(format!("Insufficient {} balance.", req_asset));
         }
+        // Note: Wallet debited. We should save wallet state?
+        // Caller often saves wallet. Or we can trigger it here if wallets helper allows?
+        // wallets.save("wallets.json"); // Uses internal storage if present.
+        // But let's leave it to caller/Node loop to not spam IO. 
+        // Although this is critical financial op. 
+        // For now, adhere to explicit save flow.
 
         let book = self
             .books
@@ -226,8 +305,102 @@ impl Market {
             timestamp: 0, // TODO: Time
         };
         self.next_order_id += 1;
+        if let Some(s) = &self.storage {
+            let _ = s.save_market_meta(self.next_order_id);
+        }
 
         let logs = book.add_order(order, wallets);
+        
+        // Persist Book Updates
+        if let Some(s) = &self.storage {
+             let _ = s.save_order_book(&pair_key, book);
+        }
+        
         Ok(logs)
+    }
+
+    // --- NFT Marketplace Methods ---
+
+    pub fn place_nft_listing(
+        &mut self,
+        token_id: String,
+        seller: String,
+        price: u64,
+        currency: String,
+    ) -> Result<String, String> {
+        if self.nft_listings.contains_key(&token_id) {
+            return Err("NFT is already listed".to_string());
+        }
+
+        let listing = NFTListing {
+            listing_id: self.next_order_id,
+            token_id: token_id.clone(),
+            seller: seller.clone(),
+            price,
+            currency: currency.clone(),
+            active: true,
+        };
+        self.next_order_id += 1;
+
+        self.nft_listings.insert(token_id.clone(), listing.clone());
+        
+        if let Some(s) = &self.storage { 
+            let _ = s.save_nft_listing(&listing); 
+        }
+        
+        Ok(format!("NFT {} listed for {} {}", token_id, price, currency))
+    }
+
+    pub fn execute_nft_purchase(
+        &mut self,
+        token_id: &str,
+        buyer: &str,
+        wallets: &mut WalletManager,
+    ) -> Result<(String, u64, String, u64), String> {
+        // Returns (Seller, RoyaltyAmount, ListingCurrency, Price)
+        
+        let listing = self.nft_listings.get(token_id).ok_or("Listing not found")?;
+        if !listing.active {
+            return Err("Listing is inactive".to_string());
+        }
+
+        let cost = listing.price;
+        let currency = listing.currency.clone();
+        let seller = listing.seller.clone();
+        
+        // 1. Debit Buyer
+        if !wallets.debit(buyer, &currency, cost) {
+            return Err(format!("Insufficient {} balance to buy NFT", currency));
+        }
+
+        // 2. Calculate Royalties (Fixed 10% for now, ideally passed in)
+        let royalty = cost / 10; 
+        let seller_share = cost - royalty;
+
+        // 3. Credit Seller
+        wallets.credit(&seller, &currency, seller_share);
+        
+        // 4. Credit Foundation/Creator (Royalty handled by caller)
+        
+        // Remove Listing
+        self.nft_listings.remove(token_id);
+        
+        if let Some(s) = &self.storage { 
+            let _ = s.delete_nft_listing(token_id); 
+        }
+        
+        Ok((seller, royalty, currency, cost))
+    }
+    
+    pub fn cancel_nft_listing(&mut self, token_id: &str, requestor: &str) -> Result<(), String> {
+        let listing = self.nft_listings.get(token_id).ok_or("Listing not found")?;
+        if listing.seller != requestor {
+            return Err("Not the seller".to_string());
+        }
+        self.nft_listings.remove(token_id);
+        if let Some(s) = &self.storage { 
+            let _ = s.delete_nft_listing(token_id); 
+        }
+        Ok(())
     }
 }

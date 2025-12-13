@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -9,6 +10,8 @@ use pbkdf2::pbkdf2;
 use hmac::Hmac;
 use sha2::Sha256;
 use rand::{Rng, thread_rng};
+
+use crate::error::CompassError;
 
 /// Different roles a wallet can have
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
@@ -43,7 +46,7 @@ impl Wallet {
     pub fn new(owner: &str, wallet_type: WalletType) -> Self {
         use crate::crypto::KeyPair;
         let mnemonic = KeyPair::generate_mnemonic();
-        let kp = KeyPair::from_mnemonic(&mnemonic).unwrap_or_else(|_| KeyPair::new());
+        let kp = KeyPair::from_mnemonic(&mnemonic).unwrap_or_else(|_| KeyPair::generate());
 
         Wallet {
             owner: owner.to_string(),
@@ -85,9 +88,9 @@ impl Wallet {
         self.is_admin() || matches!(self.wallet_type, WalletType::Validator)
     }
 
-    pub fn save(&self, path: &str) {
-        let json = serde_json::to_string_pretty(self).unwrap();
-        fs::write(path, json).expect("Unable to save wallet");
+    pub fn save(&self, path: &str) -> std::io::Result<()> {
+        let json = serde_json::to_string_pretty(self).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        fs::write(path, json)
     }
 
     pub fn load(path: &str, owner: &str, wallet_type: WalletType) -> Self {
@@ -105,9 +108,9 @@ impl Wallet {
         }
     }
 
-    pub fn encrypt_wallet(&mut self, password: &str) -> Result<(), String> {
+    pub fn encrypt_wallet(&mut self, password: &str) -> Result<(), CompassError> {
         if self.mnemonic.is_none() {
-            return Err("No mnemonic to encrypt".to_string());
+            return Err(CompassError::InvalidState("No mnemonic to encrypt".to_string()));
         }
         let mnemonic_str = self.mnemonic.as_ref().unwrap();
 
@@ -126,7 +129,7 @@ impl Wallet {
         let nonce = aes_gcm::Nonce::from_slice(&nonce_bytes);
 
         let ciphertext = cipher.encrypt(nonce, mnemonic_str.as_bytes())
-            .map_err(|e| format!("Encryption failure: {:?}", e))?;
+            .map_err(|e| CompassError::InvalidState(format!("Encryption failure: {:?}", e)))?;
 
         // Store
         // We need to store Nonce too. Let's prepend nonce to ciphertext or store separate?
@@ -144,15 +147,15 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn decrypt_wallet(&mut self, password: &str) -> Result<(), String> {
+    pub fn decrypt_wallet(&mut self, password: &str) -> Result<(), CompassError> {
         if !self.is_encrypted {
              return Ok(()); // Already decrypted
         }
-        let blob = self.encrypted_mnemonic.as_ref().ok_or("No encrypted data")?;
-        let salt = self.encryption_salt.as_ref().ok_or("No salt")?;
+        let blob = self.encrypted_mnemonic.as_ref().ok_or(CompassError::InvalidState("No encrypted data".to_string()))?;
+        let salt = self.encryption_salt.as_ref().ok_or(CompassError::InvalidState("No salt".to_string()))?;
 
         if blob.len() < 12 {
-            return Err("Invalid blob size".to_string());
+            return Err(CompassError::InvalidState("Invalid blob size".to_string()));
         }
 
         let nonce_bytes = &blob[0..12];
@@ -166,10 +169,10 @@ impl Wallet {
         let nonce = Nonce::from_slice(nonce_bytes);
 
         let plaintext = cipher.decrypt(nonce, ciphertext)
-             .map_err(|_| "Decryption failed (Wrong password?)".to_string())?;
+             .map_err(|_| CompassError::InvalidState("Decryption failed (Wrong password?)".to_string()))?;
 
         let mnemonic_str = String::from_utf8(plaintext)
-             .map_err(|_| "Invalid UTF8".to_string())?;
+             .map_err(|_| CompassError::InvalidState("Invalid UTF8".to_string()))?;
 
         self.mnemonic = Some(mnemonic_str);
         self.is_encrypted = false;
@@ -185,47 +188,84 @@ impl Wallet {
 }
 
 /// A manager for multiple wallets
-#[derive(Serialize, Deserialize, Debug, Clone)]
+/// A manager for multiple wallets
+#[derive(Serialize, Deserialize, Clone)] // Removed generic Debug derive due to skip field complexity usually, but Arc is Debug? No Storage isn't.
 pub struct WalletManager {
-    pub wallets: Vec<Wallet>,
+    // Key: Owner ID (String) -> Value: Wallet
+    pub wallets: HashMap<String, Wallet>,
+    #[serde(skip)]
+    pub storage: Option<std::sync::Arc<crate::storage::Storage>>,
+}
+
+impl std::fmt::Debug for WalletManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WalletManager")
+         .field("wallets", &self.wallets)
+         .field("storage", &"Option<Storage>")
+         .finish()
+    }
 }
 
 impl WalletManager {
     pub fn new() -> Self {
         WalletManager {
-            wallets: Vec::new(),
+            wallets: HashMap::new(),
+            storage: None,
         }
+    }
+
+    pub fn new_with_storage(storage: std::sync::Arc<crate::storage::Storage>) -> Self {
+        let mut wm = WalletManager {
+            wallets: HashMap::new(),
+            storage: Some(storage.clone()),
+        };
+        // Load existing wallets from DB
+        let wallets = storage.get_all_wallets();
+        for w in wallets {
+            wm.wallets.insert(w.owner.clone(), w);
+        }
+        wm
     }
 
     pub fn create_wallet(&mut self, creator: &Wallet, owner: &str, wallet_type: WalletType) {
         if creator.can_create_wallet() {
+            if self.wallets.contains_key(owner) {
+                println!("Wallet for {} already exists", owner);
+                return;
+            }
             let wallet = Wallet::new(owner, wallet_type);
-            self.wallets.push(wallet);
+            self.wallets.insert(owner.to_string(), wallet.clone());
+            
+            // Auto-persist new creation
+            if let Some(s) = &self.storage {
+                let _ = s.save_wallet(&wallet);
+            }
         } else {
             println!("{} is not authorized to create wallets", creator.owner);
         }
     }
 
     pub fn get_wallet(&self, owner: &str) -> Option<&Wallet> {
-        self.wallets.iter().find(|w| w.owner == owner)
+        self.wallets.get(owner)
     }
 
     pub fn get_wallet_mut(&mut self, owner: &str) -> Option<&mut Wallet> {
-        self.wallets.iter_mut().find(|w| w.owner == owner)
+        self.wallets.get_mut(owner)
     }
 
     /// Credit coins to a wallet (mint or transfer)
     pub fn credit(&mut self, owner: &str, asset: &str, amount: u64) {
-        if let Some(wallet) = self.get_wallet_mut(owner) {
+        if let Some(wallet) = self.wallets.get_mut(owner) {
             *wallet.balances.entry(asset.to_string()).or_insert(0) += amount;
+            // Note: We intentionally don't auto-save here to batch updates, user calls save()
         } else {
             let mut balances = HashMap::new();
             balances.insert(asset.to_string(), amount);
             use crate::crypto::KeyPair;
             let mnemonic = KeyPair::generate_mnemonic();
-            let kp = KeyPair::from_mnemonic(&mnemonic).unwrap_or_else(|_| KeyPair::new());
+            let kp = KeyPair::from_mnemonic(&mnemonic).unwrap_or_else(|_| KeyPair::generate());
 
-            self.wallets.push(Wallet {
+            let wallet = Wallet {
                 owner: owner.to_string(),
                 balances,
                 wallet_type: WalletType::User,
@@ -235,13 +275,14 @@ impl WalletManager {
                 encrypted_mnemonic: None,
                 encryption_salt: None,
                 is_encrypted: false,
-            });
+            };
+            self.wallets.insert(owner.to_string(), wallet);
         }
     }
 
     /// Debit coins from a wallet (spend/transfer)
     pub fn debit(&mut self, owner: &str, asset: &str, amount: u64) -> bool {
-        if let Some(wallet) = self.get_wallet_mut(owner) {
+        if let Some(wallet) = self.wallets.get_mut(owner) {
             let balance = wallet.balances.entry(asset.to_string()).or_insert(0);
             if *balance >= amount {
                 *balance -= amount;
@@ -258,7 +299,7 @@ impl WalletManager {
 
     /// Set nonce (after successful transfer)
     pub fn set_nonce(&mut self, owner: &str, nonce: u64) {
-        if let Some(wallet) = self.get_wallet_mut(owner) {
+        if let Some(wallet) = self.wallets.get_mut(owner) {
             wallet.nonce = nonce;
         }
     }
@@ -270,14 +311,23 @@ impl WalletManager {
             .unwrap_or(0)
     }
 
-    pub fn save(&self, path: &str) {
-        let json = serde_json::to_string_pretty(self).unwrap();
-        fs::write(path, json).expect("Unable to save wallets");
+    pub fn save(&self, path: &str) -> std::io::Result<()> {
+        if let Some(s) = &self.storage {
+            // Persist all dirty state to Sled
+            for wallet in self.wallets.values() {
+                let _ = s.save_wallet(wallet);
+            }
+            let _ = s.flush();
+            Ok(())
+        } else {
+            let json = serde_json::to_string_pretty(self).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            fs::write(path, json)
+        }
     }
 
     pub fn load(path: &str) -> Self {
         if let Ok(data) = fs::read_to_string(path) {
-            serde_json::from_str(&data).unwrap()
+            serde_json::from_str(&data).unwrap_or_else(|_| WalletManager::new())
         } else {
             WalletManager::new()
         }

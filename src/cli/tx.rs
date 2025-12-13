@@ -12,7 +12,7 @@ pub async fn handle_transfer_command(
     rpc_url: Option<String>,
 ) {
     // 1. Get Wallet / Keys
-    let manager = WalletManager::load("client_wallets.json");
+    let manager = WalletManager::load("wallets.json");
     let wallet = match manager.get_wallet(&from) {
         Some(w) => w,
         None => {
@@ -92,7 +92,7 @@ pub async fn handle_transfer_command(
     };
 
     // Calculate Hash (Pre-signature)
-    header.hash = header.calculate_hash();
+    header.hash = header.calculate_hash().expect("Failed to calculate hash");
 
     // 6. Sign Hash
     let signature = keypair.sign_hex(header.hash.as_bytes());
@@ -100,7 +100,7 @@ pub async fn handle_transfer_command(
     // 7. Submit
     println!("Submitting transfer...");
     match client
-        .submit_transaction(&from, &to, &asset, amount, nonce, &signature, Some(header.prev_hash), Some(header.timestamp))
+        .submit_transaction(&from, &to, &asset, amount, nonce, &signature, Some(header.prev_hash), Some(header.timestamp), &keypair.public_key_hex())
         .await
     {
         Ok(tx_hash) => {

@@ -41,16 +41,30 @@ impl AiWorker {
                              let input_str = String::from_utf8(job.inputs.clone()).unwrap_or_default();
                              println!("Running Inference on input: {}", input_str);
                              
+                             // Monitor CPU - Snapshot Start
+                             use sysinfo::System;
+                             let mut sys = System::new();
+                             sys.refresh_cpu_all();
+                             
                              // Execute Python Script
+                             let start_time = std::time::Instant::now();
                              match self.run_python_inference(&input_str) {
                                  Ok(result) => {
-                                     println!("Job Completed! Result: {}", result);
+                                     let duration = start_time.elapsed();
+                                     sys.refresh_cpu_all(); // Snapshot End
+                                     let cpu_usage = sys.global_cpu_usage();
+                                     
+                                     println!("Job Completed in {:.2}s! Result: {} (CPU Load during task: {:.2}%)", 
+                                        duration.as_secs_f32(), result, cpu_usage);
                                      
                                      // Submit Result Transaction back to chain
                                      match self.client.submit_result(
                                          job.job_id.clone(),
                                          worker_id.clone(),
-                                         result.as_bytes().to_vec()
+                                         result.as_bytes().to_vec(),
+                                         None, // pow_hash - optional
+                                         None, // pow_nonce - optional
+                                         0,    // compute_rate (default 0 for python worker)
                                      ).await {
                                          Ok(tx) => println!("Result committed to chain! TX: {}", tx),
                                          Err(e) => println!("Failed to commit result: {}", e),

@@ -4,9 +4,9 @@ use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub struct RpcClient {
-    url: String,
-    client: Client,
-    request_id: AtomicU64,
+    pub(super) url: String,
+    pub(super) client: Client,
+    pub(super) request_id: AtomicU64,
 }
 
 impl RpcClient {
@@ -120,13 +120,47 @@ impl RpcClient {
         Ok(json["result"]["height"].as_u64().unwrap_or(0))
     }
 
+
+    pub async fn call_method<T: serde::Serialize, R: serde::de::DeserializeOwned>(
+        &self,
+        method: &str,
+        params: T,
+    ) -> Result<R, String> {
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+            "id": 1
+        });
+
+        let response = self.client.post(&self.url)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| format!("Network error: {}", e))?;
+            
+        let json: serde_json::Value = response.json().await
+            .map_err(|e| format!("Parse error: {}", e))?;
+            
+        if let Some(err) = json.get("error") {
+            return Err(format!("RPC Error: {}", err));
+        }
+        
+        if let Some(res) = json.get("result") {
+            serde_json::from_value(res.clone())
+                .map_err(|e| format!("Result type mismatch: {}", e))
+        } else {
+             Err("No result in response".to_string())
+        }
+    }
+
     pub async fn get_account_info(&self, wallet_id: &str) -> Result<serde_json::Value, String> {
         let id = self.request_id.fetch_add(1, Ordering::SeqCst);
 
         let request = json!({
             "jsonrpc": "2.0",
             "method": "getAccountInfo",
-            "params": wallet_id,
+            "params": { "wallet_id": wallet_id },
             "id": id,
         });
 
@@ -163,6 +197,7 @@ impl RpcClient {
         signature: &str,
         prev_hash: Option<String>,
         timestamp: Option<u64>,
+        public_key: &str,
     ) -> Result<String, String> {
         let id = self.request_id.fetch_add(1, Ordering::SeqCst);
 
@@ -177,7 +212,8 @@ impl RpcClient {
                 "nonce": nonce,
                 "signature": signature,
                 "prev_hash": prev_hash,
-                "timestamp": timestamp
+                "timestamp": timestamp,
+                "public_key": public_key
             },
             "id": id,
         });
@@ -316,12 +352,18 @@ impl RpcClient {
         job_id: String,
         worker_id: String,
         result_data: Vec<u8>,
+        pow_hash: Option<String>,
+        pow_nonce: Option<u64>,
+        compute_rate: u64, // NEW param
     ) -> Result<String, Box<dyn std::error::Error>> {
          let params = crate::rpc::types::SubmitResultParams {
             job_id,
             worker_id,
             result_data,
             signature: "stub_worker_sig".to_string(),
+            pow_hash,
+            pow_nonce,
+            compute_rate,
         };
         let resp: serde_json::Value = self.send_request("submitResult", serde_json::to_value(params).unwrap()).await.map_err(|e| format!("RPC error: {}", e))?;
         let result = resp.get("tx_hash").ok_or("No tx_hash field")?.as_str().ok_or("tx_hash not a string")?;

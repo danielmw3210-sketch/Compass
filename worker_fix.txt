@@ -1,0 +1,8 @@
+﻿                                      // Submit Result Transaction back to chain
+                                      match self.client.submit_result(
+                                          job.job_id.clone(),
+                                          worker_id.clone(),
+                                          result.as_bytes().to_vec(),
+                                          None,
+                                          None,
+                                      ).await {

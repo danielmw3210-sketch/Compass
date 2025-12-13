@@ -2,6 +2,7 @@ pub mod node;
 pub mod ops;
 pub mod tx;
 pub mod wallet;
+pub mod keys; // New Key Manager
 
 use clap::{Parser, Subcommand};
 
@@ -15,6 +16,11 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Key management (Identity)
+    Keys {
+        #[command(subcommand)]
+        cmd: keys::KeysCommands,
+    },
     /// Wallet management
     Wallet {
         #[command(subcommand)]
@@ -84,4 +90,8 @@ pub enum Commands {
         #[arg(long, default_value = "llama-2-7b-q4")]
         model_id: String,
     },
+    /// Interactive Client Mode
+    Client,
+    /// Generate Admin Key and Genesis Config (Trusted Setup)
+    AdminGen,
 }

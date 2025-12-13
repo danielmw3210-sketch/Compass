@@ -1,0 +1,105 @@
+// Add these handler functions to the end of handlers.rs
+
+/// Handle submitRecurringOracleJob
+async fn handle_submit_recurring_oracle_job(
+    _state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    let req: SubmitRecurringJobParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+
+    let job_id = uuid::Uuid::new_v4().to_string();
+    let now = crate::block::current_unix_timestamp_ms() / 1000;
+    
+    let total_updates = (req.duration_hours * 60 / req.interval_minutes) as u32;
+    
+    let job = RecurringOracleJob {
+        job_id: job_id.clone(),
+        ticker: req.ticker.clone(),
+        start_time: now,
+        end_time: now + (req.duration_hours as u64 * 3600),
+        interval_seconds: (req.interval_minutes as u64) * 60,
+        total_updates_required: total_updates,
+        completed_updates: 0,
+        last_update_time: 0,
+        worker_reward_per_update: req.reward_per_update,
+        assigned_worker: None,
+        status: "Active".to_string(),
+    };
+
+    // Store job
+    {
+        let mut jobs = RECURRING_ORACLE_JOBS.lock().unwrap();
+        jobs.insert(job_id.clone(), job.clone());
+    }
+
+    println!("📊 Recurring Oracle Job Created: {} for ticker {}", job_id, req.ticker);
+    println!("   Duration: {} hours ({} updates every {} min)", 
+        req.duration_hours, total_updates, req.interval_minutes);
+    println!("   Reward: {} COMPASS per update ({} total)", 
+        req.reward_per_update, total_updates as u64 * req.reward_per_update);
+
+    Ok(serde_json::json!({
+        "job_id": job_id,
+        "ticker": req.ticker,
+        "total_updates": total_updates,
+        "reward_per_update": req.reward_per_update,
+        "total_reward": total_updates as u64 * req.reward_per_update,
+        "status": "Active"
+    }))
+}
+
+/// Handle getRecurringJobs
+async fn handle_get_recurring_jobs(
+    _state: RpcState,
+) -> Result<serde_json::Value, RpcError> {
+    let jobs: Vec<RecurringOracleJob> = {
+        let jobs_map = RECURRING_ORACLE_JOBS.lock().unwrap();
+        jobs_map.values()
+            .filter(|j| j.status == "Active")
+            .cloned()
+            .collect()
+    };
+    
+    Ok(serde_json::to_value(jobs).unwrap_or(serde_json::json!([])))
+}
+
+/// Handle getJobProgress
+async fn handle_get_job_progress(
+    _state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    let req: GetJobProgressParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+
+    let job = {
+        let jobs = RECURRING_ORACLE_JOBS.lock().unwrap();
+        jobs.get(&req.job_id).cloned()
+            .ok_or(RpcError {
+                code: -32001,
+                message: "Job not found".to_string(),
+            })?
+    };
+
+    let progress_pct = (job.completed_updates as f64 / job.total_updates_required as f64) * 100.0;
+    let earned_so_far = job.completed_updates as u64 * job.worker_reward_per_update;
+
+    Ok(serde_json::json!({
+        "job_id": job.job_id,
+        "ticker": job.ticker,
+        "status": job.status,
+        "completed_updates": job.completed_updates,
+        "total_updates": job.total_updates_required,
+        "progress_percent": progress_pct,
+        "earned_compass": earned_so_far,
+        "assigned_worker": job.assigned_worker,
+    }))
+}
+
+use crate::rpc::types::{RecurringOracleJob, SubmitRecurringJobParams, GetJobProgressParams};

@@ -59,6 +59,19 @@ impl CompassGulfStreamManager {
             return false;
         }
 
+        // 1. Pre-Validate Signature (Defense against DoS)
+        if let Ok(payload) = bincode::deserialize::<crate::network::TransactionPayload>(&raw_tx) {
+            if !payload.verify() {
+                 println!("GulfStream: REJECTED invalid signature for tx {:?}", hex::encode(&tx_hash));
+                 self.transactions_rejected += 1;
+                 return false;
+            }
+        } else {
+             println!("GulfStream: REJECTED malformed transaction");
+             self.transactions_rejected += 1;
+             return false;
+        }
+
         let gs_tx = CompassGulfStreamTransaction::new(tx_hash.clone(), raw_tx, priority_fee);
 
         if priority_fee > 1000 {
@@ -132,6 +145,71 @@ impl CompassGulfStreamManager {
                 .find(|slot| slot.slot_number == next_slot_number)
                 .map(|slot| slot.validator_id.clone());
         }
+    }
+
+    /// Retrieve a batch of transactions to forward/process, prioritized by fee
+    pub fn pop_ready_transactions(&mut self, limit: usize) -> Vec<CompassGulfStreamTransaction> {
+        let mut result = Vec::with_capacity(limit);
+        let mut count = 0;
+
+        // Helper to process a queue
+        // We can't easily capture 'self' in a closure that modifies 'self', so we do it iteratively.
+        // 1. High Priority
+        while count < limit && !self.high_priority_queue.is_empty() {
+             // Removing from Vec (swap_remove is O(1) but changes order, remove(0) is O(N).
+             // Since it's a priority queue (sorted implied? No, just > 1000 fee).
+             // Actually, the current implementation uses `push` for high prio, so it's a stack or we should treat it as queue?
+             // `high_priority_queue` is `Vec<HighPrioItem>`. 
+             // Ideally we want the highest fees. For now, let's just take from the "front" if we treat it as queue,
+             // or "back" if we treat it as stack.
+             // Given it is `Vec` and others are `VecDeque` (back/front), let's assume we want FIFO or simply high fee.
+             // If we just `pop()` we get the last added. To be a queue we need `remove(0)` which is slow.
+             // BUT, `high_priority_queue` is a `Vec`, likely small.
+             // Let's sort it by priority before popping? That's expensive every time.
+             // For this step, let's just pop from back (LIFO) or remove(0).
+             // Let's use `remove(0)` for FIFO behavior on the Vec, accepting O(N) for now since high prio queue shouldn't be massive.
+             // Or better, change `high_priority_queue` to `VecDeque` for O(1) pop_front?
+             // The struct definition has `high_priority_queue: Vec<HighPrioItem>`.
+             // Changing struct diffs is annoying. I will use `remove(0)`.
+             
+             let item = self.high_priority_queue.remove(0);
+             if let Some(mut tx) = self.pending_transactions.remove(&item.tx_hash) {
+                 tx.status = crate::gulf_stream::transactions::TransactionStatus::Processing;
+                 self.processing_transactions.insert(item.tx_hash.clone(), tx.clone());
+                 result.push(tx);
+                 count += 1;
+             }
+        }
+
+        // 2. Normal Priority (VecDeque)
+        while count < limit {
+            if let Some(tx_hash) = self.normal_priority_queue.pop_front() {
+                if let Some(mut tx) = self.pending_transactions.remove(&tx_hash) {
+                    tx.status = crate::gulf_stream::transactions::TransactionStatus::Processing;
+                    self.processing_transactions.insert(tx_hash.clone(), tx.clone());
+                    result.push(tx);
+                    count += 1;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // 3. Low Priority (VecDeque)
+        while count < limit {
+            if let Some(tx_hash) = self.low_priority_queue.pop_front() {
+                 if let Some(mut tx) = self.pending_transactions.remove(&tx_hash) {
+                    tx.status = crate::gulf_stream::transactions::TransactionStatus::Processing;
+                    self.processing_transactions.insert(tx_hash.clone(), tx.clone());
+                    result.push(tx);
+                    count += 1;
+                 }
+            } else {
+                break;
+            }
+        }
+
+        result
     }
 
     /// Get Gulf Stream stats
