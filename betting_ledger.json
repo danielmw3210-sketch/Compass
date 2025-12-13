@@ -1,2046 +1,5 @@
 {
-  "active_bets": [
-    {
-      "timestamp": 1765646037,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.2820617415698916,
-      "stake_amount": 35,
-      "market_gas": 10.0245318856,
-      "market_sol": 132.72600000000003,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646037,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.47922700078569186,
-      "stake_amount": 53,
-      "market_gas": 10.0245318856,
-      "market_sol": 132.72600000000003,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646037,
-      "prediction": "ETH_UP",
-      "confidence": 0.5735419834206997,
-      "stake_amount": 61,
-      "market_gas": 10.0245318856,
-      "market_sol": 132.72600000000003,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646037,
-      "prediction": "SOL_UP",
-      "confidence": 0.6055300140186125,
-      "stake_amount": 64,
-      "market_gas": 10.0245318856,
-      "market_sol": 132.72600000000003,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646055,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.43404373266468543,
-      "stake_amount": 49,
-      "market_gas": 12.519923531,
-      "market_sol": 132.71,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646055,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.2403756456476422,
-      "stake_amount": 31,
-      "market_gas": 12.519923531,
-      "market_sol": 132.71,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646055,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.41031512113420165,
-      "stake_amount": 46,
-      "market_gas": 12.519923531,
-      "market_sol": 132.71,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646055,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.2772660611936655,
-      "stake_amount": 34,
-      "market_gas": 12.519923531,
-      "market_sol": 132.71,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646073,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.4383660083662979,
-      "stake_amount": 49,
-      "market_gas": 12.52044238975,
-      "market_sol": 132.7175,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646073,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.35677103389965653,
-      "stake_amount": 42,
-      "market_gas": 12.52044238975,
-      "market_sol": 132.7175,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646073,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.398245498948238,
-      "stake_amount": 45,
-      "market_gas": 12.52044238975,
-      "market_sol": 132.7175,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646073,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.22128407587737947,
-      "stake_amount": 29,
-      "market_gas": 12.52044238975,
-      "market_sol": 132.7175,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646091,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.42737112042151737,
-      "stake_amount": 48,
-      "market_gas": 12.520658683,
-      "market_sol": 132.70999999999998,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646091,
-      "prediction": "BTC_UP",
-      "confidence": 0.6073815000750952,
-      "stake_amount": 64,
-      "market_gas": 12.520658683,
-      "market_sol": 132.70999999999998,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646091,
-      "prediction": "ETH_UP",
-      "confidence": 0.6289671260611395,
-      "stake_amount": 66,
-      "market_gas": 12.520658683,
-      "market_sol": 132.70999999999998,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646091,
-      "prediction": "SOL_UP",
-      "confidence": 0.5777267651677255,
-      "stake_amount": 61,
-      "market_gas": 12.520658683,
-      "market_sol": 132.70999999999998,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646109,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.4891331807434917,
-      "stake_amount": 54,
-      "market_gas": 10.0235599344,
-      "market_sol": 132.692,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646109,
-      "prediction": "BTC_UP",
-      "confidence": 0.526091882535151,
-      "stake_amount": 57,
-      "market_gas": 10.0235599344,
-      "market_sol": 132.692,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646109,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.3666428956505785,
-      "stake_amount": 42,
-      "market_gas": 10.0235599344,
-      "market_sol": 132.692,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646109,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.4322810504953696,
-      "stake_amount": 48,
-      "market_gas": 10.0235599344,
-      "market_sol": 132.692,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646126,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.2623952651823586,
-      "stake_amount": 33,
-      "market_gas": 12.51937158375,
-      "market_sol": 132.6725,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646126,
-      "prediction": "BTC_UP",
-      "confidence": 0.5283913758093958,
-      "stake_amount": 57,
-      "market_gas": 12.51937158375,
-      "market_sol": 132.6725,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646126,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4597979309082749,
-      "stake_amount": 51,
-      "market_gas": 12.51937158375,
-      "market_sol": 132.6725,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646126,
-      "prediction": "SOL_UP",
-      "confidence": 0.5796147128250971,
-      "stake_amount": 62,
-      "market_gas": 12.51937158375,
-      "market_sol": 132.6725,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646144,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.459578294956988,
-      "stake_amount": 51,
-      "market_gas": 12.5202889485,
-      "market_sol": 132.685,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646144,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.3120618462125561,
-      "stake_amount": 38,
-      "market_gas": 12.5202889485,
-      "market_sol": 132.685,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646144,
-      "prediction": "ETH_UP",
-      "confidence": 0.6063899844416125,
-      "stake_amount": 64,
-      "market_gas": 12.5202889485,
-      "market_sol": 132.685,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646144,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.4547325338317744,
-      "stake_amount": 50,
-      "market_gas": 12.5202889485,
-      "market_sol": 132.685,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646162,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.6737962183778461,
-      "stake_amount": 70,
-      "market_gas": 12.5199337195,
-      "market_sol": 132.7025,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646162,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.22165605900701257,
-      "stake_amount": 29,
-      "market_gas": 12.5199337195,
-      "market_sol": 132.7025,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646162,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4530139509398717,
-      "stake_amount": 50,
-      "market_gas": 12.5199337195,
-      "market_sol": 132.7025,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646162,
-      "prediction": "SOL_UP",
-      "confidence": 0.6239163352076613,
-      "stake_amount": 66,
-      "market_gas": 12.5199337195,
-      "market_sol": 132.7025,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646179,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.34204070202410286,
-      "stake_amount": 40,
-      "market_gas": 12.520735939,
-      "market_sol": 132.665,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646179,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.405650790982116,
-      "stake_amount": 46,
-      "market_gas": 12.520735939,
-      "market_sol": 132.665,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646179,
-      "prediction": "ETH_UP",
-      "confidence": 0.6572628083642066,
-      "stake_amount": 69,
-      "market_gas": 12.520735939,
-      "market_sol": 132.665,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646179,
-      "prediction": "SOL_UP",
-      "confidence": 0.5142732852215011,
-      "stake_amount": 56,
-      "market_gas": 12.520735939,
-      "market_sol": 132.665,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646199,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.4507846858066812,
-      "stake_amount": 50,
-      "market_gas": 10.0258215952,
-      "market_sol": 132.688,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646199,
-      "prediction": "BTC_UP",
-      "confidence": 0.5191163517382023,
-      "stake_amount": 56,
-      "market_gas": 10.0258215952,
-      "market_sol": 132.688,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646199,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.40054168665829615,
-      "stake_amount": 46,
-      "market_gas": 10.0258215952,
-      "market_sol": 132.688,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646199,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.3897411282560343,
-      "stake_amount": 45,
-      "market_gas": 10.0258215952,
-      "market_sol": 132.688,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646217,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.3873222597201764,
-      "stake_amount": 44,
-      "market_gas": 12.520722081,
-      "market_sol": 132.6225,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646217,
-      "prediction": "BTC_UP",
-      "confidence": 0.5223271143147057,
-      "stake_amount": 57,
-      "market_gas": 12.520722081,
-      "market_sol": 132.6225,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646217,
-      "prediction": "ETH_UP",
-      "confidence": 0.6159792310749449,
-      "stake_amount": 65,
-      "market_gas": 12.520722081,
-      "market_sol": 132.6225,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646217,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.489149930081025,
-      "stake_amount": 54,
-      "market_gas": 12.520722081,
-      "market_sol": 132.6225,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646235,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.40325992107971903,
-      "stake_amount": 46,
-      "market_gas": 12.52011804925,
-      "market_sol": 132.615,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646235,
-      "prediction": "BTC_UP",
-      "confidence": 0.6542516070534918,
-      "stake_amount": 68,
-      "market_gas": 12.52011804925,
-      "market_sol": 132.615,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646235,
-      "prediction": "ETH_UP",
-      "confidence": 0.5495369607236333,
-      "stake_amount": 59,
-      "market_gas": 12.52011804925,
-      "market_sol": 132.615,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646235,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.2515909166016758,
-      "stake_amount": 32,
-      "market_gas": 12.52011804925,
-      "market_sol": 132.615,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646252,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5263328523434858,
-      "stake_amount": 57,
-      "market_gas": 12.5218591325,
-      "market_sol": 132.615,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646252,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.3680315634668383,
-      "stake_amount": 43,
-      "market_gas": 12.5218591325,
-      "market_sol": 132.615,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646252,
-      "prediction": "ETH_UP",
-      "confidence": 0.632658705228522,
-      "stake_amount": 66,
-      "market_gas": 12.5218591325,
-      "market_sol": 132.615,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646252,
-      "prediction": "SOL_UP",
-      "confidence": 0.6476794816270841,
-      "stake_amount": 68,
-      "market_gas": 12.5218591325,
-      "market_sol": 132.615,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646270,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.4676012230469753,
-      "stake_amount": 52,
-      "market_gas": 10.0250366182,
-      "market_sol": 132.67799999999997,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646270,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.3058821578564118,
-      "stake_amount": 37,
-      "market_gas": 10.0250366182,
-      "market_sol": 132.67799999999997,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646270,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4805579920712238,
-      "stake_amount": 53,
-      "market_gas": 10.0250366182,
-      "market_sol": 132.67799999999997,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646270,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.45309910655143987,
-      "stake_amount": 50,
-      "market_gas": 10.0250366182,
-      "market_sol": 132.67799999999997,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646288,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.33905652242198997,
-      "stake_amount": 40,
-      "market_gas": 12.52118122025,
-      "market_sol": 132.5625,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646288,
-      "prediction": "BTC_UP",
-      "confidence": 0.7892405511582292,
-      "stake_amount": 81,
-      "market_gas": 12.52118122025,
-      "market_sol": 132.5625,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646288,
-      "prediction": "ETH_UP",
-      "confidence": 0.5121364152246529,
-      "stake_amount": 56,
-      "market_gas": 12.52118122025,
-      "market_sol": 132.5625,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646288,
-      "prediction": "SOL_UP",
-      "confidence": 0.5198285112975531,
-      "stake_amount": 56,
-      "market_gas": 12.52118122025,
-      "market_sol": 132.5625,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646305,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.399988852878657,
-      "stake_amount": 45,
-      "market_gas": 12.52112055825,
-      "market_sol": 132.575,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646305,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.20624892513723245,
-      "stake_amount": 28,
-      "market_gas": 12.52112055825,
-      "market_sol": 132.575,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646305,
-      "prediction": "ETH_UP",
-      "confidence": 0.516840663304182,
-      "stake_amount": 56,
-      "market_gas": 12.52112055825,
-      "market_sol": 132.575,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646305,
-      "prediction": "SOL_UP",
-      "confidence": 0.7056456604337015,
-      "stake_amount": 73,
-      "market_gas": 12.52112055825,
-      "market_sol": 132.575,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646323,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.6267101016709961,
-      "stake_amount": 66,
-      "market_gas": 12.520213859,
-      "market_sol": 132.5325,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646323,
-      "prediction": "BTC_UP",
-      "confidence": 0.6645398305166014,
-      "stake_amount": 69,
-      "market_gas": 12.520213859,
-      "market_sol": 132.5325,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646323,
-      "prediction": "ETH_UP",
-      "confidence": 0.6959678150691435,
-      "stake_amount": 72,
-      "market_gas": 12.520213859,
-      "market_sol": 132.5325,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646323,
-      "prediction": "SOL_UP",
-      "confidence": 0.5292031514460928,
-      "stake_amount": 57,
-      "market_gas": 12.520213859,
-      "market_sol": 132.5325,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646339,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.3549909373320504,
-      "stake_amount": 41,
-      "market_gas": 12.5204818235,
-      "market_sol": 132.54,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646339,
-      "prediction": "BTC_UP",
-      "confidence": 0.6409869748167947,
-      "stake_amount": 67,
-      "market_gas": 12.5204818235,
-      "market_sol": 132.54,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646339,
-      "prediction": "ETH_UP",
-      "confidence": 0.7180441781740292,
-      "stake_amount": 74,
-      "market_gas": 12.5204818235,
-      "market_sol": 132.54,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646339,
-      "prediction": "SOL_UP",
-      "confidence": 0.5643564612990225,
-      "stake_amount": 60,
-      "market_gas": 12.5204818235,
-      "market_sol": 132.54,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646357,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.2903272339606607,
-      "stake_amount": 36,
-      "market_gas": 10.0241704466,
-      "market_sol": 132.66,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646357,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4559448382469099,
-      "stake_amount": 51,
-      "market_gas": 10.0241704466,
-      "market_sol": 132.66,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646357,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4900318899151367,
-      "stake_amount": 54,
-      "market_gas": 10.0241704466,
-      "market_sol": 132.66,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646357,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.36786724531107107,
-      "stake_amount": 43,
-      "market_gas": 10.0241704466,
-      "market_sol": 132.66,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646375,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.4444294954285366,
-      "stake_amount": 49,
-      "market_gas": 12.5220137,
-      "market_sol": 132.42,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646375,
-      "prediction": "BTC_UP",
-      "confidence": 0.6456025967148566,
-      "stake_amount": 68,
-      "market_gas": 12.5220137,
-      "market_sol": 132.42,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646375,
-      "prediction": "ETH_UP",
-      "confidence": 0.7068931698363518,
-      "stake_amount": 73,
-      "market_gas": 12.5220137,
-      "market_sol": 132.42,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646375,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.30649242295276746,
-      "stake_amount": 37,
-      "market_gas": 12.5220137,
-      "market_sol": 132.42,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646393,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.34462882549418045,
-      "stake_amount": 41,
-      "market_gas": 12.5208015425,
-      "market_sol": 132.4375,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646393,
-      "prediction": "BTC_UP",
-      "confidence": 0.5246123048551804,
-      "stake_amount": 57,
-      "market_gas": 12.5208015425,
-      "market_sol": 132.4375,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646393,
-      "prediction": "ETH_UP",
-      "confidence": 0.538123540895623,
-      "stake_amount": 58,
-      "market_gas": 12.5208015425,
-      "market_sol": 132.4375,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646393,
-      "prediction": "SOL_UP",
-      "confidence": 0.6074501011445054,
-      "stake_amount": 64,
-      "market_gas": 12.5208015425,
-      "market_sol": 132.4375,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646411,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5164539152678529,
-      "stake_amount": 56,
-      "market_gas": 12.520267184,
-      "market_sol": 132.39499999999998,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646411,
-      "prediction": "BTC_UP",
-      "confidence": 0.7342660543200205,
-      "stake_amount": 76,
-      "market_gas": 12.520267184,
-      "market_sol": 132.39499999999998,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646411,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.38394419223736925,
-      "stake_amount": 44,
-      "market_gas": 12.520267184,
-      "market_sol": 132.39499999999998,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646411,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.4785894018422072,
-      "stake_amount": 53,
-      "market_gas": 12.520267184,
-      "market_sol": 132.39499999999998,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646427,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.2675374278060773,
-      "stake_amount": 34,
-      "market_gas": 12.51988246525,
-      "market_sol": 132.5,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646427,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.44861914222718546,
-      "stake_amount": 50,
-      "market_gas": 12.51988246525,
-      "market_sol": 132.5,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646427,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.37314115085963345,
-      "stake_amount": 43,
-      "market_gas": 12.51988246525,
-      "market_sol": 132.5,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646427,
-      "prediction": "SOL_UP",
-      "confidence": 0.5913119621252589,
-      "stake_amount": 63,
-      "market_gas": 12.51988246525,
-      "market_sol": 132.5,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646444,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5042963014244914,
-      "stake_amount": 55,
-      "market_gas": 12.5213354595,
-      "market_sol": 132.46749999999997,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646444,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4758794543389085,
-      "stake_amount": 52,
-      "market_gas": 12.5213354595,
-      "market_sol": 132.46749999999997,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646444,
-      "prediction": "ETH_UP",
-      "confidence": 0.5428048436657661,
-      "stake_amount": 58,
-      "market_gas": 12.5213354595,
-      "market_sol": 132.46749999999997,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646444,
-      "prediction": "SOL_UP",
-      "confidence": 0.5321565957494316,
-      "stake_amount": 57,
-      "market_gas": 12.5213354595,
-      "market_sol": 132.46749999999997,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646462,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5361498248193269,
-      "stake_amount": 58,
-      "market_gas": 12.5200975125,
-      "market_sol": 132.4325,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646462,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.3111107380414352,
-      "stake_amount": 37,
-      "market_gas": 12.5200975125,
-      "market_sol": 132.4325,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646462,
-      "prediction": "ETH_UP",
-      "confidence": 0.5364039276164927,
-      "stake_amount": 58,
-      "market_gas": 12.5200975125,
-      "market_sol": 132.4325,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646462,
-      "prediction": "SOL_UP",
-      "confidence": 0.5113548454640939,
-      "stake_amount": 56,
-      "market_gas": 12.5200975125,
-      "market_sol": 132.4325,
-      "market_tvl": 7.421452198280263,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646481,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.419746376376161,
-      "stake_amount": 47,
-      "market_gas": 12.5194679025,
-      "market_sol": 132.4375,
-      "market_tvl": 7.418581266337644,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646481,
-      "prediction": "BTC_UP",
-      "confidence": 0.5497253577746396,
-      "stake_amount": 59,
-      "market_gas": 12.5194679025,
-      "market_sol": 132.4375,
-      "market_tvl": 7.418581266337644,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646481,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4738680030071538,
-      "stake_amount": 52,
-      "market_gas": 12.5194679025,
-      "market_sol": 132.4375,
-      "market_tvl": 7.418581266337644,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646481,
-      "prediction": "SOL_UP",
-      "confidence": 0.622263647257357,
-      "stake_amount": 66,
-      "market_gas": 12.5194679025,
-      "market_sol": 132.4375,
-      "market_tvl": 7.418581266337644,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646498,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.2147481961977819,
-      "stake_amount": 29,
-      "market_gas": 12.5206559025,
-      "market_sol": 132.47,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646498,
-      "prediction": "BTC_UP",
-      "confidence": 0.5246787456733217,
-      "stake_amount": 57,
-      "market_gas": 12.5206559025,
-      "market_sol": 132.47,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646498,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.19466382897364176,
-      "stake_amount": 27,
-      "market_gas": 12.5206559025,
-      "market_sol": 132.47,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646498,
-      "prediction": "SOL_UP",
-      "confidence": 0.7369302268136956,
-      "stake_amount": 76,
-      "market_gas": 12.5206559025,
-      "market_sol": 132.47,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646517,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5293302476709725,
-      "stake_amount": 57,
-      "market_gas": 10.025075312,
-      "market_sol": 132.54000000000002,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646517,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4395416137163437,
-      "stake_amount": 49,
-      "market_gas": 10.025075312,
-      "market_sol": 132.54000000000002,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646517,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4722956847438471,
-      "stake_amount": 52,
-      "market_gas": 10.025075312,
-      "market_sol": 132.54000000000002,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646517,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.41883100687021335,
-      "stake_amount": 47,
-      "market_gas": 10.025075312,
-      "market_sol": 132.54000000000002,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646535,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.3305881286697607,
-      "stake_amount": 39,
-      "market_gas": 12.52012637975,
-      "market_sol": 132.4075,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646535,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.3833452602021355,
-      "stake_amount": 44,
-      "market_gas": 12.52012637975,
-      "market_sol": 132.4075,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646535,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4546000971378555,
-      "stake_amount": 50,
-      "market_gas": 12.52012637975,
-      "market_sol": 132.4075,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646535,
-      "prediction": "SOL_UP",
-      "confidence": 0.5436095948399399,
-      "stake_amount": 58,
-      "market_gas": 12.52012637975,
-      "market_sol": 132.4075,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646552,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.6884145699312245,
-      "stake_amount": 71,
-      "market_gas": 12.52041943475,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646552,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4085658969721442,
-      "stake_amount": 46,
-      "market_gas": 12.52041943475,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646552,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.475628527520536,
-      "stake_amount": 52,
-      "market_gas": 12.52041943475,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646552,
-      "prediction": "SOL_UP",
-      "confidence": 0.545109447241282,
-      "stake_amount": 59,
-      "market_gas": 12.52041943475,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646570,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.3227401468739373,
-      "stake_amount": 39,
-      "market_gas": 12.52001336525,
-      "market_sol": 132.3325,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646570,
-      "prediction": "BTC_UP",
-      "confidence": 0.5284555803197133,
-      "stake_amount": 57,
-      "market_gas": 12.52001336525,
-      "market_sol": 132.3325,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646570,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4338289556145269,
-      "stake_amount": 49,
-      "market_gas": 12.52001336525,
-      "market_sol": 132.3325,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646570,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.3647668618772358,
-      "stake_amount": 42,
-      "market_gas": 12.52001336525,
-      "market_sol": 132.3325,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646589,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5621240819692561,
-      "stake_amount": 60,
-      "market_gas": 10.0222122286,
-      "market_sol": 132.52399999999997,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646589,
-      "prediction": "BTC_UP",
-      "confidence": 0.6026767081159841,
-      "stake_amount": 64,
-      "market_gas": 10.0222122286,
-      "market_sol": 132.52399999999997,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646589,
-      "prediction": "ETH_UP",
-      "confidence": 0.7517713981734792,
-      "stake_amount": 77,
-      "market_gas": 10.0222122286,
-      "market_sol": 132.52399999999997,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646589,
-      "prediction": "SOL_UP",
-      "confidence": 0.8493811586059065,
-      "stake_amount": 86,
-      "market_gas": 10.0222122286,
-      "market_sol": 132.52399999999997,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646605,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5494383865207564,
-      "stake_amount": 59,
-      "market_gas": 12.518937290499998,
-      "market_sol": 132.4525,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646605,
-      "prediction": "BTC_UP",
-      "confidence": 0.5111889681769995,
-      "stake_amount": 56,
-      "market_gas": 12.518937290499998,
-      "market_sol": 132.4525,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646605,
-      "prediction": "ETH_UP",
-      "confidence": 0.6059637380353924,
-      "stake_amount": 64,
-      "market_gas": 12.518937290499998,
-      "market_sol": 132.4525,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646605,
-      "prediction": "SOL_UP",
-      "confidence": 0.5060450827322033,
-      "stake_amount": 55,
-      "market_gas": 12.518937290499998,
-      "market_sol": 132.4525,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646623,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.35770888419276187,
-      "stake_amount": 42,
-      "market_gas": 12.5194346205,
-      "market_sol": 132.3275,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646623,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.33055003383844284,
-      "stake_amount": 39,
-      "market_gas": 12.5194346205,
-      "market_sol": 132.3275,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646623,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4153533185006834,
-      "stake_amount": 47,
-      "market_gas": 12.5194346205,
-      "market_sol": 132.3275,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646623,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.4104567531554537,
-      "stake_amount": 46,
-      "market_gas": 12.5194346205,
-      "market_sol": 132.3275,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646641,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5280219427255484,
-      "stake_amount": 57,
-      "market_gas": 12.51925185675,
-      "market_sol": 132.2975,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646641,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4800133955549421,
-      "stake_amount": 53,
-      "market_gas": 12.51925185675,
-      "market_sol": 132.2975,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646641,
-      "prediction": "ETH_UP",
-      "confidence": 0.5544540124030023,
-      "stake_amount": 59,
-      "market_gas": 12.51925185675,
-      "market_sol": 132.2975,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646641,
-      "prediction": "SOL_UP",
-      "confidence": 0.5548991950363619,
-      "stake_amount": 59,
-      "market_gas": 12.51925185675,
-      "market_sol": 132.2975,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646658,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.6474393954533655,
-      "stake_amount": 68,
-      "market_gas": 12.51809452275,
-      "market_sol": 132.2975,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646658,
-      "prediction": "BTC_UP",
-      "confidence": 0.5812761168358643,
-      "stake_amount": 62,
-      "market_gas": 12.51809452275,
-      "market_sol": 132.2975,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646658,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.3436801212038161,
-      "stake_amount": 40,
-      "market_gas": 12.51809452275,
-      "market_sol": 132.2975,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646658,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.44197834576294553,
-      "stake_amount": 49,
-      "market_gas": 12.51809452275,
-      "market_sol": 132.2975,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646678,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.2301797941547083,
-      "stake_amount": 30,
-      "market_gas": 10.0218516562,
-      "market_sol": 132.436,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646678,
-      "prediction": "BTC_UP",
-      "confidence": 0.542400598612423,
-      "stake_amount": 58,
-      "market_gas": 10.0218516562,
-      "market_sol": 132.436,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646678,
-      "prediction": "ETH_UP",
-      "confidence": 0.787025783312518,
-      "stake_amount": 80,
-      "market_gas": 10.0218516562,
-      "market_sol": 132.436,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646678,
-      "prediction": "SOL_UP",
-      "confidence": 0.5693781167546947,
-      "stake_amount": 61,
-      "market_gas": 10.0218516562,
-      "market_sol": 132.436,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646695,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.4723881924791037,
-      "stake_amount": 52,
-      "market_gas": 12.51728193675,
-      "market_sol": 132.26,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646695,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4357363693371419,
-      "stake_amount": 49,
-      "market_gas": 12.51728193675,
-      "market_sol": 132.26,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646695,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.31969243190983987,
-      "stake_amount": 38,
-      "market_gas": 12.51728193675,
-      "market_sol": 132.26,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646695,
-      "prediction": "SOL_UP",
-      "confidence": 0.6157337135201945,
-      "stake_amount": 65,
-      "market_gas": 12.51728193675,
-      "market_sol": 132.26,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646714,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.21753017628290863,
-      "stake_amount": 29,
-      "market_gas": 12.51702713275,
-      "market_sol": 132.2575,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646714,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4060832631605985,
-      "stake_amount": 46,
-      "market_gas": 12.51702713275,
-      "market_sol": 132.2575,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646714,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.3984465950001794,
-      "stake_amount": 45,
-      "market_gas": 12.51702713275,
-      "market_sol": 132.2575,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646714,
-      "prediction": "SOL_UP",
-      "confidence": 0.6861285873692821,
-      "stake_amount": 71,
-      "market_gas": 12.51702713275,
-      "market_sol": 132.2575,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646731,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.367202001580531,
-      "stake_amount": 43,
-      "market_gas": 12.5155357345,
-      "market_sol": 132.2575,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646731,
-      "prediction": "BTC_UP",
-      "confidence": 0.6234857112575597,
-      "stake_amount": 66,
-      "market_gas": 12.5155357345,
-      "market_sol": 132.2575,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646731,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4650166028658558,
-      "stake_amount": 51,
-      "market_gas": 12.5155357345,
-      "market_sol": 132.2575,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646731,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.4418422939420333,
-      "stake_amount": 49,
-      "market_gas": 12.5155357345,
-      "market_sol": 132.2575,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646750,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.45785609954979367,
-      "stake_amount": 51,
-      "market_gas": 10.0191950406,
-      "market_sol": 132.49200000000002,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646750,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4786295344695743,
-      "stake_amount": 53,
-      "market_gas": 10.0191950406,
-      "market_sol": 132.49200000000002,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646750,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4987430242749062,
-      "stake_amount": 54,
-      "market_gas": 10.0191950406,
-      "market_sol": 132.49200000000002,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646750,
-      "prediction": "SOL_UP",
-      "confidence": 0.6065692796585692,
-      "stake_amount": 64,
-      "market_gas": 10.0191950406,
-      "market_sol": 132.49200000000002,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646768,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5835954205879679,
-      "stake_amount": 62,
-      "market_gas": 12.515659959,
-      "market_sol": 132.3375,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646768,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.34070899836378965,
-      "stake_amount": 40,
-      "market_gas": 12.515659959,
-      "market_sol": 132.3375,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646768,
-      "prediction": "ETH_UP",
-      "confidence": 0.6081498875879541,
-      "stake_amount": 64,
-      "market_gas": 12.515659959,
-      "market_sol": 132.3375,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646768,
-      "prediction": "SOL_UP",
-      "confidence": 0.6582183470941612,
-      "stake_amount": 69,
-      "market_gas": 12.515659959,
-      "market_sol": 132.3375,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646786,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5421832621223581,
-      "stake_amount": 58,
-      "market_gas": 12.5148427255,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646786,
-      "prediction": "BTC_UP",
-      "confidence": 0.6004991382012427,
-      "stake_amount": 64,
-      "market_gas": 12.5148427255,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646786,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.26574340020878523,
-      "stake_amount": 33,
-      "market_gas": 12.5148427255,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646786,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.48028365577236,
-      "stake_amount": 53,
-      "market_gas": 12.5148427255,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646804,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.2639260585568095,
-      "stake_amount": 33,
-      "market_gas": 12.5148427255,
-      "market_sol": 132.365,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646804,
-      "prediction": "BTC_UP",
-      "confidence": 0.6463271186436027,
-      "stake_amount": 68,
-      "market_gas": 12.5148427255,
-      "market_sol": 132.365,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646804,
-      "prediction": "ETH_UP",
-      "confidence": 0.6541954373801613,
-      "stake_amount": 68,
-      "market_gas": 12.5148427255,
-      "market_sol": 132.365,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646804,
-      "prediction": "SOL_UP",
-      "confidence": 0.5434480163133786,
-      "stake_amount": 58,
-      "market_gas": 12.5148427255,
-      "market_sol": 132.365,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646820,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.40818524747994145,
-      "stake_amount": 46,
-      "market_gas": 12.51584757575,
-      "market_sol": 132.4025,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646820,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.290345293620389,
-      "stake_amount": 36,
-      "market_gas": 12.51584757575,
-      "market_sol": 132.4025,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646820,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.4102217501379208,
-      "stake_amount": 46,
-      "market_gas": 12.51584757575,
-      "market_sol": 132.4025,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646820,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.45688962604607736,
-      "stake_amount": 51,
-      "market_gas": 12.51584757575,
-      "market_sol": 132.4025,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646839,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.39158426645623706,
-      "stake_amount": 45,
-      "market_gas": 10.0177422174,
-      "market_sol": 132.426,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646839,
-      "prediction": "BTC_DOWN",
-      "confidence": 0.4231648969390667,
-      "stake_amount": 48,
-      "market_gas": 10.0177422174,
-      "market_sol": 132.426,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646839,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.2989716056407515,
-      "stake_amount": 36,
-      "market_gas": 10.0177422174,
-      "market_sol": 132.426,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646839,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.3867545406541972,
-      "stake_amount": 44,
-      "market_gas": 10.0177422174,
-      "market_sol": 132.426,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646856,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.40059075900100105,
-      "stake_amount": 46,
-      "market_gas": 12.5148886605,
-      "market_sol": 132.40249999999995,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646856,
-      "prediction": "BTC_UP",
-      "confidence": 0.5793441128622243,
-      "stake_amount": 62,
-      "market_gas": 12.5148886605,
-      "market_sol": 132.40249999999995,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646856,
-      "prediction": "ETH_DOWN",
-      "confidence": 0.462258030803008,
-      "stake_amount": 51,
-      "market_gas": 12.5148886605,
-      "market_sol": 132.40249999999995,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646856,
-      "prediction": "SOL_UP",
-      "confidence": 0.5769905293873079,
-      "stake_amount": 61,
-      "market_gas": 12.5148886605,
-      "market_sol": 132.40249999999995,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646875,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5092166359792002,
-      "stake_amount": 55,
-      "market_gas": 12.5167015535,
-      "market_sol": 132.39249999999998,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646875,
-      "prediction": "BTC_UP",
-      "confidence": 0.5952161590077105,
-      "stake_amount": 63,
-      "market_gas": 12.5167015535,
-      "market_sol": 132.39249999999998,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646875,
-      "prediction": "ETH_UP",
-      "confidence": 0.58580435326868,
-      "stake_amount": 62,
-      "market_gas": 12.5167015535,
-      "market_sol": 132.39249999999998,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646875,
-      "prediction": "SOL_UP",
-      "confidence": 0.7039464220346681,
-      "stake_amount": 73,
-      "market_gas": 12.5167015535,
-      "market_sol": 132.39249999999998,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646892,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.660229063964038,
-      "stake_amount": 69,
-      "market_gas": 12.51687645375,
-      "market_sol": 132.3875,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646892,
-      "prediction": "BTC_UP",
-      "confidence": 0.6321440108555447,
-      "stake_amount": 66,
-      "market_gas": 12.51687645375,
-      "market_sol": 132.3875,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646892,
-      "prediction": "ETH_UP",
-      "confidence": 0.5601031799816776,
-      "stake_amount": 60,
-      "market_gas": 12.51687645375,
-      "market_sol": 132.3875,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646892,
-      "prediction": "SOL_UP",
-      "confidence": 0.5172733825626633,
-      "stake_amount": 56,
-      "market_gas": 12.51687645375,
-      "market_sol": 132.3875,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646912,
-      "prediction": "DIRECT_L1",
-      "confidence": 0.1949773705522558,
-      "stake_amount": 27,
-      "market_gas": 10.019736393,
-      "market_sol": 132.39799999999997,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646912,
-      "prediction": "BTC_UP",
-      "confidence": 0.5246993598907522,
-      "stake_amount": 57,
-      "market_gas": 10.019736393,
-      "market_sol": 132.39799999999997,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646912,
-      "prediction": "ETH_UP",
-      "confidence": 0.5330577917881523,
-      "stake_amount": 57,
-      "market_gas": 10.019736393,
-      "market_sol": 132.39799999999997,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646912,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.4356636135195175,
-      "stake_amount": 49,
-      "market_gas": 10.019736393,
-      "market_sol": 132.39799999999997,
-      "market_tvl": 7.415710334395023,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646930,
-      "prediction": "OPTIMISTIC_L2",
-      "confidence": 0.5727781322820632,
-      "stake_amount": 61,
-      "market_gas": 12.51612883475,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646930,
-      "prediction": "BTC_UP",
-      "confidence": 0.5049987008752638,
-      "stake_amount": 55,
-      "market_gas": 12.51612883475,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646930,
-      "prediction": "ETH_UP",
-      "confidence": 0.7758678682541674,
-      "stake_amount": 79,
-      "market_gas": 12.51612883475,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    },
-    {
-      "timestamp": 1765646930,
-      "prediction": "SOL_DOWN",
-      "confidence": 0.4436518393563472,
-      "stake_amount": 49,
-      "market_gas": 12.51612883475,
-      "market_sol": 132.3625,
-      "market_tvl": 7.415710334395024,
-      "outcome": null
-    }
-  ],
+  "active_bets": [],
   "settled_bets": [
     {
       "timestamp": 1765590800,
@@ -11836,10 +9795,3070 @@
         "profit_loss": 51,
         "evaluated_at": 1765647822
       }
+    },
+    {
+      "timestamp": 1765646037,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.2820617415698916,
+      "stake_amount": 35,
+      "market_gas": 10.0245318856,
+      "market_sol": 132.72600000000003,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -35,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646037,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.47922700078569186,
+      "stake_amount": 53,
+      "market_gas": 10.0245318856,
+      "market_sol": 132.72600000000003,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -53,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646037,
+      "prediction": "ETH_UP",
+      "confidence": 0.5735419834206997,
+      "stake_amount": 61,
+      "market_gas": 10.0245318856,
+      "market_sol": 132.72600000000003,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -61,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646037,
+      "prediction": "SOL_UP",
+      "confidence": 0.6055300140186125,
+      "stake_amount": 64,
+      "market_gas": 10.0245318856,
+      "market_sol": 132.72600000000003,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -64,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646055,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.43404373266468543,
+      "stake_amount": 49,
+      "market_gas": 12.519923531,
+      "market_sol": 132.71,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -49,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646055,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.2403756456476422,
+      "stake_amount": 31,
+      "market_gas": 12.519923531,
+      "market_sol": 132.71,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -31,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646055,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.41031512113420165,
+      "stake_amount": 46,
+      "market_gas": 12.519923531,
+      "market_sol": 132.71,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -46,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646055,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.2772660611936655,
+      "stake_amount": 34,
+      "market_gas": 12.519923531,
+      "market_sol": 132.71,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -34,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646073,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.4383660083662979,
+      "stake_amount": 49,
+      "market_gas": 12.52044238975,
+      "market_sol": 132.7175,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -49,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646073,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.35677103389965653,
+      "stake_amount": 42,
+      "market_gas": 12.52044238975,
+      "market_sol": 132.7175,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -42,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646073,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.398245498948238,
+      "stake_amount": 45,
+      "market_gas": 12.52044238975,
+      "market_sol": 132.7175,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -45,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646073,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.22128407587737947,
+      "stake_amount": 29,
+      "market_gas": 12.52044238975,
+      "market_sol": 132.7175,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -29,
+        "evaluated_at": 1765647882
+      }
+    },
+    {
+      "timestamp": 1765646091,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.42737112042151737,
+      "stake_amount": 48,
+      "market_gas": 12.520658683,
+      "market_sol": 132.70999999999998,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -48,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646091,
+      "prediction": "BTC_UP",
+      "confidence": 0.6073815000750952,
+      "stake_amount": 64,
+      "market_gas": 12.520658683,
+      "market_sol": 132.70999999999998,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -64,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646091,
+      "prediction": "ETH_UP",
+      "confidence": 0.6289671260611395,
+      "stake_amount": 66,
+      "market_gas": 12.520658683,
+      "market_sol": 132.70999999999998,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -66,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646091,
+      "prediction": "SOL_UP",
+      "confidence": 0.5777267651677255,
+      "stake_amount": 61,
+      "market_gas": 12.520658683,
+      "market_sol": 132.70999999999998,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -61,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646109,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.4891331807434917,
+      "stake_amount": 54,
+      "market_gas": 10.0235599344,
+      "market_sol": 132.692,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -54,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646109,
+      "prediction": "BTC_UP",
+      "confidence": 0.526091882535151,
+      "stake_amount": 57,
+      "market_gas": 10.0235599344,
+      "market_sol": 132.692,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -57,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646109,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.3666428956505785,
+      "stake_amount": 42,
+      "market_gas": 10.0235599344,
+      "market_sol": 132.692,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -42,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646109,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.4322810504953696,
+      "stake_amount": 48,
+      "market_gas": 10.0235599344,
+      "market_sol": 132.692,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -48,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646126,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.2623952651823586,
+      "stake_amount": 33,
+      "market_gas": 12.51937158375,
+      "market_sol": 132.6725,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -33,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646126,
+      "prediction": "BTC_UP",
+      "confidence": 0.5283913758093958,
+      "stake_amount": 57,
+      "market_gas": 12.51937158375,
+      "market_sol": 132.6725,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -57,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646126,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4597979309082749,
+      "stake_amount": 51,
+      "market_gas": 12.51937158375,
+      "market_sol": 132.6725,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -51,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646126,
+      "prediction": "SOL_UP",
+      "confidence": 0.5796147128250971,
+      "stake_amount": 62,
+      "market_gas": 12.51937158375,
+      "market_sol": 132.6725,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -62,
+        "evaluated_at": 1765647943
+      }
+    },
+    {
+      "timestamp": 1765646144,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.459578294956988,
+      "stake_amount": 51,
+      "market_gas": 12.5202889485,
+      "market_sol": 132.685,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -51,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646144,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.3120618462125561,
+      "stake_amount": 38,
+      "market_gas": 12.5202889485,
+      "market_sol": 132.685,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -38,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646144,
+      "prediction": "ETH_UP",
+      "confidence": 0.6063899844416125,
+      "stake_amount": 64,
+      "market_gas": 12.5202889485,
+      "market_sol": 132.685,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -64,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646144,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.4547325338317744,
+      "stake_amount": 50,
+      "market_gas": 12.5202889485,
+      "market_sol": 132.685,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -50,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646162,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.6737962183778461,
+      "stake_amount": 70,
+      "market_gas": 12.5199337195,
+      "market_sol": 132.7025,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 47,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646162,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.22165605900701257,
+      "stake_amount": 29,
+      "market_gas": 12.5199337195,
+      "market_sol": 132.7025,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -29,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646162,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4530139509398717,
+      "stake_amount": 50,
+      "market_gas": 12.5199337195,
+      "market_sol": 132.7025,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -50,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646162,
+      "prediction": "SOL_UP",
+      "confidence": 0.6239163352076613,
+      "stake_amount": 66,
+      "market_gas": 12.5199337195,
+      "market_sol": 132.7025,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -66,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646179,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.34204070202410286,
+      "stake_amount": 40,
+      "market_gas": 12.520735939,
+      "market_sol": 132.665,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -40,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646179,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.405650790982116,
+      "stake_amount": 46,
+      "market_gas": 12.520735939,
+      "market_sol": 132.665,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -46,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646179,
+      "prediction": "ETH_UP",
+      "confidence": 0.6572628083642066,
+      "stake_amount": 69,
+      "market_gas": 12.520735939,
+      "market_sol": 132.665,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -69,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646179,
+      "prediction": "SOL_UP",
+      "confidence": 0.5142732852215011,
+      "stake_amount": 56,
+      "market_gas": 12.520735939,
+      "market_sol": 132.665,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -56,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646199,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.4507846858066812,
+      "stake_amount": 50,
+      "market_gas": 10.0258215952,
+      "market_sol": 132.688,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -50,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646199,
+      "prediction": "BTC_UP",
+      "confidence": 0.5191163517382023,
+      "stake_amount": 56,
+      "market_gas": 10.0258215952,
+      "market_sol": 132.688,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -56,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646199,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.40054168665829615,
+      "stake_amount": 46,
+      "market_gas": 10.0258215952,
+      "market_sol": 132.688,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -46,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646199,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.3897411282560343,
+      "stake_amount": 45,
+      "market_gas": 10.0258215952,
+      "market_sol": 132.688,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -45,
+        "evaluated_at": 1765648003
+      }
+    },
+    {
+      "timestamp": 1765646217,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.3873222597201764,
+      "stake_amount": 44,
+      "market_gas": 12.520722081,
+      "market_sol": 132.6225,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -44,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646217,
+      "prediction": "BTC_UP",
+      "confidence": 0.5223271143147057,
+      "stake_amount": 57,
+      "market_gas": 12.520722081,
+      "market_sol": 132.6225,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -57,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646217,
+      "prediction": "ETH_UP",
+      "confidence": 0.6159792310749449,
+      "stake_amount": 65,
+      "market_gas": 12.520722081,
+      "market_sol": 132.6225,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -65,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646217,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.489149930081025,
+      "stake_amount": 54,
+      "market_gas": 12.520722081,
+      "market_sol": 132.6225,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -54,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646235,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.40325992107971903,
+      "stake_amount": 46,
+      "market_gas": 12.52011804925,
+      "market_sol": 132.615,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -46,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646235,
+      "prediction": "BTC_UP",
+      "confidence": 0.6542516070534918,
+      "stake_amount": 68,
+      "market_gas": 12.52011804925,
+      "market_sol": 132.615,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -68,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646235,
+      "prediction": "ETH_UP",
+      "confidence": 0.5495369607236333,
+      "stake_amount": 59,
+      "market_gas": 12.52011804925,
+      "market_sol": 132.615,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -59,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646235,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.2515909166016758,
+      "stake_amount": 32,
+      "market_gas": 12.52011804925,
+      "market_sol": 132.615,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -32,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646252,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5263328523434858,
+      "stake_amount": 57,
+      "market_gas": 12.5218591325,
+      "market_sol": 132.615,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 30,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646252,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.3680315634668383,
+      "stake_amount": 43,
+      "market_gas": 12.5218591325,
+      "market_sol": 132.615,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -43,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646252,
+      "prediction": "ETH_UP",
+      "confidence": 0.632658705228522,
+      "stake_amount": 66,
+      "market_gas": 12.5218591325,
+      "market_sol": 132.615,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -66,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646252,
+      "prediction": "SOL_UP",
+      "confidence": 0.6476794816270841,
+      "stake_amount": 68,
+      "market_gas": 12.5218591325,
+      "market_sol": 132.615,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -68,
+        "evaluated_at": 1765648063
+      }
+    },
+    {
+      "timestamp": 1765646270,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.4676012230469753,
+      "stake_amount": 52,
+      "market_gas": 10.0250366182,
+      "market_sol": 132.67799999999997,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -52,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646270,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.3058821578564118,
+      "stake_amount": 37,
+      "market_gas": 10.0250366182,
+      "market_sol": 132.67799999999997,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -37,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646270,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4805579920712238,
+      "stake_amount": 53,
+      "market_gas": 10.0250366182,
+      "market_sol": 132.67799999999997,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -53,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646270,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.45309910655143987,
+      "stake_amount": 50,
+      "market_gas": 10.0250366182,
+      "market_sol": 132.67799999999997,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -50,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646288,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.33905652242198997,
+      "stake_amount": 40,
+      "market_gas": 12.52118122025,
+      "market_sol": 132.5625,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -40,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646288,
+      "prediction": "BTC_UP",
+      "confidence": 0.7892405511582292,
+      "stake_amount": 81,
+      "market_gas": 12.52118122025,
+      "market_sol": 132.5625,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -81,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646288,
+      "prediction": "ETH_UP",
+      "confidence": 0.5121364152246529,
+      "stake_amount": 56,
+      "market_gas": 12.52118122025,
+      "market_sol": 132.5625,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -56,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646288,
+      "prediction": "SOL_UP",
+      "confidence": 0.5198285112975531,
+      "stake_amount": 56,
+      "market_gas": 12.52118122025,
+      "market_sol": 132.5625,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -56,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646305,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.399988852878657,
+      "stake_amount": 45,
+      "market_gas": 12.52112055825,
+      "market_sol": 132.575,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -45,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646305,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.20624892513723245,
+      "stake_amount": 28,
+      "market_gas": 12.52112055825,
+      "market_sol": 132.575,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -28,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646305,
+      "prediction": "ETH_UP",
+      "confidence": 0.516840663304182,
+      "stake_amount": 56,
+      "market_gas": 12.52112055825,
+      "market_sol": 132.575,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -56,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646305,
+      "prediction": "SOL_UP",
+      "confidence": 0.7056456604337015,
+      "stake_amount": 73,
+      "market_gas": 12.52112055825,
+      "market_sol": 132.575,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -73,
+        "evaluated_at": 1765648124
+      }
+    },
+    {
+      "timestamp": 1765646323,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.6267101016709961,
+      "stake_amount": 66,
+      "market_gas": 12.520213859,
+      "market_sol": 132.5325,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 0.034153912,
+        "profit_loss": -66,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646323,
+      "prediction": "BTC_UP",
+      "confidence": 0.6645398305166014,
+      "stake_amount": 69,
+      "market_gas": 12.520213859,
+      "market_sol": 132.5325,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 45,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646323,
+      "prediction": "ETH_UP",
+      "confidence": 0.6959678150691435,
+      "stake_amount": 72,
+      "market_gas": 12.520213859,
+      "market_sol": 132.5325,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 50,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646323,
+      "prediction": "SOL_UP",
+      "confidence": 0.5292031514460928,
+      "stake_amount": 57,
+      "market_gas": 12.520213859,
+      "market_sol": 132.5325,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 30,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646339,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.3549909373320504,
+      "stake_amount": 41,
+      "market_gas": 12.5204818235,
+      "market_sol": 132.54,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 14,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646339,
+      "prediction": "BTC_UP",
+      "confidence": 0.6409869748167947,
+      "stake_amount": 67,
+      "market_gas": 12.5204818235,
+      "market_sol": 132.54,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 42,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646339,
+      "prediction": "ETH_UP",
+      "confidence": 0.7180441781740292,
+      "stake_amount": 74,
+      "market_gas": 12.5204818235,
+      "market_sol": 132.54,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 53,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646339,
+      "prediction": "SOL_UP",
+      "confidence": 0.5643564612990225,
+      "stake_amount": 60,
+      "market_gas": 12.5204818235,
+      "market_sol": 132.54,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 33,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646357,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.2903272339606607,
+      "stake_amount": 36,
+      "market_gas": 10.0241704466,
+      "market_sol": 132.66,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 10,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646357,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4559448382469099,
+      "stake_amount": 51,
+      "market_gas": 10.0241704466,
+      "market_sol": 132.66,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 23,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646357,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4900318899151367,
+      "stake_amount": 54,
+      "market_gas": 10.0241704466,
+      "market_sol": 132.66,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 26,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646357,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.36786724531107107,
+      "stake_amount": 43,
+      "market_gas": 10.0241704466,
+      "market_sol": 132.66,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 15,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646375,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.4444294954285366,
+      "stake_amount": 49,
+      "market_gas": 12.5220137,
+      "market_sol": 132.42,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 21,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646375,
+      "prediction": "BTC_UP",
+      "confidence": 0.6456025967148566,
+      "stake_amount": 68,
+      "market_gas": 12.5220137,
+      "market_sol": 132.42,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 43,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646375,
+      "prediction": "ETH_UP",
+      "confidence": 0.7068931698363518,
+      "stake_amount": 73,
+      "market_gas": 12.5220137,
+      "market_sol": 132.42,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 51,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646375,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.30649242295276746,
+      "stake_amount": 37,
+      "market_gas": 12.5220137,
+      "market_sol": 132.42,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.034153912,
+        "profit_loss": 11,
+        "evaluated_at": 1765648184
+      }
+    },
+    {
+      "timestamp": 1765646393,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.34462882549418045,
+      "stake_amount": 41,
+      "market_gas": 12.5208015425,
+      "market_sol": 132.4375,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 14,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646393,
+      "prediction": "BTC_UP",
+      "confidence": 0.5246123048551804,
+      "stake_amount": 57,
+      "market_gas": 12.5208015425,
+      "market_sol": 132.4375,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 29,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646393,
+      "prediction": "ETH_UP",
+      "confidence": 0.538123540895623,
+      "stake_amount": 58,
+      "market_gas": 12.5208015425,
+      "market_sol": 132.4375,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 31,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646393,
+      "prediction": "SOL_UP",
+      "confidence": 0.6074501011445054,
+      "stake_amount": 64,
+      "market_gas": 12.5208015425,
+      "market_sol": 132.4375,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 38,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646411,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5164539152678529,
+      "stake_amount": 56,
+      "market_gas": 12.520267184,
+      "market_sol": 132.39499999999998,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 0.032107175,
+        "profit_loss": -56,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646411,
+      "prediction": "BTC_UP",
+      "confidence": 0.7342660543200205,
+      "stake_amount": 76,
+      "market_gas": 12.520267184,
+      "market_sol": 132.39499999999998,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 55,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646411,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.38394419223736925,
+      "stake_amount": 44,
+      "market_gas": 12.520267184,
+      "market_sol": 132.39499999999998,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 16,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646411,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.4785894018422072,
+      "stake_amount": 53,
+      "market_gas": 12.520267184,
+      "market_sol": 132.39499999999998,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 25,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646427,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.2675374278060773,
+      "stake_amount": 34,
+      "market_gas": 12.51988246525,
+      "market_sol": 132.5,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 9,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646427,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.44861914222718546,
+      "stake_amount": 50,
+      "market_gas": 12.51988246525,
+      "market_sol": 132.5,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 22,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646427,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.37314115085963345,
+      "stake_amount": 43,
+      "market_gas": 12.51988246525,
+      "market_sol": 132.5,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 16,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646427,
+      "prediction": "SOL_UP",
+      "confidence": 0.5913119621252589,
+      "stake_amount": 63,
+      "market_gas": 12.51988246525,
+      "market_sol": 132.5,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032107175,
+        "profit_loss": 37,
+        "evaluated_at": 1765648244
+      }
+    },
+    {
+      "timestamp": 1765646444,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5042963014244914,
+      "stake_amount": 55,
+      "market_gas": 12.5213354595,
+      "market_sol": 132.46749999999997,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 27,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646444,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4758794543389085,
+      "stake_amount": 52,
+      "market_gas": 12.5213354595,
+      "market_sol": 132.46749999999997,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -52,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646444,
+      "prediction": "ETH_UP",
+      "confidence": 0.5428048436657661,
+      "stake_amount": 58,
+      "market_gas": 12.5213354595,
+      "market_sol": 132.46749999999997,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -58,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646444,
+      "prediction": "SOL_UP",
+      "confidence": 0.5321565957494316,
+      "stake_amount": 57,
+      "market_gas": 12.5213354595,
+      "market_sol": 132.46749999999997,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -57,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646462,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5361498248193269,
+      "stake_amount": 58,
+      "market_gas": 12.5200975125,
+      "market_sol": 132.4325,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 31,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646462,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.3111107380414352,
+      "stake_amount": 37,
+      "market_gas": 12.5200975125,
+      "market_sol": 132.4325,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -37,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646462,
+      "prediction": "ETH_UP",
+      "confidence": 0.5364039276164927,
+      "stake_amount": 58,
+      "market_gas": 12.5200975125,
+      "market_sol": 132.4325,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -58,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646462,
+      "prediction": "SOL_UP",
+      "confidence": 0.5113548454640939,
+      "stake_amount": 56,
+      "market_gas": 12.5200975125,
+      "market_sol": 132.4325,
+      "market_tvl": 7.421452198280263,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -56,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646481,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.419746376376161,
+      "stake_amount": 47,
+      "market_gas": 12.5194679025,
+      "market_sol": 132.4375,
+      "market_tvl": 7.418581266337644,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -47,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646481,
+      "prediction": "BTC_UP",
+      "confidence": 0.5497253577746396,
+      "stake_amount": 59,
+      "market_gas": 12.5194679025,
+      "market_sol": 132.4375,
+      "market_tvl": 7.418581266337644,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -59,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646481,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4738680030071538,
+      "stake_amount": 52,
+      "market_gas": 12.5194679025,
+      "market_sol": 132.4375,
+      "market_tvl": 7.418581266337644,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -52,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646481,
+      "prediction": "SOL_UP",
+      "confidence": 0.622263647257357,
+      "stake_amount": 66,
+      "market_gas": 12.5194679025,
+      "market_sol": 132.4375,
+      "market_tvl": 7.418581266337644,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -66,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646498,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.2147481961977819,
+      "stake_amount": 29,
+      "market_gas": 12.5206559025,
+      "market_sol": 132.47,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -29,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646498,
+      "prediction": "BTC_UP",
+      "confidence": 0.5246787456733217,
+      "stake_amount": 57,
+      "market_gas": 12.5206559025,
+      "market_sol": 132.47,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -57,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646498,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.19466382897364176,
+      "stake_amount": 27,
+      "market_gas": 12.5206559025,
+      "market_sol": 132.47,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -27,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646498,
+      "prediction": "SOL_UP",
+      "confidence": 0.7369302268136956,
+      "stake_amount": 76,
+      "market_gas": 12.5206559025,
+      "market_sol": 132.47,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -76,
+        "evaluated_at": 1765648305
+      }
+    },
+    {
+      "timestamp": 1765646517,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5293302476709725,
+      "stake_amount": 57,
+      "market_gas": 10.025075312,
+      "market_sol": 132.54000000000002,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 30,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646517,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4395416137163437,
+      "stake_amount": 49,
+      "market_gas": 10.025075312,
+      "market_sol": 132.54000000000002,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -49,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646517,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4722956847438471,
+      "stake_amount": 52,
+      "market_gas": 10.025075312,
+      "market_sol": 132.54000000000002,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -52,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646517,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.41883100687021335,
+      "stake_amount": 47,
+      "market_gas": 10.025075312,
+      "market_sol": 132.54000000000002,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -47,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646535,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.3305881286697607,
+      "stake_amount": 39,
+      "market_gas": 12.52012637975,
+      "market_sol": 132.4075,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -39,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646535,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.3833452602021355,
+      "stake_amount": 44,
+      "market_gas": 12.52012637975,
+      "market_sol": 132.4075,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -44,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646535,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4546000971378555,
+      "stake_amount": 50,
+      "market_gas": 12.52012637975,
+      "market_sol": 132.4075,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -50,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646535,
+      "prediction": "SOL_UP",
+      "confidence": 0.5436095948399399,
+      "stake_amount": 58,
+      "market_gas": 12.52012637975,
+      "market_sol": 132.4075,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -58,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646552,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.6884145699312245,
+      "stake_amount": 71,
+      "market_gas": 12.52041943475,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 48,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646552,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4085658969721442,
+      "stake_amount": 46,
+      "market_gas": 12.52041943475,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -46,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646552,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.475628527520536,
+      "stake_amount": 52,
+      "market_gas": 12.52041943475,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -52,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646552,
+      "prediction": "SOL_UP",
+      "confidence": 0.545109447241282,
+      "stake_amount": 59,
+      "market_gas": 12.52041943475,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -59,
+        "evaluated_at": 1765648365
+      }
+    },
+    {
+      "timestamp": 1765646570,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.3227401468739373,
+      "stake_amount": 39,
+      "market_gas": 12.52001336525,
+      "market_sol": 132.3325,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -39,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646570,
+      "prediction": "BTC_UP",
+      "confidence": 0.5284555803197133,
+      "stake_amount": 57,
+      "market_gas": 12.52001336525,
+      "market_sol": 132.3325,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -57,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646570,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4338289556145269,
+      "stake_amount": 49,
+      "market_gas": 12.52001336525,
+      "market_sol": 132.3325,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -49,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646570,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.3647668618772358,
+      "stake_amount": 42,
+      "market_gas": 12.52001336525,
+      "market_sol": 132.3325,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -42,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646589,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5621240819692561,
+      "stake_amount": 60,
+      "market_gas": 10.0222122286,
+      "market_sol": 132.52399999999997,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 33,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646589,
+      "prediction": "BTC_UP",
+      "confidence": 0.6026767081159841,
+      "stake_amount": 64,
+      "market_gas": 10.0222122286,
+      "market_sol": 132.52399999999997,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -64,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646589,
+      "prediction": "ETH_UP",
+      "confidence": 0.7517713981734792,
+      "stake_amount": 77,
+      "market_gas": 10.0222122286,
+      "market_sol": 132.52399999999997,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -77,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646589,
+      "prediction": "SOL_UP",
+      "confidence": 0.8493811586059065,
+      "stake_amount": 86,
+      "market_gas": 10.0222122286,
+      "market_sol": 132.52399999999997,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -86,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646605,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5494383865207564,
+      "stake_amount": 59,
+      "market_gas": 12.518937290499998,
+      "market_sol": 132.4525,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 32,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646605,
+      "prediction": "BTC_UP",
+      "confidence": 0.5111889681769995,
+      "stake_amount": 56,
+      "market_gas": 12.518937290499998,
+      "market_sol": 132.4525,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -56,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646605,
+      "prediction": "ETH_UP",
+      "confidence": 0.6059637380353924,
+      "stake_amount": 64,
+      "market_gas": 12.518937290499998,
+      "market_sol": 132.4525,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -64,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646605,
+      "prediction": "SOL_UP",
+      "confidence": 0.5060450827322033,
+      "stake_amount": 55,
+      "market_gas": 12.518937290499998,
+      "market_sol": 132.4525,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -55,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646623,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.35770888419276187,
+      "stake_amount": 42,
+      "market_gas": 12.5194346205,
+      "market_sol": 132.3275,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -42,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646623,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.33055003383844284,
+      "stake_amount": 39,
+      "market_gas": 12.5194346205,
+      "market_sol": 132.3275,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -39,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646623,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4153533185006834,
+      "stake_amount": 47,
+      "market_gas": 12.5194346205,
+      "market_sol": 132.3275,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -47,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646623,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.4104567531554537,
+      "stake_amount": 46,
+      "market_gas": 12.5194346205,
+      "market_sol": 132.3275,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -46,
+        "evaluated_at": 1765648426
+      }
+    },
+    {
+      "timestamp": 1765646641,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5280219427255484,
+      "stake_amount": 57,
+      "market_gas": 12.51925185675,
+      "market_sol": 132.2975,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 30,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646641,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4800133955549421,
+      "stake_amount": 53,
+      "market_gas": 12.51925185675,
+      "market_sol": 132.2975,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -53,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646641,
+      "prediction": "ETH_UP",
+      "confidence": 0.5544540124030023,
+      "stake_amount": 59,
+      "market_gas": 12.51925185675,
+      "market_sol": 132.2975,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -59,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646641,
+      "prediction": "SOL_UP",
+      "confidence": 0.5548991950363619,
+      "stake_amount": 59,
+      "market_gas": 12.51925185675,
+      "market_sol": 132.2975,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -59,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646658,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.6474393954533655,
+      "stake_amount": 68,
+      "market_gas": 12.51809452275,
+      "market_sol": 132.2975,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 44,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646658,
+      "prediction": "BTC_UP",
+      "confidence": 0.5812761168358643,
+      "stake_amount": 62,
+      "market_gas": 12.51809452275,
+      "market_sol": 132.2975,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -62,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646658,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.3436801212038161,
+      "stake_amount": 40,
+      "market_gas": 12.51809452275,
+      "market_sol": 132.2975,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -40,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646658,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.44197834576294553,
+      "stake_amount": 49,
+      "market_gas": 12.51809452275,
+      "market_sol": 132.2975,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -49,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646678,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.2301797941547083,
+      "stake_amount": 30,
+      "market_gas": 10.0218516562,
+      "market_sol": 132.436,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -30,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646678,
+      "prediction": "BTC_UP",
+      "confidence": 0.542400598612423,
+      "stake_amount": 58,
+      "market_gas": 10.0218516562,
+      "market_sol": 132.436,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -58,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646678,
+      "prediction": "ETH_UP",
+      "confidence": 0.787025783312518,
+      "stake_amount": 80,
+      "market_gas": 10.0218516562,
+      "market_sol": 132.436,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -80,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646678,
+      "prediction": "SOL_UP",
+      "confidence": 0.5693781167546947,
+      "stake_amount": 61,
+      "market_gas": 10.0218516562,
+      "market_sol": 132.436,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -61,
+        "evaluated_at": 1765648486
+      }
+    },
+    {
+      "timestamp": 1765646695,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.4723881924791037,
+      "stake_amount": 52,
+      "market_gas": 12.51728193675,
+      "market_sol": 132.26,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -52,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646695,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4357363693371419,
+      "stake_amount": 49,
+      "market_gas": 12.51728193675,
+      "market_sol": 132.26,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -49,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646695,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.31969243190983987,
+      "stake_amount": 38,
+      "market_gas": 12.51728193675,
+      "market_sol": 132.26,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -38,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646695,
+      "prediction": "SOL_UP",
+      "confidence": 0.6157337135201945,
+      "stake_amount": 65,
+      "market_gas": 12.51728193675,
+      "market_sol": 132.26,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -65,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646714,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.21753017628290863,
+      "stake_amount": 29,
+      "market_gas": 12.51702713275,
+      "market_sol": 132.2575,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -29,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646714,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4060832631605985,
+      "stake_amount": 46,
+      "market_gas": 12.51702713275,
+      "market_sol": 132.2575,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -46,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646714,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.3984465950001794,
+      "stake_amount": 45,
+      "market_gas": 12.51702713275,
+      "market_sol": 132.2575,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -45,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646714,
+      "prediction": "SOL_UP",
+      "confidence": 0.6861285873692821,
+      "stake_amount": 71,
+      "market_gas": 12.51702713275,
+      "market_sol": 132.2575,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -71,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646731,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.367202001580531,
+      "stake_amount": 43,
+      "market_gas": 12.5155357345,
+      "market_sol": 132.2575,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -43,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646731,
+      "prediction": "BTC_UP",
+      "confidence": 0.6234857112575597,
+      "stake_amount": 66,
+      "market_gas": 12.5155357345,
+      "market_sol": 132.2575,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -66,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646731,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4650166028658558,
+      "stake_amount": 51,
+      "market_gas": 12.5155357345,
+      "market_sol": 132.2575,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -51,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646731,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.4418422939420333,
+      "stake_amount": 49,
+      "market_gas": 12.5155357345,
+      "market_sol": 132.2575,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -49,
+        "evaluated_at": 1765648547
+      }
+    },
+    {
+      "timestamp": 1765646750,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.45785609954979367,
+      "stake_amount": 51,
+      "market_gas": 10.0191950406,
+      "market_sol": 132.49200000000002,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -51,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646750,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4786295344695743,
+      "stake_amount": 53,
+      "market_gas": 10.0191950406,
+      "market_sol": 132.49200000000002,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -53,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646750,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4987430242749062,
+      "stake_amount": 54,
+      "market_gas": 10.0191950406,
+      "market_sol": 132.49200000000002,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -54,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646750,
+      "prediction": "SOL_UP",
+      "confidence": 0.6065692796585692,
+      "stake_amount": 64,
+      "market_gas": 10.0191950406,
+      "market_sol": 132.49200000000002,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -64,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646768,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5835954205879679,
+      "stake_amount": 62,
+      "market_gas": 12.515659959,
+      "market_sol": 132.3375,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 36,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646768,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.34070899836378965,
+      "stake_amount": 40,
+      "market_gas": 12.515659959,
+      "market_sol": 132.3375,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -40,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646768,
+      "prediction": "ETH_UP",
+      "confidence": 0.6081498875879541,
+      "stake_amount": 64,
+      "market_gas": 12.515659959,
+      "market_sol": 132.3375,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -64,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646768,
+      "prediction": "SOL_UP",
+      "confidence": 0.6582183470941612,
+      "stake_amount": 69,
+      "market_gas": 12.515659959,
+      "market_sol": 132.3375,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -69,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646786,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5421832621223581,
+      "stake_amount": 58,
+      "market_gas": 12.5148427255,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 25.0,
+        "profit_loss": 31,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646786,
+      "prediction": "BTC_UP",
+      "confidence": 0.6004991382012427,
+      "stake_amount": 64,
+      "market_gas": 12.5148427255,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -64,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646786,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.26574340020878523,
+      "stake_amount": 33,
+      "market_gas": 12.5148427255,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -33,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646786,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.48028365577236,
+      "stake_amount": 53,
+      "market_gas": 12.5148427255,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -53,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646804,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.2639260585568095,
+      "stake_amount": 33,
+      "market_gas": 12.5148427255,
+      "market_sol": 132.365,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -33,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646804,
+      "prediction": "BTC_UP",
+      "confidence": 0.6463271186436027,
+      "stake_amount": 68,
+      "market_gas": 12.5148427255,
+      "market_sol": 132.365,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -68,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646804,
+      "prediction": "ETH_UP",
+      "confidence": 0.6541954373801613,
+      "stake_amount": 68,
+      "market_gas": 12.5148427255,
+      "market_sol": 132.365,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -68,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646804,
+      "prediction": "SOL_UP",
+      "confidence": 0.5434480163133786,
+      "stake_amount": 58,
+      "market_gas": 12.5148427255,
+      "market_sol": 132.365,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 25.0,
+        "profit_loss": -58,
+        "evaluated_at": 1765648607
+      }
+    },
+    {
+      "timestamp": 1765646820,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.40818524747994145,
+      "stake_amount": 46,
+      "market_gas": 12.51584757575,
+      "market_sol": 132.4025,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 18,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646820,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.290345293620389,
+      "stake_amount": 36,
+      "market_gas": 12.51584757575,
+      "market_sol": 132.4025,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 10,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646820,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.4102217501379208,
+      "stake_amount": 46,
+      "market_gas": 12.51584757575,
+      "market_sol": 132.4025,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 18,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646820,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.45688962604607736,
+      "stake_amount": 51,
+      "market_gas": 12.51584757575,
+      "market_sol": 132.4025,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 23,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646839,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.39158426645623706,
+      "stake_amount": 45,
+      "market_gas": 10.0177422174,
+      "market_sol": 132.426,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 17,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646839,
+      "prediction": "BTC_DOWN",
+      "confidence": 0.4231648969390667,
+      "stake_amount": 48,
+      "market_gas": 10.0177422174,
+      "market_sol": 132.426,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 20,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646839,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.2989716056407515,
+      "stake_amount": 36,
+      "market_gas": 10.0177422174,
+      "market_sol": 132.426,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 10,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646839,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.3867545406541972,
+      "stake_amount": 44,
+      "market_gas": 10.0177422174,
+      "market_sol": 132.426,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 17,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646856,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.40059075900100105,
+      "stake_amount": 46,
+      "market_gas": 12.5148886605,
+      "market_sol": 132.40249999999995,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 18,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646856,
+      "prediction": "BTC_UP",
+      "confidence": 0.5793441128622243,
+      "stake_amount": 62,
+      "market_gas": 12.5148886605,
+      "market_sol": 132.40249999999995,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 35,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646856,
+      "prediction": "ETH_DOWN",
+      "confidence": 0.462258030803008,
+      "stake_amount": 51,
+      "market_gas": 12.5148886605,
+      "market_sol": 132.40249999999995,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 23,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646856,
+      "prediction": "SOL_UP",
+      "confidence": 0.5769905293873079,
+      "stake_amount": 61,
+      "market_gas": 12.5148886605,
+      "market_sol": 132.40249999999995,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032019066,
+        "profit_loss": 35,
+        "evaluated_at": 1765648667
+      }
+    },
+    {
+      "timestamp": 1765646875,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5092166359792002,
+      "stake_amount": 55,
+      "market_gas": 12.5167015535,
+      "market_sol": 132.39249999999998,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 0.032011604,
+        "profit_loss": -55,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646875,
+      "prediction": "BTC_UP",
+      "confidence": 0.5952161590077105,
+      "stake_amount": 63,
+      "market_gas": 12.5167015535,
+      "market_sol": 132.39249999999998,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 37,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646875,
+      "prediction": "ETH_UP",
+      "confidence": 0.58580435326868,
+      "stake_amount": 62,
+      "market_gas": 12.5167015535,
+      "market_sol": 132.39249999999998,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 36,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646875,
+      "prediction": "SOL_UP",
+      "confidence": 0.7039464220346681,
+      "stake_amount": 73,
+      "market_gas": 12.5167015535,
+      "market_sol": 132.39249999999998,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 51,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646892,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.660229063964038,
+      "stake_amount": 69,
+      "market_gas": 12.51687645375,
+      "market_sol": 132.3875,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 0.032011604,
+        "profit_loss": -69,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646892,
+      "prediction": "BTC_UP",
+      "confidence": 0.6321440108555447,
+      "stake_amount": 66,
+      "market_gas": 12.51687645375,
+      "market_sol": 132.3875,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 41,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646892,
+      "prediction": "ETH_UP",
+      "confidence": 0.5601031799816776,
+      "stake_amount": 60,
+      "market_gas": 12.51687645375,
+      "market_sol": 132.3875,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 33,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646892,
+      "prediction": "SOL_UP",
+      "confidence": 0.5172733825626633,
+      "stake_amount": 56,
+      "market_gas": 12.51687645375,
+      "market_sol": 132.3875,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 28,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646912,
+      "prediction": "DIRECT_L1",
+      "confidence": 0.1949773705522558,
+      "stake_amount": 27,
+      "market_gas": 10.019736393,
+      "market_sol": 132.39799999999997,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 5,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646912,
+      "prediction": "BTC_UP",
+      "confidence": 0.5246993598907522,
+      "stake_amount": 57,
+      "market_gas": 10.019736393,
+      "market_sol": 132.39799999999997,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 29,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646912,
+      "prediction": "ETH_UP",
+      "confidence": 0.5330577917881523,
+      "stake_amount": 57,
+      "market_gas": 10.019736393,
+      "market_sol": 132.39799999999997,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 30,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646912,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.4356636135195175,
+      "stake_amount": 49,
+      "market_gas": 10.019736393,
+      "market_sol": 132.39799999999997,
+      "market_tvl": 7.415710334395023,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.032011604,
+        "profit_loss": 21,
+        "evaluated_at": 1765648728
+      }
+    },
+    {
+      "timestamp": 1765646930,
+      "prediction": "OPTIMISTIC_L2",
+      "confidence": 0.5727781322820632,
+      "stake_amount": 61,
+      "market_gas": 12.51612883475,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": false,
+        "actual_gas": 0.030278449,
+        "profit_loss": -61,
+        "evaluated_at": 1765648788
+      }
+    },
+    {
+      "timestamp": 1765646930,
+      "prediction": "BTC_UP",
+      "confidence": 0.5049987008752638,
+      "stake_amount": 55,
+      "market_gas": 12.51612883475,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.030278449,
+        "profit_loss": 27,
+        "evaluated_at": 1765648788
+      }
+    },
+    {
+      "timestamp": 1765646930,
+      "prediction": "ETH_UP",
+      "confidence": 0.7758678682541674,
+      "stake_amount": 79,
+      "market_gas": 12.51612883475,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.030278449,
+        "profit_loss": 61,
+        "evaluated_at": 1765648788
+      }
+    },
+    {
+      "timestamp": 1765646930,
+      "prediction": "SOL_DOWN",
+      "confidence": 0.4436518393563472,
+      "stake_amount": 49,
+      "market_gas": 12.51612883475,
+      "market_sol": 132.3625,
+      "market_tvl": 7.415710334395024,
+      "outcome": {
+        "correct": true,
+        "actual_gas": 0.030278449,
+        "profit_loss": 21,
+        "evaluated_at": 1765648788
+      }
     }
   ],
   "total_staked": 36355,
-  "total_won": 5183,
-  "total_lost": 13286,
+  "total_won": 7025,
+  "total_lost": 20676,
   "max_history": 1000
 }

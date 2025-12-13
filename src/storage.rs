@@ -184,6 +184,31 @@ impl Storage {
         self.delete(&format!("market:listing:{}", token_id))
     }
 
+    // Compute Jobs
+    pub fn save_compute_job(&self, job: &crate::layer3::compute::ComputeJob) -> Result<(), CompassError> {
+        self.put(&format!("compute_job:{}", job.job_id), job)
+    }
+
+    pub fn get_compute_job(&self, job_id: &str) -> Result<Option<crate::layer3::compute::ComputeJob>, CompassError> {
+        self.get(&format!("compute_job:{}", job_id))
+    }
+
+    pub fn get_all_compute_jobs(&self) -> Vec<crate::layer3::compute::ComputeJob> {
+        self.get_by_prefix("compute_job:")
+    }
+
+    pub fn get_pending_compute_jobs(&self) -> Vec<crate::layer3::compute::ComputeJob> {
+        use crate::layer3::compute::ComputeJobStatus;
+        self.get_all_compute_jobs()
+            .into_iter()
+            .filter(|job| job.status == ComputeJobStatus::Pending)
+            .collect()
+    }
+
+    pub fn delete_compute_job(&self, job_id: &str) -> Result<(), CompassError> {
+        self.delete(&format!("compute_job:{}", job_id))
+    }
+
     // 1. Blocks
     pub fn save_block(&self, block: &crate::block::Block) -> Result<(), CompassError> {
         let hash = &block.header.hash;
@@ -292,22 +317,6 @@ impl Storage {
         self.delete(&format!("recurring_job:{}", job_id))
     }
 
-    // Compute
-    pub fn save_compute_job(&self, job: &crate::rpc::types::PendingJob) -> Result<(), CompassError> {
-        self.put(&format!("compute_job:{}", job.job_id), job)
-    }
-
-    pub fn get_compute_job(&self, job_id: &str) -> Result<Option<crate::rpc::types::PendingJob>, CompassError> {
-        self.get(&format!("compute_job:{}", job_id))
-    }
-    
-    pub fn delete_compute_job(&self, job_id: &str) -> Result<(), CompassError> {
-        self.delete(&format!("compute_job:{}", job_id))
-    }
-
-    pub fn get_pending_compute_jobs(&self) -> Vec<crate::rpc::types::PendingJob> {
-        self.get_by_prefix("compute_job:")
-    }
 
     // Flush
     pub fn flush(&self) -> Result<(), CompassError> {

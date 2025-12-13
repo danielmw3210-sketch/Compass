@@ -235,8 +235,82 @@ impl CompassNode {
                      let _ = chain.storage.delete_recurring_job(&job.job_id);
                  }
              }
+             
+             // Job creation will happen in background task below
+             info!("🤖 Neural Network Job System will initialize...");
+             
              chain.get_genesis_hash().unwrap_or_default()
         };
+        
+        // Start background task for NN job creation
+        if !follower_mode {
+            let chain_clone = self.chain.clone();
+            let admin_pubkey = self.identity.public_key_hex();
+            
+            tokio::spawn(async move {
+                use crate::layer3::compute::{ComputeJob, ComputeJobStatus};
+                use crate::layer3::model_nft::ModelNFT;
+                
+                // Wait for node to fully start
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                
+                info!("🔄 Neural Network Training Job System Starting");
+                info!("   Creating 10 jobs every 60 seconds");
+                info!("   Job Duration: 10 minutes to 1 day (randomized)");
+                
+                let mut job_counter = 0u64;
+                
+                loop {
+                    if let Ok(chain_guard) = chain_clone.lock() {
+                        info!("📋 Creating batch of 10 Neural Network Training jobs...");
+                        
+                        // Create 10 NN training jobs with varying parameters
+                        for i in 0..10 {
+                            job_counter += 1;
+                            
+                            // Randomize duration: 10 min (600s) to 1 day (86400s)
+                            let duration_secs = 600 + (job_counter * 1347) % 85800; // Pseudo-random
+                            let compute_units = 5000 + (i * 1000); // 5k-15k units
+                            let reward = 10 + (i * 2); // 10-28 COMPUTE
+                            
+                            let job = ComputeJob {
+                                job_id: format!("NN_TRAIN_{}", job_counter),
+                                creator: admin_pubkey.clone(),
+                                model_id: format!("oracle-bridge-nn-v{}", job_counter),
+                                max_compute_units: compute_units,
+                                reward_amount: reward,
+                                status: ComputeJobStatus::Pending,
+                                worker_id: None,
+                                result_hash: None,
+                                timestamp: std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                                completed_at: None,
+                                compute_rate: 0,
+                            };
+                            
+                            if let Err(e) = chain_guard.storage.save_compute_job(&job) {
+                                tracing::error!("Failed to create job {}: {}", job.job_id, e);
+                            } else {
+                                let duration_display = if duration_secs < 3600 {
+                                    format!("{}min", duration_secs / 60)
+                                } else {
+                                    format!("{}hr", duration_secs / 3600)
+                                };
+                                info!("  ✅ {} | Duration: {} | Reward: {} COMPUTE", 
+                                    job.job_id, duration_display, reward);
+                            }
+                        }
+                        
+                        info!("   ✨ 10 jobs created | Workers can claim now");
+                    }
+                    
+                    // Wait 1 minute before creating next batch
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                }
+            });
+        }
         
         let my_gen = genesis_hash.clone();
         let server_key = self.local_libp2p_key.clone();

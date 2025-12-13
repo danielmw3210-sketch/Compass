@@ -3,6 +3,7 @@ pub mod ops;
 pub mod tx;
 pub mod wallet;
 pub mod keys; // New Key Manager
+pub mod session; // RBAC Session Management
 
 use clap::{Parser, Subcommand};
 

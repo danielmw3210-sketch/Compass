@@ -445,9 +445,10 @@ impl VaultManager {
         let ticker = &vault.collateral_asset;
         let (price, timestamp) = *self.oracle_prices.get(ticker).ok_or("No Oracle Price for asset")?;
         
-        // Expiration Check (e.g. 10 mins = 600s)
-        // We need 'current_time'. For now, we trust the stored timestamp is "recent enough" or pass current time?
-        // Let's assume the node maintains freshness.
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        if now > timestamp + 3600 {
+            return Err("Oracle Price is Stale (>1 hour old). Cannot Liquidate.".to_string());
+        }
 
         if price.is_zero() { return Err("Invalid Oracle Price".to_string()); }
 
