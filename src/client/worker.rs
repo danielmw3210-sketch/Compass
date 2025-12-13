@@ -3,25 +3,29 @@ use std::thread;
 use std::time::Duration;
 use crate::client::rpc_client::RpcClient;
 
+use crate::crypto::KeyPair;
+
 pub struct AiWorker {
     client: RpcClient,
     node_url: String,
     model_id: String,
+    keypair: KeyPair,
 }
 
 impl AiWorker {
-    pub fn new(node_url: String, model_id: String) -> Self {
+    pub fn new(node_url: String, model_id: String, keypair: KeyPair) -> Self {
         AiWorker {
             client: RpcClient::new(node_url.clone()),
             node_url,
             model_id,
+            keypair,
         }
     }
 
     pub async fn start(&self) {
+        let worker_id = self.keypair.public_key_hex();
         println!("🤖 AI Worker Started. Polling for jobs (Model: {})...", self.model_id);
-        
-        let worker_id = format!("worker_{}", self.model_id); // Simple ID for now
+        println!("   Worker ID: {}", worker_id);
 
         loop {
             // Mock Poll: asking RPC for pending jobs?

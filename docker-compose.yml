@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  compass-worker:
+    build: .
+    image: compass-worker:latest
+    restart: always
+    # REPLACE http://1.2.3.4:9000 with your Admin Node's Public IP
+    command: ["--node-url", "http://1.2.3.4:9000", "--model", "gpt-4o-mini"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

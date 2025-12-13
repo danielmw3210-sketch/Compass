@@ -14,20 +14,11 @@ pub async fn worker_job_menu(node_url: &str) -> Result<(), String> {
     
     // 1. Select Worker Wallet
     println!("\n🔑 Select Worker Wallet");
-    print!("   Enter wallet name (default: 'worker'): ");
-    io::stdout().flush().map_err(|e| e.to_string())?;
-    let mut name = String::new();
-    io::stdin().read_line(&mut name).map_err(|e| e.to_string())?;
-    let name = if name.trim().is_empty() { "worker" } else { name.trim() };
-    
-    // Attempt to load
-    let identity = match crate::interactive::load_identity(name) {
+    // 1. Select Worker Wallet
+    // Use helper for robust interaction
+    let identity = match crate::interactive::load_and_maybe_create_identity("worker") {
         Some(id) => id,
-        None => {
-            println!("❌ Wallet '{}' not found.", name);
-            println!("   Please create it in 'Key Management' first.");
-            return Ok(());
-        }
+        None => return Ok(()),
     };
     
     let worker_keypair = identity.into_keypair().map_err(|e| format!("Failed to decrypt key: {}", e))?;

@@ -12,8 +12,10 @@ pub struct ComputeJob {
     pub worker_id: Option<String>, // Assigned worker
     pub result_hash: Option<String>, // Hash of computation result
     pub timestamp: u64,
+    pub started_at: Option<u64>,   // When worker claimed job
     pub completed_at: Option<u64>,
     pub compute_rate: u64,         // Measured performance (kOps/s)
+    pub min_duration: u64,         // Minimum seconds required (anti-cheat)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -39,14 +41,22 @@ impl ComputeJob {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs(),
+            started_at: None,
             completed_at: None,
             compute_rate: 0,
+            min_duration: 10, // Default: 10 seconds minimum
         }
     }
     
     pub fn assign_to_worker(&mut self, worker_id: String) {
         self.worker_id = Some(worker_id);
         self.status = ComputeJobStatus::InProgress;
+        self.started_at = Some(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
     }
     
     pub fn complete(&mut self, result_hash: String, compute_rate: u64) {

@@ -191,8 +191,12 @@ async fn main() {
             } => {
                 cli::ops::handle_burn_command(vault_id, amount, asset, dest_addr, from, None).await;
             }
-            Commands::Worker { node_url, model_id } => {
-                let worker = crate::client::AiWorker::new(node_url, model_id);
+            Commands::Worker { node_url, model_id, wallet } => {
+                let id = crate::interactive::load_identity(&wallet)
+                    .expect(&format!("❌ Failed to load wallet '{}'. Please create it first.", wallet));
+                let kp = id.into_keypair().expect("Failed to decrypt identity");
+                
+                let worker = crate::client::AiWorker::new(node_url, model_id, kp);
                 worker.start().await;
             }
             Commands::Client => {
@@ -203,6 +207,47 @@ async fn main() {
             },
             Commands::Keys { cmd } => {
                 crate::cli::keys::handle_keys_command(cmd);
+            },
+            Commands::Interactive => {
+                crate::interactive::start().await;
+            },
+            Commands::ListNFT { token_id, price, currency, wallet } => {
+                let id = crate::interactive::load_identity(&wallet)
+                    .expect(&format!("❌ Wallet '{}' not found.", wallet));
+                let seller = id.public_key_hex();
+                
+                let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                println!("📦 Listing NFT {} for {} {} (Seller: {})...", token_id, price, currency, seller);
+                
+                let req = serde_json::json!({
+                    "token_id": token_id,
+                    "seller": seller,
+                    "price": price,
+                    "currency": currency
+                });
+                
+                match client.call_method("listModelNFT", req).await {
+                    Ok(res) => println!("✅ Listed: {}", res),
+                    Err(e) => println!("❌ Error: {}", e),
+                }
+            },
+            Commands::BuyNFT { token_id, wallet } => {
+                let id = crate::interactive::load_identity(&wallet)
+                    .expect(&format!("❌ Wallet '{}' not found.", wallet));
+                let buyer = id.public_key_hex();
+                
+                let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                println!("💰 Buying NFT {} as {}...", token_id, buyer);
+                
+                let req = serde_json::json!({
+                    "token_id": token_id,
+                    "buyer": buyer
+                });
+                
+                match client.call_method("buyModelNFT", req).await {
+                    Ok(res) => println!("✅ Purchased: {}", res),
+                    Err(e) => println!("❌ Error: {}", e),
+                }
             },
         }
     } else {

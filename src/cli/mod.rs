@@ -48,6 +48,21 @@ pub enum Commands {
         #[arg(long)]
         asset: String,
     },
+
+    /// Run as AI Worker
+    Worker {
+        #[arg(long, default_value = "http://127.0.0.1:9000")]
+        node_url: String,
+        
+        #[arg(long, default_value = "gpt-4o-mini")]
+        model_id: String,
+        
+        #[arg(long, default_value = "worker")]
+        wallet: String,
+    },
+    
+    /// Interactive Mode (Default)
+    Interactive,
     Balance {
         address: String,
     },
@@ -84,15 +99,29 @@ pub enum Commands {
         #[arg(long)]
         from: String, // Wallet Name (Redeemer)
     },
-    /// Start AI Worker
-    Worker {
-        #[arg(long, default_value = "http://localhost:8899")]
-        node_url: String,
-        #[arg(long, default_value = "llama-2-7b-q4")]
-        model_id: String,
-    },
+
     /// Interactive Client Mode
     Client,
     /// Generate Admin Key and Genesis Config (Trusted Setup)
     AdminGen,
+    
+    /// List an NFT for sale
+    ListNFT {
+        #[arg(long)]
+        token_id: String,
+        #[arg(long)]
+        price: u64,
+        #[arg(long, default_value = "Compass")]
+        currency: String, // "Compass" or "SOL", etc.
+        #[arg(long, default_value = "worker")]
+        wallet: String,
+    },
+    
+    /// Buy an NFT from the Marketplace
+    BuyNFT {
+        #[arg(long)]
+        token_id: String,
+        #[arg(long, default_value = "worker")]
+        wallet: String,
+    },
 }

@@ -53,6 +53,7 @@ pub async fn handle_rpc_request(
         "purchaseNeuralNet" => handle_purchase_neural_net(state.clone(), req.params).await,
         "listModelNFT" => handle_list_model_nft(state.clone(), req.params).await,
         "buyModelNFT" => handle_buy_model_nft(state.clone(), req.params).await,
+        "getAllNFTs" => handle_get_all_nfts(state.clone()).await,
         _ => Err(RpcError {
             code: -32601,
             message: format!("Method not found: {}", req.method),
@@ -521,6 +522,47 @@ async fn handle_submit_result(
                 code: -32603,
                 message: "Transaction rejected".to_string(),
             });
+        }
+    }
+    
+    // ===== ANTI-CHEAT: Validate Job Duration =====
+    {
+        let chain = state.chain.lock().unwrap();
+        if let Ok(Some(job)) = chain.storage.get_compute_job(&req.job_id) {
+            // Check if job was started
+            if let Some(started_at) = job.started_at {
+                let current_time = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                
+                let elapsed = current_time.saturating_sub(started_at);
+                
+                if elapsed < job.min_duration {
+                    warn!(
+                        "🚫 Job {} completed too quickly! Elapsed: {}s, Required: {}s (Worker: {})",
+                        req.job_id, elapsed, job.min_duration, req.worker_id
+                    );
+                    return Err(RpcError {
+                        code: -32007,
+                        message: format!(
+                            "Job completed too quickly ({}/{}s). Possible cheating detected.",
+                            elapsed, job.min_duration
+                        ),
+                    });
+                }
+                
+                info!(
+                    "✅ Job {} duration validated: {}s (min: {}s)",
+                    req.job_id, elapsed, job.min_duration
+                );
+            } else {
+                // Job was never properly started, reject
+                return Err(RpcError {
+                    code: -32008,
+                    message: "Job was never started by worker".to_string(),
+                });
+            }
         }
     }
     
@@ -1076,4 +1118,32 @@ async fn handle_buy_model_nft(
     info!("💰 NFT Sold: {} from {} to {}", req.token_id, seller, req.buyer);
 
     Ok(serde_json::json!({ "status": "purchased", "token_id": req.token_id }))
+}
+
+/// Handle getAllNFTs (Debug/Verify)
+async fn handle_get_all_nfts(
+    state: RpcState,
+) -> Result<serde_json::Value, RpcError> {
+    // 1. Fetch from RocksDB (New Persistence)
+    let db_nfts = {
+        let chain = state.chain.lock().unwrap();
+        chain.storage.get_all_nfts()
+    };
+    
+    // 2. Fetch from JSON (Legacy)
+    use crate::layer3::model_nft::ModelNFTRegistry;
+    let legacy_nfts = ModelNFTRegistry::load("model_nft_registry.json")
+        .map(|r| r.nfts)
+        .unwrap_or_else(|_| Vec::new());
+        
+    // 3. Combine
+    let mut all = db_nfts;
+    // Simple deduplication based on ID if needed, but for now just concat
+    for leg in legacy_nfts {
+        if !all.iter().any(|n| n.token_id == leg.token_id) {
+            all.push(leg);
+        }
+    }
+    
+    Ok(serde_json::to_value(all).unwrap())
 }

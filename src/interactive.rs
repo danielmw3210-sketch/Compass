@@ -103,7 +103,8 @@ async fn client_menu(session: Session) {
         println!("3. Mint Compass (Collateral)");
         println!("4. Burn Compass (Redeem)");
         println!("5. Buy Neural Network");
-        println!("6. Exit");
+        println!("6. View All NFTs (Debug)");
+        println!("7. Exit");
         print!("\nSelect: ");
         io::stdout().flush().unwrap();
         
@@ -185,7 +186,32 @@ async fn client_menu(session: Session) {
             "5" => {
                 crate::layer3::user_ops::run_user_ai_menu().await;
             },
-            "6" => break,
+            "6" => {
+                 // VIEW ALL NFTS (DEBUG)
+                print!("Node URL [http://127.0.0.1:9000]: ");
+                io::stdout().flush().unwrap();
+                let mut node_url = String::new();
+                io::stdin().read_line(&mut node_url).unwrap();
+                let node_url = if node_url.trim().is_empty() { "http://127.0.0.1:9000".to_string() } else { node_url.trim().to_string() };
+                
+                let client = crate::client::RpcClient::new(node_url);
+                match client.get_all_nfts().await {
+                    Ok(nfts) => {
+                        println!("\n🎨 --- ALL PERSISTED NFTS ({}) ---", nfts.len());
+                        for nft in nfts {
+                            println!("- [{}] {}", nft.minted_at, nft.token_id);
+                            println!("  Name: {}", nft.name);
+                            println!("  Owner: {}", nft.current_owner);
+                            println!("  Accuracy: {:.2}%", nft.accuracy * 100.0);
+                            println!("  Source: {}", if nft.token_id.contains("NN_MODEL") { "RocksDB (New)" } else { "JSON (Legacy)" });
+                            println!("--------------------------------------------------");
+                        }
+                    },
+                    Err(e) => println!("❌ Error fetching NFTs: {}", e),
+                }
+                pause();
+            },
+            "7" => break,
             _ => println!("Invalid option."),
         }
     }
@@ -223,15 +249,8 @@ async fn run_admin_node(identity: Arc<crate::crypto::KeyPair>) {
 async fn run_oracle_verification_worker() {
     println!("\n🔍 Starting Oracle Verification Worker...\n");
     
-    print!("Node URL [http://localhost:9000]: ");
-    io::stdout().flush().unwrap();
-    let mut node_url = String::new();
-    io::stdin().read_line(&mut node_url).unwrap();
-    let node_url = if node_url.trim().is_empty() {
-        "http://localhost:9000".to_string()
-    } else {
-        node_url.trim().to_string()
-    };
+    // Use new robust helper
+    let node_url = prompt_node_url("http://localhost:9000");
     
     if let Err(e) = crate::worker_menu::worker_job_menu(&node_url).await {
         println!("Worker error: {}", e);
@@ -242,15 +261,7 @@ async fn run_oracle_verification_worker() {
 async fn run_ai_worker() {
     println!("\n🤖 Starting AI Worker...\n");
     
-    print!("Node URL [http://127.0.0.1:9000]: ");
-    io::stdout().flush().unwrap();
-    let mut node_url = String::new();
-    io::stdin().read_line(&mut node_url).unwrap();
-    let node_url = if node_url.trim().is_empty() {
-        "http://127.0.0.1:9000".to_string()
-    } else {
-        node_url.trim().to_string()
-    };
+    let node_url = prompt_node_url("http://127.0.0.1:9000");
     
     print!("Model ID [gpt-4o-mini]: ");
     io::stdout().flush().unwrap();
@@ -262,7 +273,23 @@ async fn run_ai_worker() {
         model_id.trim().to_string()
     };
     
-    let worker = crate::client::AiWorker::new(node_url, model_id);
+    // Load Identity
+    let identity = match load_and_maybe_create_identity("worker") { // Default to 'worker' wallet
+        Some(id) => id,
+        None => return,
+    };
+    
+    // Decrypt
+    let keypair = match identity.into_keypair() {
+        Ok(kp) => kp,
+        Err(e) => {
+            println!("❌ Failed to decrypt key: {}", e);
+            pause();
+            return;
+        }
+    };
+    
+    let worker = crate::client::AiWorker::new(node_url, model_id, keypair);
     worker.start().await;
 }
 
@@ -354,6 +381,8 @@ async fn tools_menu() {
 // (Used by worker_menu.rs and layer3/user_ops.rs)
 
 /// Load identity for backward compatibility with other modules
+
+
 pub fn load_identity(name: &str) -> Option<crate::identity::Identity> {
     use std::path::Path;
     
@@ -374,4 +403,77 @@ pub fn load_identity(name: &str) -> Option<crate::identity::Identity> {
             None
         }
     }
+}
+
+/// Robustly prompt for Node URL with defaults and validation
+pub fn prompt_node_url(default: &str) -> String {
+    print!("Node URL [{}]: ", default);
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    let url = input.trim();
+    if url.is_empty() {
+        default.to_string()
+    } else {
+        // Basic fixup
+        if !url.starts_with("http") {
+             format!("http://{}", url)
+        } else {
+             url.to_string()
+        }
+    }
+}
+
+/// Load identity or prompt to create one if it doesn't exist
+pub fn load_and_maybe_create_identity(default_name: &str) -> Option<crate::identity::Identity> {
+    let mut name = String::new();
+    print!("   Enter wallet name (default: '{}'): ", default_name);
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut name).unwrap();
+    let name = if name.trim().is_empty() { default_name } else { name.trim() };
+    
+    if let Some(id) = load_identity(name) {
+        return Some(id);
+    }
+    
+    // Not found - Prompt to create
+    println!("⚠️  Wallet '{}' not found.", name);
+    print!("   Create new wallet '{}'? (Y/n): ", name);
+    io::stdout().flush().unwrap();
+    let mut choice = String::new();
+    io::stdin().read_line(&mut choice).unwrap();
+    
+    if choice.trim().eq_ignore_ascii_case("n") {
+        return None;
+    }
+    
+    // Create logic
+    println!("   Creating new wallet '{}'...", name);
+    // Let's prompt for password to be secure
+    print!("   Set password: ");
+    io::stdout().flush().unwrap();
+    let mut pass = String::new();
+    io::stdin().read_line(&mut pass).unwrap();
+    let pass = pass.trim();
+    
+    // Create new identity (User role by default for workers)
+    let (id, mnemonic) = match crate::identity::Identity::new(name, crate::identity::NodeRole::User, pass) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("❌ Failed to generate identity: {}", e);
+            return None;
+        }
+    };
+    
+    println!("📝 Write down your mnemonic phrase (SAFE KEEPING in admin_key.mnemonic style):");
+    println!("{}", mnemonic); // Production should handle this better, but improved for now.
+
+    if let Err(e) = id.save() {
+        println!("❌ Failed to save wallet: {}", e);
+        return None;
+    }
+    
+    println!("✅ Wallet '{}' created!", name);
+    println!("   Address: {}", id.public_key_hex());
+    Some(id)
 }

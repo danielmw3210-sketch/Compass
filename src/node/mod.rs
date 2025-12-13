@@ -288,6 +288,8 @@ impl CompassNode {
                                     .as_secs(),
                                 completed_at: None,
                                 compute_rate: 0,
+                                started_at: None,
+                                min_duration: 10,
                             };
                             
                             if let Err(e) = chain_guard.storage.save_compute_job(&job) {

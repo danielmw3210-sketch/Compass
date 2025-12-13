@@ -184,6 +184,11 @@ impl Storage {
         self.delete(&format!("market:listing:{}", token_id))
     }
 
+    // Persisted NFTs (Verification)
+    pub fn get_all_nfts(&self) -> Vec<crate::layer3::model_nft::ModelNFT> {
+        self.get_by_prefix("nft:")
+    }
+
     // Compute Jobs
     pub fn save_compute_job(&self, job: &crate::layer3::compute::ComputeJob) -> Result<(), CompassError> {
         self.put(&format!("compute_job:{}", job.job_id), job)

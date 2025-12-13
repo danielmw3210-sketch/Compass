@@ -369,4 +369,9 @@ impl RpcClient {
         let result = resp.get("tx_hash").ok_or("No tx_hash field")?.as_str().ok_or("tx_hash not a string")?;
         Ok(result.to_string())
     }
+
+    pub async fn get_all_nfts(&self) -> Result<Vec<crate::layer3::model_nft::ModelNFT>, String> {
+        let res = self.send_request("getAllNFTs", serde_json::json!(null)).await?;
+        serde_json::from_value(res).map_err(|e| format!("Parse error: {}", e))
+    }
 }
