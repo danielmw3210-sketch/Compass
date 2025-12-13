@@ -214,7 +214,7 @@ async fn main() {
             Commands::ListNFT { token_id, price, currency, wallet } => {
                 let id = crate::interactive::load_identity(&wallet)
                     .expect(&format!("❌ Wallet '{}' not found.", wallet));
-                let seller = id.public_key_hex();
+                let seller = id.public_key;
                 
                 let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                 println!("📦 Listing NFT {} for {} {} (Seller: {})...", token_id, price, currency, seller);
@@ -226,7 +226,7 @@ async fn main() {
                     "currency": currency
                 });
                 
-                match client.call_method("listModelNFT", req).await {
+                match client.call_method::<serde_json::Value, serde_json::Value>("listModelNFT", req).await {
                     Ok(res) => println!("✅ Listed: {}", res),
                     Err(e) => println!("❌ Error: {}", e),
                 }
@@ -234,7 +234,7 @@ async fn main() {
             Commands::BuyNFT { token_id, wallet } => {
                 let id = crate::interactive::load_identity(&wallet)
                     .expect(&format!("❌ Wallet '{}' not found.", wallet));
-                let buyer = id.public_key_hex();
+                let buyer = id.public_key;
                 
                 let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                 println!("💰 Buying NFT {} as {}...", token_id, buyer);
@@ -244,7 +244,7 @@ async fn main() {
                     "buyer": buyer
                 });
                 
-                match client.call_method("buyModelNFT", req).await {
+                match client.call_method::<serde_json::Value, serde_json::Value>("buyModelNFT", req).await {
                     Ok(res) => println!("✅ Purchased: {}", res),
                     Err(e) => println!("❌ Error: {}", e),
                 }

@@ -468,12 +468,13 @@ pub fn load_and_maybe_create_identity(default_name: &str) -> Option<crate::ident
     println!("📝 Write down your mnemonic phrase (SAFE KEEPING in admin_key.mnemonic style):");
     println!("{}", mnemonic); // Production should handle this better, but improved for now.
 
-    if let Err(e) = id.save() {
+    let path_str = format!("{}.json", name);
+    if let Err(e) = id.save(std::path::Path::new(&path_str)) {
         println!("❌ Failed to save wallet: {}", e);
         return None;
     }
     
     println!("✅ Wallet '{}' created!", name);
-    println!("   Address: {}", id.public_key_hex());
+    println!("   Address: {}", id.public_key);
     Some(id)
 }
