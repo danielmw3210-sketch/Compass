@@ -34,12 +34,21 @@ impl AssetManager {
         let id = nft.token_id.clone();
         
         // Add to registry
-        self.registry.insert(id.clone(), nft);
+        self.registry.insert(id.clone(), nft.clone());
 
         // Add to ownership
         self.ownership.entry(owner).or_default().push(id);
         
-        // Persist State
+        // Persist individual NFT to Sled (in addition to AssetManager blob)
+        if let Some(db) = &self.storage {
+            if let Err(e) = db.save_model_nft(&nft) {
+                tracing::error!("Failed to save Model NFT to Sled: {}", e);
+            } else {
+                tracing::info!("✅ Persisted NFT to Sled: {}", nft.token_id);
+            }
+        }
+        
+        // Persist entire AssetManager state
         self.persist();
     }
     

@@ -11,6 +11,8 @@ pub enum NodeCommands {
         db_path: String,
         #[arg(long)]
         peer: Option<String>,
+        #[arg(long, default_value = "false")]
+        ephemeral: bool,
     },
     Status,
     Peers,

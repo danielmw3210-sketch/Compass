@@ -104,7 +104,8 @@ async fn client_menu(session: Session) {
         println!("4. Burn Compass (Redeem)");
         println!("5. Buy Neural Network");
         println!("6. View All NFTs (Debug)");
-        println!("7. Exit");
+        println!("7. Submit Compute Job");
+        println!("8. Exit");
         print!("\nSelect: ");
         io::stdout().flush().unwrap();
         
@@ -211,7 +212,52 @@ async fn client_menu(session: Session) {
                 }
                 pause();
             },
-            "7" => break,
+            "7" => {
+                // Submit Compute Job (Collateralized)
+                print!("Node URL [http://127.0.0.1:9000]: ");
+                io::stdout().flush().unwrap();
+                let mut node_url = String::new();
+                io::stdin().read_line(&mut node_url).unwrap();
+                let node_url = if node_url.trim().is_empty() { "http://127.0.0.1:9000".to_string() } else { node_url.trim().to_string() };
+                
+                let client = crate::client::RpcClient::new(node_url);
+                
+                println!("\n🧠 Submit Compute Job");
+                
+                print!("Model ID [gpt-4o-mini]: ");
+                io::stdout().flush().unwrap();
+                let mut model = String::new();
+                io::stdin().read_line(&mut model).unwrap();
+                let model = if model.trim().is_empty() { "gpt-4o-mini".to_string() } else { model.trim().to_string() };
+
+                print!("Input Text: ");
+                io::stdout().flush().unwrap();
+                let mut input_text = String::new();
+                io::stdin().read_line(&mut input_text).unwrap();
+                let inputs = input_text.trim().as_bytes().to_vec();
+
+                print!("Bid Amount (COMPASS): ");
+                io::stdout().flush().unwrap();
+                let mut bid_str = String::new();
+                io::stdin().read_line(&mut bid_str).unwrap();
+                let bid_amount = bid_str.trim().parse::<u64>().unwrap_or(0);
+                
+                if bid_amount == 0 {
+                    println!("❌ Bid amount must be > 0");
+                    pause();
+                    continue;
+                }
+
+                let job_id = uuid::Uuid::new_v4().to_string();
+                
+                println!("Submitting job {}...", job_id);
+                match client.submit_compute(job_id, model, inputs, 1000, bid_amount, "COMPASS".to_string()).await {
+                    Ok(tx) => println!("✅ Job Submitted! Tx: {}", tx),
+                    Err(e) => println!("❌ Error: {}", e),
+                }
+                pause();
+            },
+            "8" => break,
             _ => println!("Invalid option."),
         }
     }
@@ -239,7 +285,7 @@ async fn run_admin_node(identity: Arc<crate::crypto::KeyPair>) {
     leader_config.node.rpc_port = 9000;
     leader_config.node.db_path = "compass_db_leader".to_string();
     
-    crate::run_node_mode_internal(
+    crate::node::run_node_mode_internal(
         leader_config,
         None,
         Some(identity),
@@ -283,13 +329,16 @@ async fn run_ai_worker() {
     let keypair = match identity.into_keypair() {
         Ok(kp) => kp,
         Err(e) => {
-            println!("❌ Failed to decrypt key: {}", e);
-            pause();
+            print!("❌ Failed to decrypt key: {}", e);
             return;
         }
     };
     
-    let worker = crate::client::AiWorker::new(node_url, model_id, keypair);
+    // Create dummy channel for standalone worker (won't receive network jobs)
+    // TODO: Connect this to real P2P if "Interactive Mode" becomes a full node
+    let (tx, _rx) = tokio::sync::broadcast::channel(100);
+    
+    let mut worker = crate::client::AiWorker::new(node_url, keypair, tx);
     worker.start().await;
 }
 
@@ -354,14 +403,16 @@ async fn tools_menu() {
 
     match choice.trim() {
         "1" => {
-            println!("Wiping 'compass_db_leader'...");
-            let _ = std::fs::remove_dir_all("compass_db_leader");
-            println!("Done.");
+            println!("⚠️  Database deletion disabled for safety.");
+            println!("⚠️  To reset manually, delete the 'compass_db_leader' folder.");
+            // SAFETY: Commented out to prevent accidental data loss
+            // let _ = std::fs::remove_dir_all("compass_db_leader");
         },
         "2" => {
-            println!("Wiping 'compass_db_verifier'...");
-            let _ = std::fs::remove_dir_all("compass_db_verifier");
-            println!("Done.");
+            println!("⚠️  Database deletion disabled for safety.");
+            println!("⚠️  To reset manually, delete the 'compass_db_verifier' folder.");
+            // SAFETY: Commented out to prevent accidental data loss
+            // let _ = std::fs::remove_dir_all("compass_db_verifier");
         },
         "3" => crate::genesis::generate_admin_config(),
         "4" => {
@@ -386,23 +437,47 @@ async fn tools_menu() {
 pub fn load_identity(name: &str) -> Option<crate::identity::Identity> {
     use std::path::Path;
     
+    // 1. Try standalone identity file first
     let filename = format!("{}.json", name);
-    if !Path::new(&filename).exists() {
-        return None;
-    }
-    
-    print!("Enter password for '{}': ", name);
-    io::stdout().flush().unwrap();
-    let mut pass = String::new();
-    io::stdin().read_line(&mut pass).unwrap();
-    
-    match crate::identity::Identity::load_and_decrypt(Path::new(&filename), pass.trim()) {
-        Ok(id) => Some(id),
-        Err(e) => {
-            println!("Authentication Failed: {}", e);
-            None
+    if Path::new(&filename).exists() {
+        print!("Enter password for '{}': ", name);
+        io::stdout().flush().unwrap();
+        let mut pass = String::new();
+        io::stdin().read_line(&mut pass).unwrap();
+        
+        match crate::identity::Identity::load_and_decrypt(Path::new(&filename), pass.trim()) {
+            Ok(id) => return Some(id),
+            Err(e) => {
+                println!("Authentication Failed: {}", e);
+                return None
+            }
         }
     }
+
+    // 2. Fallback to WalletManager (wallets.json)
+    // This is needed because `wallet create` stores keys here, but Worker expects Identity.
+    // We can reconstruct a transient Identity from the Wallet if it exists.
+    let manager = crate::wallet::WalletManager::load("wallets.json");
+    if let Some(wallet) = manager.get_wallet(name) {
+        // Must have private key (mnemonic)
+        if let Some(mnemonic) = &wallet.mnemonic {
+             // Create Identity from Mnemonic
+             // NOTE: WalletType::User maps to NodeRole::User
+             // We use a dummy password or "none" since we are loading uncrypted from json (for now)
+             // Real implementation should support encrypted wallets in json too.
+             match crate::identity::Identity::from_mnemonic(name, crate::identity::NodeRole::User, mnemonic, "") {
+                 Ok((id, _)) => {
+                     println!("Loaded Identity '{}' from wallets.json", name);
+                     return Some(id);
+                 },
+                 Err(e) => println!("Failed to convert wallet to identity: {}", e),
+             }
+        } else {
+             println!("Wallet found in wallets.json but missing mnemonic/private key.");
+        }
+    }
+
+    None
 }
 
 /// Robustly prompt for Node URL with defaults and validation

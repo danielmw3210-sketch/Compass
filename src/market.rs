@@ -1,4 +1,3 @@
-use crate::vault::VaultManager;
 use crate::wallet::WalletManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

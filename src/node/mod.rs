@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::mpsc;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn};
 use sha2::Digest;
 
 use crate::chain::Chain;
@@ -11,9 +11,9 @@ use crate::market::Market;
 use crate::gulf_stream::manager::CompassGulfStreamManager;
 use crate::layer2::Layer2State;
 use crate::oracle::OracleService;
-use crate::crypto::{self, KeyPair};
+use crate::crypto::KeyPair;
 use crate::network::{NetMessage, NetworkCommand, PeerManager, TransactionPayload};
-use crate::block::{self, create_poh_block, BlockType};
+use crate::block::{self, BlockType};
 use crate::storage::Storage;
 
 pub struct CompassNode {
@@ -44,30 +44,32 @@ impl CompassNode {
         config: crate::config::CompassConfig,
         explicit_identity: Option<Arc<KeyPair>>
     ) -> Self {
-        println!("Starting Compass Node Initialization...");
-        let p2p_port = config.node.p2p_port;
-        let db_path = config.node.db_path.clone();
-
-        // --- Setup Identity ---
-        let admin = if let Some(k) = explicit_identity {
-            println!("IDENTITY: Using injected identity.");
-            k
-        } else if std::path::Path::new("admin.json").exists() {
-             println!("Found 'admin.json' (Encrypted Identity).");
-             print!("Enter password to unlock Admin Node: ");
-             std::io::Write::flush(&mut std::io::stdout()).unwrap();
-             let mut pass = String::new();
-             std::io::stdin().read_line(&mut pass).unwrap();
-             Arc::new(match crate::identity::Identity::load_and_decrypt(std::path::Path::new("admin.json"), pass.trim()) {
-                 Ok(id) => {
-                     println!("Identity '{}' unlocked successfully.", id.name);
-                     id.into_keypair().expect("Identity locked")
-                 },
-                 Err(e) => {
-                     println!("Failed to unlock identity: {}", e);
-                     std::process::exit(1);
-                 }
-             })
+    println!("Starting Compass Node...");
+    println!("CWD: {:?}", std::env::current_dir().unwrap());
+    let p2p_port = config.node.p2p_port;
+    let db_path = config.node.db_path.clone();
+    
+    // Setup Identity
+    let admin = if let Some(k) = explicit_identity {
+        println!("IDENTITY INJECTION: Using injected identity.");
+        k
+    } else if std::path::Path::new("admin.json").exists() {
+         let cwd = std::env::current_dir().unwrap();
+         println!("IDENTITY FOUND: 'admin.json' at {:?}", cwd.join("admin.json"));
+         print!("Enter password to unlock Admin Node: ");
+         std::io::Write::flush(&mut std::io::stdout()).unwrap();
+         let mut pass = String::new();
+         std::io::stdin().read_line(&mut pass).unwrap();
+         Arc::new(match crate::identity::Identity::load_and_decrypt(std::path::Path::new("admin.json"), pass.trim()) {
+             Ok(id) => {
+                 println!("IDENTITY UNLOCKED: '{}'", id.name);
+                 id.into_keypair().expect("Identity locked")
+             },
+             Err(e) => {
+                 println!("IDENTITY ERROR: Failed to unlock: {}", e);
+                 std::process::exit(1);
+             }
+         })
         } else if std::path::Path::new("admin_key.mnemonic").exists() {
             info!("Loading Legacy Admin Key from 'admin_key.mnemonic'");
             let phrase = std::fs::read_to_string("admin_key.mnemonic").unwrap();
@@ -148,13 +150,22 @@ impl CompassNode {
         // Validating Layer 2
         let layer2 = Arc::new(Mutex::new(Layer2State::new(Some(storage_arc.clone()))));
         
-        // Genesis Init
+        // Genesis Init - ONLY if blockchain is empty
         {
             let mut c = chain.lock().unwrap();
-            if let Ok(config) = crate::genesis::GenesisConfig::load("genesis.json") {
-                 let _ = c.initialize_genesis(&config);
+            if c.height == 0 && c.head_hash.is_none() {
+                // Fresh blockchain - initialize genesis
+                if let Ok(config) = crate::genesis::GenesisConfig::load("genesis.json") {
+                    match c.initialize_genesis(&config) {
+                        Ok(_) => info!("✅ Genesis block initialized"),
+                        Err(e) => warn!("Genesis initialization failed: {}", e),
+                    }
+                } else {
+                    warn!("❌ genesis.json not found and blockchain is empty!");
+                    warn!("   Create genesis.json or let node generate it automatically.");
+                }
             } else {
-                 warn!("genesis.json not found.");
+                info!("⏭️  Skipping genesis init - blockchain already exists (height: {})", c.height);
             }
         }
         
@@ -249,7 +260,7 @@ impl CompassNode {
             
             tokio::spawn(async move {
                 use crate::layer3::compute::{ComputeJob, ComputeJobStatus};
-                use crate::layer3::model_nft::ModelNFT;
+                
                 
                 // Wait for node to fully start
                 tokio::time::sleep(Duration::from_secs(2)).await;
@@ -282,6 +293,8 @@ impl CompassNode {
                                 status: ComputeJobStatus::Pending,
                                 worker_id: None,
                                 result_hash: None,
+                                verifiers: Vec::new(),
+                                verification_status: ComputeJobStatus::Pending,
                                 timestamp: std::time::SystemTime::now()
                                     .duration_since(std::time::UNIX_EPOCH)
                                     .unwrap()
@@ -290,6 +303,7 @@ impl CompassNode {
                                 compute_rate: 0,
                                 started_at: None,
                                 min_duration: 10,
+                                inputs: vec![],
                             };
                             
                             if let Err(e) = chain_guard.storage.save_compute_job(&job) {
@@ -327,13 +341,26 @@ impl CompassNode {
             });
         }
         
-        // P2P Dialing
+        // P2P Dialing (CLI Peer + Bootnodes)
+        let bootnodes = self.config.node.bootnodes.clone();
         if let Some(paddr) = peer_val {
             let tx = self.cmd_tx.clone();
             tokio::spawn(async move {
                 tokio::time::sleep(Duration::from_secs(2)).await;
                 let _ = tx.send(NetworkCommand::Dial(paddr)).await;
             });
+        }
+        
+        if !bootnodes.is_empty() {
+             let tx = self.cmd_tx.clone();
+             tokio::spawn(async move {
+                 tokio::time::sleep(Duration::from_secs(3)).await; // Wait for server to bind
+                 for node in bootnodes {
+                     info!("🌐 Bootstrapping: Dialing bootnode {}", node);
+                     let _ = tx.send(NetworkCommand::Dial(node)).await;
+                     tokio::time::sleep(Duration::from_millis(500)).await;
+                 }
+             });
         }
         
         // Sync Task
@@ -387,8 +414,10 @@ impl CompassNode {
         let rpc_wallets = self.wallets.clone();
         let rpc_cmd_tx = self.cmd_tx.clone();
         
+        let rpc_identity = self.identity.public_key_hex();
+        
         tokio::spawn(async move {
-            let server = crate::rpc::RpcServer::new(rpc_chain, rpc_pm, rpc_gs, rpc_vaults, rpc_wallets, rpc_layer2, rpc_betting, rpc_market, rpc_cmd_tx, rpc_port);
+            let server = crate::rpc::RpcServer::new(rpc_chain, rpc_pm, rpc_gs, rpc_vaults, rpc_wallets, rpc_layer2, rpc_betting, rpc_market, rpc_cmd_tx, rpc_port, rpc_identity);
             server.start().await;
         });
 
@@ -409,7 +438,7 @@ impl CompassNode {
                 }
 
                 if !txs_to_process.is_empty() {
-                    let mut m_guard = market.lock().unwrap();
+                    let m_guard = market.lock().unwrap();
                     let mut c_guard = chain.lock().unwrap();
                     
                     for tx in txs_to_process {
@@ -430,8 +459,16 @@ impl CompassNode {
                                          royalty_rate: 0.05, current_owner: params.creator.clone(), sale_history: vec![],
                                          minted_at: block::current_unix_timestamp_ms(), last_updated: block::current_unix_timestamp_ms(),
                                      };
-                                     l2.assets.register_mint(nft, params.creator);
+                                     l2.assets.register_mint(nft.clone(), params.creator);
                                      let _ = l2.save("layer2.json"); 
+                                     
+                                     // Also save to verified Sled Storage
+                                     if let Err(e) = c_guard.storage.save_model_nft(&nft) {
+                                         tracing::error!("Failed to save Model NFT to Sled: {}", e);
+                                     } else {
+                                         println!("✅ Presisted NFT to Chain Storage: {}", params.model_id);
+                                     }
+                                     
                                      println!("✅ L2: Minted NFT {}", params.model_id);
                                  },
                                  TransactionPayload::Stake(params) => {
@@ -477,6 +514,7 @@ impl CompassNode {
 
         // 5. PoH Loop
         let admin_kp = self.identity.clone();
+        let chain_poh_outer = self.chain.clone();
         // Skip PoH if follower
         if !follower_mode {
             let config_duration = self.config.consensus.slot_duration_ms;
@@ -491,11 +529,42 @@ impl CompassNode {
 
                 loop {
                     let start = std::time::Instant::now();
+                    let chain_poh = chain_poh_outer.clone();
+                    let admin_kp_poh = admin_kp.clone();
                     
                     // Run VDF in blocking thread to avoid starvation
                     poh = tokio::task::spawn_blocking(move || {
                         let (start_hash, end_hash) = poh.tick(); // Runs CPU intensive Modular Squaring
-                        // TODO: Create Block(start_hash, end_hash) here
+                        
+                        // Create Block
+                        if let Ok(mut c_guard) = chain_poh.lock() {
+                            let head_hash = c_guard.head_hash().unwrap_or("0000000000000000000000000000000000000000000000000000000000000000".to_string());
+                            let height = c_guard.height;
+                            
+                            use crate::block::{BlockHeader, BlockType};
+                            let header = BlockHeader {
+                                index: height,
+                                timestamp: crate::block::current_unix_timestamp_ms(),
+                                prev_hash: head_hash,
+                                hash: "".to_string(),
+                                proposer: admin_kp_poh.public_key_hex(),
+                                signature_hex: "".to_string(),
+                                block_type: BlockType::PoH { 
+                                    tick: poh.tick_height,
+                                    iterations: poh.hashes_per_tick,
+                                    hash: hex::encode(&end_hash),
+                                    proof: "".to_string(), // Simplified
+                                },
+                            };
+                            
+                            let mut signed_header = header;
+                            signed_header.hash = signed_header.calculate_hash().unwrap();
+                            let sig = admin_kp_poh.sign(hex::decode(&signed_header.hash).unwrap().as_slice());
+                            signed_header.signature_hex = sig.to_string();
+
+                            // Append to Chain
+                            let _ = c_guard.append_poh(signed_header, &admin_kp_poh.public_key_hex());
+                        }
                         poh
                     }).await.expect("PoH Task failed");
 
@@ -515,8 +584,35 @@ impl CompassNode {
             });
         }
         
+        // --- Graceful Shutdown Handler ---
+        // Register Ctrl+C handler to flush database before exit
+        let chain_flush = self.chain.clone();
+        tokio::spawn(async move {
+            tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
+            info!("🛑 Shutting down... flushing database");
+            if let Ok(c) = chain_flush.lock() {
+                if let Err(e) = c.storage.flush() {
+                    warn!("Failed to flush database: {}", e);
+                } else {
+                    info!("✅ Database flushed successfully");
+                }
+            }
+            std::process::exit(0);
+        });
+        
         info!("Node Running. Press Ctrl+C to stop.");
         // Keep main alive
         loop { tokio::time::sleep(Duration::from_secs(60)).await; }
     }
+}
+
+// --- Helper for Node Startup (Exposed for Library Use) ---
+pub async fn run_node_mode_internal(
+    config: crate::config::CompassConfig,
+    peer_val: Option<String>, 
+    explicit_identity: Option<std::sync::Arc<crate::crypto::KeyPair>>
+) {
+    let rpc_port = config.node.rpc_port;
+    let node = CompassNode::new(config, explicit_identity).await;
+    node.start(Some(rpc_port), peer_val).await;
 }

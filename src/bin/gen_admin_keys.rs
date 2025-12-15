@@ -1,4 +1,4 @@
-use ed25519_dalek::{SigningKey, Signer};
+use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use std::fs;

@@ -7,7 +7,7 @@ use libp2p::{
 use libp2p::futures::{AsyncReadExt, AsyncWriteExt};
 use libp2p::futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashSet, VecDeque, HashMap};
+use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -16,6 +16,13 @@ use tracing::{info, debug, warn, error};
 
 // Re-export or define necessary traits for derive
 // use libp2p::NetworkBehaviour; // Helper to ensure derive is found if available at top level
+
+// --- GossipSub Topics ---
+pub const TOPIC_BLOCKS: &str = "compass/blocks";
+pub const TOPIC_TXS: &str = "compass/txs";
+pub const TOPIC_ORACLE: &str = "compass/oracle";
+pub const TOPIC_COMPUTE_JOBS: &str = "compass/compute/jobs";
+pub const TOPIC_COMPUTE_RESULTS: &str = "compass/compute/results";
 
 // --- Data Structures ---
 
@@ -31,6 +38,10 @@ pub enum NetMessage {
     HeightResponse { height: u64 },
     RequestBlocks { start: u64, end: u64 },
     BlockResponse { blocks: Vec<crate::block::Block> },
+    
+    // Compute Protocol
+    ComputeJob(crate::layer3::compute::ComputeJob),
+    ComputeVerify(crate::layer3::compute::ComputeVerify),
 }
 // Note: TransactionPayload needs to be accessible. 
 // Ideally it should be defined HERE or in a shared types module.
@@ -250,6 +261,17 @@ pub enum NetworkCommand {
     SendRequest { peer: String, req: NetMessage }, 
 }
 
+/// Determine the appropriate topic for a given message
+fn get_topic_for_message(msg: &NetMessage) -> &'static str {
+    match msg {
+        NetMessage::SubmitTx(_) => TOPIC_TXS,
+        NetMessage::RequestBlocks { .. } | NetMessage::BlockResponse { .. } => TOPIC_BLOCKS,
+        NetMessage::GetHeight | NetMessage::HeightResponse { .. } => TOPIC_BLOCKS,
+        NetMessage::ComputeJob(_) => TOPIC_COMPUTE_JOBS,
+        NetMessage::ComputeVerify(_) => TOPIC_COMPUTE_RESULTS,
+    }
+}
+
 /// Start the Libp2p Swarm
 pub async fn start_server(
     port: u16,
@@ -323,8 +345,14 @@ pub async fn start_server(
         .build();
 
     // 2. Subscribe to Topics
-    if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&gossipsub::IdentTopic::new("compass-global")) {
-        warn!("Failed to subscribe to topic: {:?}", e);
+    let topics = vec![TOPIC_BLOCKS, TOPIC_TXS, TOPIC_ORACLE, TOPIC_COMPUTE_JOBS, TOPIC_COMPUTE_RESULTS];
+    for topic_str in topics {
+        let topic = gossipsub::IdentTopic::new(topic_str);
+        if let Err(e) = swarm.behaviour_mut().gossipsub.subscribe(&topic) {
+            warn!("Failed to subscribe to {}: {:?}", topic_str, e);
+        } else {
+            info!("✅ Subscribed to topic: {}", topic_str);
+        }
     }
 
     // 3. Listen
@@ -381,19 +409,24 @@ pub async fn start_server(
                 match cmd {
                     NetworkCommand::Broadcast(msg) => {
                          if let Ok(data) = bincode::serialize(&msg) {
-                             let topic = gossipsub::IdentTopic::new("compass-global");
-                                 if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, data) {
-                                     match e {
-                                         gossipsub::PublishError::InsufficientPeers => {
-                                             debug!("Broadcast suppressed: InsufficientPeers (Standalone mode)");
-                                         }
-                                         _ => {
-                                             warn!("Broadcast error: {:?}", e);
-                                         }
+                             // Route to appropriate topic
+                             let topic_str = get_topic_for_message(&msg);
+                             let topic = gossipsub::IdentTopic::new(topic_str);
+                             
+                             if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic, data) {
+                                 match e {
+                                     gossipsub::PublishError::InsufficientPeers => {
+                                         debug!("Broadcast to {} suppressed: InsufficientPeers (Standalone mode)", topic_str);
+                                     }
+                                     _ => {
+                                         warn!("Broadcast to {} error: {:?}", topic_str, e);
                                      }
                                  }
+                             } else {
+                                 debug!("📡 Broadcast to {}", topic_str);
+                             }
                          }
-                    }
+                     }
                     NetworkCommand::Dial(addr_str) => {
                         if let Ok(addr) = addr_str.parse::<Multiaddr>() {
                             if let Err(e) = swarm.dial(addr) {

@@ -1,9 +1,9 @@
 [node]
 p2p_port = 19000
 rpc_port = 9000
-db_path = "./data/node_db"
+db_path = "compass_db_leader"
 log_level = "info"
-identity_file = "identity.json"
+identity_file = "admin.json"
 
 [consensus]
 slot_duration_ms = 1000

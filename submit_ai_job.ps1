@@ -6,12 +6,12 @@ $RPC_ENDPOINT = "http://127.0.0.1:9000"
 function Submit-ComputeJob {
     param(
         [string]$ModelId = "llama-3-8b-q4",
-        [string]$Input = "Explain quantum computing in simple terms",
+        [string]$InputText = "Explain quantum computing in simple terms",
         [int]$MaxComputeUnits = 1000
     )
     
     $jobId = [guid]::NewGuid().ToString()
-    $inputBytes = [System.Text.Encoding]::UTF8.GetBytes($Input)
+    $inputBytes = [System.Text.Encoding]::UTF8.GetBytes($InputText)
     
     $body = @{
         jsonrpc = "2.0"
@@ -21,6 +21,8 @@ function Submit-ComputeJob {
             model_id          = $ModelId
             inputs            = $inputBytes
             max_compute_units = $MaxComputeUnits
+            bid_amount        = 50
+            bid_asset         = "COMPASS"
         }
         id      = 1
     } | ConvertTo-Json -Depth 5
@@ -28,7 +30,7 @@ function Submit-ComputeJob {
     Write-Host "🔬 Submitting Compute Job to Layer 3..." -ForegroundColor Cyan
     Write-Host "   Job ID: $jobId"
     Write-Host "   Model: $ModelId"
-    Write-Host "   Input: $Input"
+    Write-Host "   Input: $InputText"
     
     try {
         $response = Invoke-RestMethod -Uri $RPC_ENDPOINT -Method Post -Body $body -ContentType "application/json"

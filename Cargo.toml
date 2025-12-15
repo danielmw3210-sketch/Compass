@@ -13,9 +13,11 @@ rocksdb = "0.21"
 wasmtime = "16.0"
 rust_decimal = { version = "1.39.0", features = ["serde-with-float"] }
 uuid = { version = "1.4", features = ["v4"] }
-half = "=2.3.1"
+half = "=2.3.1"  # Pinned: Required exact version by candle-core 0.7.1
 candle-core = "0.7.1"
 candle-nn = "0.7.1"
+# candle-onnx removed due to protoc dependency
+ort = { version = "2.0.0-rc.0", features = ["download-binaries"] }
 smartcore = "0.2"
 ndarray = "0.15"
 ndarray-rand = "0.14" # New dependency for network initialization
@@ -34,9 +36,9 @@ tower = "0.4"
 tower-http = { version = "0.5", features = ["cors"] }
 
 # ed25519-dalek 2.0 uses rand 0.8
-ed25519-dalek = { version = "=2.0.0", features = ["rand_core"] }
-rand = "=0.8.5"
-rand_core = "=0.6.4"
+ed25519-dalek = { version = "^2.0.0", features = ["rand_core"] }
+rand = "^0.8.5"
+rand_core = "^0.6.4"
 
 # Hashing + hex
 sha2 = "0.10"
@@ -56,3 +58,4 @@ sysinfo = "0.37.2"
 thiserror = "2.0.17"
 toml = "0.9.8"
 sled = "0.34.7"
+eframe = "0.29"

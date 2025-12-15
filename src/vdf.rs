@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use num_bigint::BigUint;
-use num_traits::{One, Zero, ToPrimitive};
+use num_traits::One;
 use num_integer::Integer;
 use sha2::{Digest, Sha256};
 

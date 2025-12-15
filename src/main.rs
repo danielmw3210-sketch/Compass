@@ -1,56 +1,49 @@
 #![allow(dead_code)]
-mod block;
-pub mod chain; // Made public for use in client
-pub mod layer2; // The Economic Layer
-pub mod error; // EXPOSE ERROR MODULE
-mod client;
-mod crypto;
-mod genesis; // Decentralized Genesis Config
-mod gulf_stream; // Added module declaration
-mod market;
-mod poh_recorder; // Added PoH Recorder
-mod vm; // Smart Contract VM
-mod oracle;
-mod rpc; // RPC server
-mod storage; // Added storage module
-mod vault;
-mod layer3; // Layer 3 Applications
-mod vdf;
-mod wallet; // RPC client
-mod worker_menu; // Worker job selection UI
-
-mod cli; // CLI module
-mod network;
-mod encoding; // Canonical Serialization
-mod identity; // Production Key Management
-mod interactive; // Unified Launcher
-mod init; // Auto-generation for admin/verifier/worker keys
-mod node; // Core Node Logic refactored
-pub mod config; // CONFIGURATION MODULE
-// mod ai_marketplace; // AI Neural Network Economy (temporarily disabled)
+// Modules are now in lib.rs
+use rust_compass::block;
+use rust_compass::chain;
+use rust_compass::layer2;
+use rust_compass::error;
+use rust_compass::client;
+use rust_compass::crypto;
+use rust_compass::genesis;
+use rust_compass::gulf_stream;
+use rust_compass::market;
+use rust_compass::poh_recorder;
+use rust_compass::vm;
+use rust_compass::oracle;
+use rust_compass::rpc;
+use rust_compass::storage;
+use rust_compass::vault;
+use rust_compass::layer3;
+use rust_compass::vdf;
+use rust_compass::wallet;
+use rust_compass::worker_menu;
+use rust_compass::cli;
+use rust_compass::network;
+use rust_compass::encoding;
+use rust_compass::identity;
+use rust_compass::interactive;
+use rust_compass::init;
+use rust_compass::node;
+use rust_compass::config;
+// use rust_compass::ai_marketplace;
 
 use block::{
-    create_poh_block, create_proposal_block, create_transfer_block, create_vote_block,
+    create_transfer_block,
     current_unix_timestamp_ms, BlockHeader, BlockType,
-};
+}; 
 use crypto::KeyPair;
 use network::{NetMessage, TransactionPayload};
-use sha2::Digest; // Import Digest trait
-use tokio::io::{AsyncReadExt, AsyncWriteExt}; // Added AsyncReadExt and AsyncWriteExt traits
-use tokio::sync::mpsc;
 // use libp2p::identity; // Conflict with mod identity; use explicit path if needed
 
-use chain::Chain;
-use gulf_stream::manager::CompassGulfStreamManager;
 use market::{Market, OrderSide};
 use std::fs::OpenOptions;
 use std::io::{self, Write};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
+use std::sync::Arc;
 use vault::VaultManager;
 use wallet::{WalletManager, WalletType};
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, error};
 use tracing_subscriber::FmtSubscriber;
 
 use clap::Parser;
@@ -87,44 +80,87 @@ async fn main() {
             Commands::Node { cmd } => {
                 // If "compass node start" is called
                 match cmd {
-                    cli::node::NodeCommands::Start { rpc_port, peer, p2p_port, db_path } => {
+                    cli::node::NodeCommands::Start { rpc_port, peer, p2p_port: _, db_path: _, ephemeral } => {
                         // Load Config
                         let mut config = crate::config::CompassConfig::load_or_default("config.toml");
                         
                         // CLI overrides Config (Priority: CLI > Config > Default)
                         if let Some(p) = rpc_port { config.node.rpc_port = p; }
                         // Identity Loading (Phase 3)
-                        let identity_val = {
+                        let identity_val = if ephemeral {
+                            warn!("Starting in Ephemeral Mode: Generating temporary identity.");
+                            None
+                        } else {
                             let path_str = &config.node.identity_file;
                             let path = std::path::Path::new(path_str);
-                            if path.exists() {
-                                println!("Found Identity File: {}", path_str);
-                                print!("Enter password to unlock Node Identity: ");
-                                std::io::stdout().flush().unwrap();
-                                let mut pass = String::new();
-                                std::io::stdin().read_line(&mut pass).unwrap();
+                            
+                            // Check configured path OR admin.json fallback
+                            let final_path = if path.exists() {
+                                path
+                            } else if std::path::Path::new("admin.json").exists() {
+                                std::path::Path::new("admin.json")
+                            } else {
+                                path // Will trigger missing logic below
+                            };
+
+                            if final_path.exists() {
+                                println!("Found Identity File: {:?}", final_path);
                                 
-                                match crate::identity::Identity::load_and_decrypt(path, pass.trim()) {
+                                // Try Empty Password First (for Automation/Testnet)
+                                match crate::identity::Identity::load_and_decrypt(final_path, "") {
                                     Ok(id) => {
-                                        println!("Identity '{}' unlocked ({})", id.name, id.public_key);
+                                        println!("Identity '{}' unlocked (Passwordless) ({})", id.name, id.public_key);
                                         Some(Arc::new(id.into_keypair().expect("Failed to convert identity")))
                                     },
-                                    Err(e) => {
-                                        error!("Failed to unlock identity: {}", e);
-                                        // In production you might want to exit, but for now we warn
-                                        std::process::exit(1); 
+                                    Err(_) => {
+                                        // Fallback to Prompt
+                                        if ephemeral { // If ephemeral flag set but we found a file, maybe ignore it? No, ephemeral overrides loading.
+                                            // Actually this block is in the `else` of `if ephemeral`.
+                                            // So we are here because ephemeral is false.
+                                            print!("Enter password to unlock Node Identity: ");
+                                            std::io::stdout().flush().unwrap();
+                                            let mut pass = String::new();
+                                            std::io::stdin().read_line(&mut pass).unwrap();
+                                            
+                                            match crate::identity::Identity::load_and_decrypt(final_path, pass.trim()) {
+                                                Ok(id) => {
+                                                    println!("Identity '{}' unlocked ({})", id.name, id.public_key);
+                                                    Some(Arc::new(id.into_keypair().expect("Failed to convert identity")))
+                                                },
+                                                Err(e) => {
+                                                    error!("Failed to unlock identity: {}", e);
+                                                    std::process::exit(1); 
+                                                }
+                                            }
+                                        } else {
+                                             print!("Enter password to unlock Node Identity: ");
+                                             std::io::stdout().flush().unwrap();
+                                             let mut pass = String::new();
+                                             std::io::stdin().read_line(&mut pass).unwrap();
+                                             
+                                             match crate::identity::Identity::load_and_decrypt(final_path, pass.trim()) {
+                                                 Ok(id) => {
+                                                     println!("Identity '{}' unlocked ({})", id.name, id.public_key);
+                                                     Some(Arc::new(id.into_keypair().expect("Failed to convert identity")))
+                                                 },
+                                                 Err(e) => {
+                                                     error!("Failed to unlock identity: {}", e);
+                                                     std::process::exit(1); 
+                                                 }
+                                             }
+                                        }
                                     }
                                 }
                             } else {
-                                warn!("No identity file found at '{}'. Using Ephemeral Identity.", path_str);
+                                warn!("No identity file found at '{:?}' or 'admin.json'. Using Ephemeral Identity.", path_str);
                                 None
                             }
                         };
 
                         if let Some(p) = peer { 
-                            run_node_mode_internal(config, Some(p), identity_val).await;
+                            rust_compass::node::run_node_mode_internal(config, Some(p), identity_val).await;
                         } else {
-                            run_node_mode_internal(config, None, identity_val).await;
+                            rust_compass::node::run_node_mode_internal(config, None, identity_val).await;
                         }
                         
                         // NOTE: p2p_port and db_path from CLI should also override!
@@ -196,14 +232,20 @@ async fn main() {
                     .expect(&format!("❌ Failed to load wallet '{}'. Please create it first.", wallet));
                 let kp = id.into_keypair().expect("Failed to decrypt identity");
                 
-                let worker = crate::client::AiWorker::new(node_url, model_id, kp);
+                // Create dummy gossip channel for standalone worker
+                let (gossip_tx, _gossip_rx) = tokio::sync::broadcast::channel(100);
+                
+                let mut worker = crate::client::AiWorker::new(node_url, kp, gossip_tx);
                 worker.start().await;
             }
             Commands::Client => {
                 run_client_mode().await;
             }
             Commands::AdminGen => {
-                crate::genesis::generate_admin_config();
+                handle_admin_gen();
+            },
+            Commands::GenesisHash => {
+                handle_genesis_hash();
             },
             Commands::Keys { cmd } => {
                 crate::cli::keys::handle_keys_command(cmd);
@@ -303,6 +345,33 @@ fn handle_admin_gen() {
     }
 }
 
+fn handle_genesis_hash() {
+    println!("Loading genesis.json...");
+    let config = crate::genesis::GenesisConfig::load("genesis.json").expect("Failed to load genesis.json");
+    
+    let genesis_block = crate::block::Block {
+        header: crate::block::BlockHeader {
+            index: 0,
+            block_type: crate::block::BlockType::Genesis,
+            proposer: "genesis".to_string(),
+            signature_hex: "".to_string(),
+            prev_hash: "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            hash: "".to_string(), 
+            timestamp: config.timestamp,
+        },
+        transactions: vec![],
+    };
+    
+    let final_block = genesis_block;
+    let hash = final_block.header.calculate_hash().expect("Hash failed");
+
+    println!("----------------------------------------------------------------");
+    println!("💎 MAINNET GENESIS HASH: {}", hash);
+    println!("----------------------------------------------------------------");
+    println!("Timestamp: {}", config.timestamp);
+    println!("Chain ID:  {}", config.chain_id);
+}
+
 // --- CLIENT MODE (User) ---
 async fn run_client_mode() {
     println!("\n=== Compass Client ===");
@@ -331,7 +400,7 @@ async fn run_client_mode() {
              println!("System: Created new 'admin' wallet.");
         }
     }
-    let mut market = Market::load("market.json");
+    let market = Market::load("market.json");
     let mut current_user = String::new();
 
     loop {
@@ -913,12 +982,16 @@ async fn run_client_mode() {
                     io::stdin().read_line(&mut prompt).unwrap();
                     let prompt = prompt.trim().to_string();
 
+                    print!("Bid Amount (COMPASS): ");
+                    io::stdout().flush().unwrap();
+                    let mut bid_str = String::new();
+                    io::stdin().read_line(&mut bid_str).unwrap();
+                    let bid_amount = bid_str.trim().parse::<u64>().unwrap_or(50); // Default 50
+
                     // Create Compute Payload
                     let job_id = format!("job_{}", current_unix_timestamp_ms());
 
-
-                    
-                    println!("Submitting Compute Job [{}]...", job_id);
+                    println!("Submitting Compute Job [{}] with bid {} COMPASS...", job_id, bid_amount);
                     // Submit via RPC
                     let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                     
@@ -927,6 +1000,8 @@ async fn run_client_mode() {
                         model,
                         prompt.into_bytes(),
                         100, // max_compute_units
+                        bid_amount,
+                        "COMPASS".to_string(),
                     ).await;
                     
                     match res {
@@ -1048,14 +1123,4 @@ async fn run_client_mode() {
     }
 }
 
-// --- NODE MODE (Infrastructure) ---
-// --- NODE MODE (Infrastructure) ---
-async fn run_node_mode_internal(
-    config: crate::config::CompassConfig,
-    peer_val: Option<String>, 
-    explicit_identity: Option<Arc<KeyPair>>
-) {
-    let rpc_port = config.node.rpc_port;
-    let node = crate::node::CompassNode::new(config, explicit_identity).await;
-    node.start(Some(rpc_port), peer_val).await;
-}
+// run_node_mode_internal moved to crate::node::run_node_mode_internal

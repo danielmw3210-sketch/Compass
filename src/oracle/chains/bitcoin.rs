@@ -1,5 +1,5 @@
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 /// Bitcoin client using BlockCypher public API
 #[derive(Debug, Clone)]

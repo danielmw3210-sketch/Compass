@@ -14,10 +14,16 @@ pub struct NodeConfig {
     pub log_level: String,
     #[serde(default = "default_identity_file")]
     pub identity_file: String,
+    #[serde(default = "default_bootnodes")]
+    pub bootnodes: Vec<String>,
 }
 
 fn default_identity_file() -> String {
     "identity.json".to_string()
+}
+
+fn default_bootnodes() -> Vec<String> {
+    vec![]
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -34,6 +40,7 @@ impl Default for CompassConfig {
                 db_path: "./data/primary".to_string(),
                 log_level: "info".to_string(),
                 identity_file: "identity.json".to_string(),
+                bootnodes: vec![],
             },
             consensus: ConsensusConfig {
                 slot_duration_ms: 1000,

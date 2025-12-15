@@ -4,7 +4,6 @@ use crate::rpc::types::RecurringOracleJob;
 use serde_json::json;
 #[allow(unused_imports, unused_variables)]
 use std::time::{Duration, Instant};
-use std::io::{self, Write};
 use rand::Rng;
 use sha2::{Sha256, Digest};
 
@@ -44,7 +43,7 @@ pub async fn run_continuous_cycle(
 
     // 1. Initialize Components
     let mut fetcher = FinanceDataFetcher::new();
-    let mut predictor = BridgePredictor::new();
+    let predictor = BridgePredictor::new();
     let mut data_points: Vec<MarketContext> = Vec::new();
 
     // 2. Autonomous Data Gathering Loop
@@ -171,40 +170,60 @@ pub async fn run_continuous_cycle(
     println!("   ⚙️  Active Learning: Integrating {} new live market samples...", data_points.len());
     
     // Construct Input Tensor: [AvgGas, AvgSent, AvgSol, AvgTVL/1e9, AvgVol/1e9, KrakenTx/1000, KrakenVol]
-    // Normalize inputs roughly to 0-1 range
     let inputs = vec![
         (avg_gas / 100.0) as f32, 
         avg_sent as f32, 
         (avg_sol / 200.0) as f32,
         (avg_tvl / 1e11) as f32, 
         (avg_vol / 1e10) as f32,
-        0.5, // Kraken Tx placeholder
-        0.5  // Kraken Vol placeholder
+        0.5, 
+        0.5
     ];
     
-    // Initialize Real Brain (Input=7, Output=3)
-    // In production, we would load "brain_weights.safetensors"
-    // Here we init random to simulate learning a new task
-    // Using our new module: crate::layer3::brain::SimpleBrain
-    
     use candle_core::{Tensor, Device};
-    use super::brain::SimpleBrain;
+    use super::brain::{SimpleBrain, OnnxBrain};
     
-    println!("   🧠 Loading Neural Weights (7x64x64x3)...");
-    let brain = SimpleBrain::new_random(7, 3).map_err(|e| format!("Brain Init Failed: {}", e))?;
-    
-    // Create Tensor
-    let input_tensor = Tensor::new(inputs, &Device::Cpu).map_err(|e| format!("Tensor Error: {}", e))?
-        .unsqueeze(0).map_err(|e| format!("Unsqueeze Error: {}", e))?;
-        
-    println!("   ⚡ Running Forward Pass (Matrix Multiplication)...");
-    let output = brain.forward(&input_tensor).map_err(|e| format!("Inference Error: {}", e))?;
-    let probs = output.squeeze(0).map_err(|e| format!("Squeeze Error: {}", e))?.to_vec1::<f32>().map_err(|e| format!("Vec Error: {}", e))?;
+    // Check for ONNX Model
+    let onnx_path = "model.onnx";
+    let output_vec = if std::path::Path::new(onnx_path).exists() {
+        println!("   🧠 Loading ONNX Model at '{}'...", onnx_path);
+        match OnnxBrain::new(onnx_path) {
+            Ok(mut brain) => {
+                let input_tensor = Tensor::new(inputs.clone(), &Device::Cpu).map_err(|e| format!("{}", e))?
+                    .unsqueeze(0).map_err(|e| format!("{}", e))?;
+                    
+                println!("   ⚡ Running ONNX Inference...");
+                match brain.forward(&input_tensor) {
+                    Ok(out) => {
+                         out.squeeze(0).map_err(|e| format!("{}", e))?.to_vec1::<f32>().map_err(|e| format!("{}", e))?
+                    },
+                    Err(e) => {
+                        println!("   ⚠️ ONNX Inference Failed (Fallback): {}", e);
+                         // Fallback logic duplicated below or simple panic? 
+                         // Check below fallback logic
+                         vec![0.5, 0.5, 0.5] // Graceful degradation
+                    }
+                }
+            },
+            Err(e) => {
+                 println!("   ⚠️ ONNX Load Failed (Fallback): {}", e);
+                 vec![0.5, 0.5, 0.5]
+            }
+        }
+    } else {
+        println!("   🧠 No ONNX found. Initializing Random Neural Weights (7x64x64x3)...");
+        let brain = SimpleBrain::new_random(7, 3).map_err(|e| format!("Brain Init Failed: {}", e))?;
+        let input_tensor = Tensor::new(inputs, &Device::Cpu).map_err(|e| format!("Tensor Error: {}", e))?
+            .unsqueeze(0).map_err(|e| format!("Unsqueeze Error: {}", e))?;
+        println!("   ⚡ Running Random Forward Pass...");
+        let output = brain.forward(&input_tensor).map_err(|e| format!("Inference Error: {}", e))?;
+        output.squeeze(0).map_err(|e| format!("Squeeze Error: {}", e))?.to_vec1::<f32>().map_err(|e| format!("Vec Error: {}", e))?
+    };
     
     // [BTC_Prob, ETH_Prob, SOL_Prob]
-    let btc_prob = probs[0];
-    let eth_prob = probs[1];
-    let sol_prob = probs[2];
+    let btc_prob = output_vec.get(0).cloned().unwrap_or(0.5);
+    let eth_prob = output_vec.get(1).cloned().unwrap_or(0.5);
+    let sol_prob = output_vec.get(2).cloned().unwrap_or(0.5);
     
     println!("      -> Inference Complete! Output Vector: [{:.4}, {:.4}, {:.4}]", btc_prob, eth_prob, sol_prob);
 

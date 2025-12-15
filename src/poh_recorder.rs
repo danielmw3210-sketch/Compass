@@ -1,6 +1,4 @@
-use std::sync::{Arc, Mutex};
-use sha2::{Sha256, Digest};
-use std::time::Instant;
+// Removed unused: use sha2::Digest;
 use crate::vdf::{WesolowskiVDF, ALPHA_MODULUS};
 
 pub struct PoHRecorder {

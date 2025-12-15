@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::time::Duration;
 use serde_json::json;
 use crate::rpc::types::OracleVerificationJob;
-use crate::rpc::types::{RecurringOracleJob, SubmitOracleVerificationResultParams};
+use crate::rpc::types::RecurringOracleJob;
 use crate::client::price_fetcher::PriceFetcher;
 use rust_decimal::prelude::*;
 use crate::crypto::KeyPair;
@@ -166,7 +166,6 @@ async fn process_compute_job(job: &crate::layer3::compute::ComputeJob, client: &
     Ok(())
 }
 
-use crate::rpc::types::{PendingJob, SubmitResultParams};
 async fn ai_worker_loop(client: &RpcClient, worker_keypair: &KeyPair) -> Result<(), String> {
     println!("\n🧠 Starting AI Worker...");
     println!("   Monitoring for compute jobs...");

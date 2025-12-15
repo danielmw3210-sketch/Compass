@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
 use bip39::{Language, Mnemonic};
 use hex;

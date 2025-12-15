@@ -576,6 +576,17 @@ impl BridgePredictor {
         self.nft_token_id = Some(token_id.clone());
         self.mintable = false;  // Already minted
 
+        // 💾 PERSISTENCE: Save NFT to Sled immediately
+        if let Some(storage) = &self.betting_ledger.storage {
+            if let Err(e) = storage.save_model_nft(&nft) {
+                tracing::error!("❌ Failed to persist Model NFT to DB: {}", e);
+            } else {
+                tracing::info!("✅ Persisted Model NFT to DB: {}", token_id);
+            }
+        } else {
+            tracing::warn!("⚠️  No storage attached to Predictor - NFT {} NOT persisted!", token_id);
+        }
+
         // Save NFT to registry (in production, submit to blockchain)
         println!("   🎨 Model NFT Minted Successfully!");
         println!("      Token ID: {}", token_id);

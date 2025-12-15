@@ -22,6 +22,7 @@ pub struct RpcState {
     pub betting_ledger: Arc<Mutex<crate::layer3::betting::BettingLedger>>,
     pub market: Arc<Mutex<crate::market::Market>>,
     pub cmd_tx: mpsc::Sender<NetworkCommand>,
+    pub node_identity: String, // Public Key Hex
 }
 
 pub struct RpcServer {
@@ -41,6 +42,7 @@ impl RpcServer {
         market: Arc<Mutex<crate::market::Market>>,
         cmd_tx: mpsc::Sender<NetworkCommand>,
         port: u16,
+        node_identity: String,
     ) -> Self {
         Self {
             state: RpcState {
@@ -53,6 +55,7 @@ impl RpcServer {
                 betting_ledger,
                 market,
                 cmd_tx,
+                node_identity,
             },
             bind_addr: format!("0.0.0.0:{}", port),
         }

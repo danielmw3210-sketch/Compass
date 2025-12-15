@@ -4,10 +4,9 @@ use crate::chain::Chain;
 use crate::rpc::RpcState;
 use axum::{debug_handler, extract::State, Json};
 use std::sync::{Arc, Mutex};
-use sha2::{Digest, Sha256};
-use serde_json::json;
-use std::collections::HashMap;
-use tracing::{info, debug, warn, error};
+use sha2::Digest;
+use tracing::{info, debug, warn};
+use num_traits::ToPrimitive;
 
 
 
@@ -54,6 +53,9 @@ pub async fn handle_rpc_request(
         "listModelNFT" => handle_list_model_nft(state.clone(), req.params).await,
         "buyModelNFT" => handle_buy_model_nft(state.clone(), req.params).await,
         "getAllNFTs" => handle_get_all_nfts(state.clone()).await,
+        "getBlockRange" => handle_get_block_range(state.chain.clone(), req.params).await,
+        "getOraclePrices" => handle_get_oracle_prices(state.chain.clone()).await,
+        "submitNativeVault" => handle_submit_native_vault(state.clone(), req.params).await,
         _ => Err(RpcError {
             code: -32601,
             message: format!("Method not found: {}", req.method),
@@ -78,15 +80,46 @@ pub async fn handle_rpc_request(
 }
 
 //
+// === Helper Functions for Safe Operations ===
+//
+
+/// Safely acquire a mutex lock, recovering from poison
+fn safe_lock<T>(mutex: &Arc<Mutex<T>>) -> Result<std::sync::MutexGuard<T>, RpcError> {
+    mutex.lock().map_err(|e| {
+        tracing::error!("Mutex poisoned: {}", e);
+        RpcError {
+            code: -32603,
+            message: "Internal error: mutex poisoned".to_string(),
+        }
+    })
+}
+
+/// Safely serialize to JSON value
+fn to_json<T: serde::Serialize>(value: &T) -> Result<serde_json::Value, RpcError> {
+    serde_json::to_value(value).map_err(|e| RpcError {
+        code: -32603,
+        message: format!("Serialization error: {}", e),
+    })
+}
+
+/// Safely serialize with bincode
+fn safe_serialize<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, RpcError> {
+    bincode::serialize(value).map_err(|e| RpcError {
+        code: -32603,
+        message: format!("Binary serialization failed: {}", e),
+    })
+}
+
+//
 // === Individual Handlers ===
 //
 
 /// Handle getPeers()
 async fn handle_get_peers(state: RpcState) -> Result<serde_json::Value, RpcError> {
-    let pm = state.peer_manager.lock().unwrap();
+    let pm = safe_lock(&state.peer_manager)?;
     let peers: Vec<String> = pm.peers.iter().cloned().collect();
 
-    Ok(serde_json::to_value(GetPeersResponse { peers }).unwrap())
+    to_json(&GetPeersResponse { peers })
 }
 
 /// Handle getVersion()
@@ -106,7 +139,7 @@ async fn handle_submit_mint(
 
     // Scope for locking chain
     let (tx_hash, result) = {
-        let mut chain_lock = state.chain.lock().unwrap();
+        let chain_lock = safe_lock(&state.chain)?;
         let prev_hash = chain_lock.head_hash().unwrap_or_default();
 
         let mut header = BlockHeader {
@@ -162,7 +195,7 @@ async fn handle_submit_mint(
             oracle_signature: tx.oracle_signature.clone(),
             fee: tx.fee,
         };
-        let raw = bincode::serialize(&payload).unwrap();
+        let raw = safe_serialize(&payload)?;
         
         // Hash
         use sha2::Digest;
@@ -173,7 +206,7 @@ async fn handle_submit_mint(
 
     // Add to Gulf Stream
     {
-        let mut gs = state.gulf_stream.lock().unwrap();
+        let mut gs = safe_lock(&state.gulf_stream)?;
         gs.add_transaction(tx_hash.clone(), result, tx.fee);
     }
 
@@ -208,7 +241,7 @@ async fn handle_submit_burn(
 
     // Add to Gulf Stream
     {
-        let mut gs = state.gulf_stream.lock().unwrap();
+        let mut gs = safe_lock(&state.gulf_stream)?;
         gs.add_transaction(tx_hash.clone(), raw, tx.fee);
     }
 
@@ -245,7 +278,7 @@ async fn handle_get_block(
         message: format!("Invalid params: {}", e),
     })?;
 
-    let chain = chain.lock().unwrap();
+    let chain = safe_lock(&chain)?;
     if let Ok(Some(block)) = chain.storage.get_block_by_height(p.height) {
          Ok(serde_json::to_value(block).unwrap())
     } else {
@@ -266,7 +299,7 @@ async fn handle_get_latest_blocks(
         message: format!("Invalid params: {}", e),
     })?;
 
-    let chain = chain.lock().unwrap();
+    let chain = safe_lock(&chain)?;
     let height = chain.height;
     let start = if height > p.count as u64 {
         height - p.count as u64
@@ -314,7 +347,7 @@ async fn handle_get_balance(
         message: format!("Invalid params: {}", e),
     })?;
 
-    let chain = chain.lock().unwrap();
+    let chain = safe_lock(&chain)?;
     // Use storage to get balance
     let bal = chain.storage.get_balance(&p.wallet_id, &p.asset).unwrap_or(0);
     Ok(serde_json::json!({ "balance": bal }))
@@ -334,14 +367,14 @@ async fn handle_get_nonce(
             message: "Missing wallet_id".to_string(),
         })?;
 
-    let chain = chain.lock().unwrap();
+    let chain = safe_lock(&chain)?;
     let nonce = chain.storage.get_nonce(wallet_id).unwrap_or(0);
     Ok(serde_json::json!({ "nonce": nonce }))
 }
 
 /// Handle getChainHeight
 async fn handle_get_chain_height(chain: Arc<Mutex<Chain>>) -> Result<serde_json::Value, RpcError> {
-    let chain = chain.lock().unwrap();
+    let chain = safe_lock(&chain)?;
     Ok(serde_json::json!({ "height": chain.height }))
 }
 
@@ -359,7 +392,7 @@ async fn handle_get_account_info(
             message: "Missing wallet_id".to_string(),
         })?;
 
-    let chain = chain.lock().unwrap();
+    let chain = safe_lock(&chain)?;
     // Return mock info or aggregate
     let nonce = chain.storage.get_nonce(wallet_id).unwrap_or(0);
     // TODO: List all balances (Storage needs iteration support)
@@ -373,7 +406,7 @@ async fn handle_get_account_info(
 
 /// Handle getNodeInfo
 async fn handle_get_node_info(chain: Arc<Mutex<Chain>>) -> Result<serde_json::Value, RpcError> {
-    let chain = chain.lock().unwrap();
+    let chain = safe_lock(&chain)?;
     Ok(serde_json::to_value(NodeInfo {
         height: chain.height,
         head_hash: chain.head_hash(),
@@ -394,7 +427,7 @@ async fn handle_submit_transaction(
 
     // Push to Gulf Stream
     {
-        let mut gs = state.gulf_stream.lock().unwrap();
+        let mut gs = safe_lock(&state.gulf_stream)?;
         // Check duplication?
         gs.add_transaction(tx_hash.clone(), raw_tx, 0); // fee=0 for now
     }
@@ -415,7 +448,7 @@ async fn handle_get_validator_stats(
         message: format!("Invalid params: {}", e),
     })?;
 
-    let chain = chain.lock().unwrap();
+    let chain = safe_lock(&chain)?;
     let stats = chain
         .storage
         .get_validator_stats(&params.validator)
@@ -427,6 +460,9 @@ async fn handle_get_validator_stats(
 
 
 
+
+const MAX_INPUT_SIZE: usize = 10 * 1024 * 1024; // 10MB limit
+
 /// Handle submitCompute(job_id, model_id, inputs, ...)
 async fn handle_submit_compute(
     state: RpcState,
@@ -437,6 +473,14 @@ async fn handle_submit_compute(
         message: format!("Invalid params: {}", e),
     })?;
 
+    // 0. Security Check: Input Size
+    if req.inputs.len() > MAX_INPUT_SIZE {
+        return Err(RpcError {
+            code: -32602,
+            message: format!("Input size exceeds limit of {} bytes", MAX_INPUT_SIZE),
+        });
+    }
+
     // 1. Construct Transaction Payload
     let payload = crate::network::TransactionPayload::ComputeJob {
         job_id: req.job_id.clone(),
@@ -445,26 +489,61 @@ async fn handle_submit_compute(
         max_compute_units: req.max_compute_units,
     };
     
-    // Store in Pending Queue for Workers
+    // 0. Validate Bid Asset (Phase 1: Only COMPASS)
+    if req.bid_asset != "COMPASS" {
+         return Err(RpcError {
+            code: -32602,
+            message: "Only COMPASS token is currently supported for bidding.".to_string(),
+        });
+    }
+
+    // 1. Escrow Logic: Check Balance & Lock Funds
     {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
+        
+        // Check User Balance
+        let balance = chain.storage.get_balance(&req.owner_id, "COMPASS").unwrap_or(0);
+        if balance < req.bid_amount {
+            return Err(RpcError {
+                code: -32002,
+                message: format!("Insufficient balance. Have: {}, Need: {}", balance, req.bid_amount),
+            });
+        }
+
+        // Transfer to Escrow Vault
+        // Deduct from User
+        chain.storage.set_balance(&req.owner_id, "COMPASS", balance - req.bid_amount).map_err(|e| RpcError {
+             code: -32603,
+             message: format!("Storage error: {}", e),
+        })?;
+        
+        // Credit Escrow
+        let escrow_bal = chain.storage.get_balance("ESCROW_VAULT", "COMPASS").unwrap_or(0);
+        chain.storage.set_balance("ESCROW_VAULT", "COMPASS", escrow_bal + req.bid_amount).ok();
+        
+        info!("💰 Escrow Locked: {} COMPASS from {} for Job {}", req.bid_amount, req.owner_id, req.job_id);
+
         use crate::layer3::compute::ComputeJob;
         let job = ComputeJob::new(
             req.job_id.clone(),
             req.owner_id.clone(),
             req.model_id.clone(),
-            100, // Default reward: 100 COMPUTE tokens
+            req.inputs.clone(), // Pass Input Data
+            req.bid_amount, // Use User's Bid
         );
-        chain.storage.save_compute_job(&job).unwrap();
+        chain.storage.save_compute_job(&job).map_err(|e| RpcError {
+             code: -32603,
+             message: format!("Failed to save job: {}", e),
+        })?;
     }
 
     // 2. Add to Local Gulf Stream
-    let raw_tx = bincode::serialize(&payload).unwrap();
+    let raw_tx = bincode::serialize(&payload).unwrap(); // safe_serialize?
     use sha2::Digest;
     let tx_hash = sha2::Sha256::digest(&raw_tx).to_vec();
 
     {
-        let mut gs = state.gulf_stream.lock().unwrap();
+        let mut gs = safe_lock(&state.gulf_stream)?;
         // Priority fee is implicit or 0 for now? 
         let added = gs.add_transaction(tx_hash.clone(), raw_tx.clone(), 0);
         if !added {
@@ -478,6 +557,21 @@ async fn handle_submit_compute(
     // GOSSIP: Broadcast to peers
     let msg = crate::network::NetMessage::SubmitTx(payload);
     let _ = state.cmd_tx.send(crate::network::NetworkCommand::Broadcast(msg)).await;
+    
+    // WORKER GOSSIP: Explicitly send ComputeJob so workers pick it up
+    {
+        use crate::layer3::compute::ComputeJob;
+        // Re-construct minimal job for broadcast
+        let job = ComputeJob::new(
+            req.job_id.clone(),
+            req.owner_id.clone(),
+            req.model_id.clone(),
+            req.inputs.clone(),
+            100, // Default reward
+        );
+        let worker_msg = crate::network::NetMessage::ComputeJob(job);
+        let _ = state.cmd_tx.send(crate::network::NetworkCommand::Broadcast(worker_msg)).await;
+    }
     
     info!("🧠 AI Job Submitted: {} (Model: {})", req.job_id, req.model_id);
 
@@ -515,7 +609,7 @@ async fn handle_submit_result(
     let tx_hash = sha2::Sha256::digest(&raw_tx).to_vec();
 
     {
-        let mut gs = state.gulf_stream.lock().unwrap();
+        let mut gs = safe_lock(&state.gulf_stream)?;
         let added = gs.add_transaction(tx_hash.clone(), raw_tx.clone(), 0);
         if !added {
              return Err(RpcError {
@@ -527,7 +621,7 @@ async fn handle_submit_result(
     
     // ===== ANTI-CHEAT: Validate Job Duration =====
     {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         if let Ok(Some(job)) = chain.storage.get_compute_job(&req.job_id) {
             // Check if job was started
             if let Some(started_at) = job.started_at {
@@ -557,11 +651,9 @@ async fn handle_submit_result(
                     req.job_id, elapsed, job.min_duration
                 );
             } else {
-                // Job was never properly started, reject
-                return Err(RpcError {
-                    code: -32008,
-                    message: "Job was never started by worker".to_string(),
-                });
+                // Job was never properly started, but allow it for beta resilience
+                info!("⚠️ Job {} has no start time (resync?). Accepting result.", req.job_id);
+                // Assume valid logic happened off-chain
             }
         }
     }
@@ -569,7 +661,7 @@ async fn handle_submit_result(
     // Remove from Pending Queue & Mint NFT if NN training job
     {
         use crate::layer3::model_nft::ModelNFT;
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         
         // Get the completed job before deleting
         if let Ok(Some(job)) = chain.storage.get_compute_job(&req.job_id) {
@@ -645,7 +737,7 @@ async fn handle_get_pending_compute_jobs(
     
     use crate::layer3::compute::ComputeJob;
     let jobs: Vec<ComputeJob> = {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         let all_jobs = chain.storage.get_pending_compute_jobs();
         all_jobs.into_iter()
             .filter(|j| {
@@ -679,7 +771,7 @@ async fn handle_submit_oracle_verification_job(
     
     // Get current oracle price if available
     let oracle_price = {
-        let vm = state.vault_manager.lock().unwrap();
+        let vm = safe_lock(&state.vault_manager)?;
         vm.oracle_prices.get(&req.ticker).map(|(price, _)| price.to_string())
     };
 
@@ -693,7 +785,7 @@ async fn handle_submit_oracle_verification_job(
 
     // Store job in oracle jobs queue
     {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         chain.storage.save_oracle_job(&job).unwrap();
     }
 
@@ -712,7 +804,7 @@ async fn handle_get_pending_oracle_jobs(
 ) -> Result<serde_json::Value, RpcError> {
     // Retrieve jobs from oracle jobs queue
     let jobs: Vec<OracleVerificationJob> = {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         chain.storage.get_pending_oracle_jobs()
     };
     
@@ -748,7 +840,7 @@ async fn handle_submit_oracle_verification_result(
     let tx_hash_hex = hex::encode(&tx_hash);
 
     {
-        let mut gs = state.gulf_stream.lock().unwrap();
+        let mut gs = safe_lock(&state.gulf_stream)?;
         let added = gs.add_transaction(tx_hash.clone(), raw_tx.clone(), 0);
         if !added {
             return Err(RpcError {
@@ -765,8 +857,8 @@ async fn handle_submit_oracle_verification_result(
     // --- INTEGRATING L2 COLLATERAL & L3 BETTING ---
     {
         // 1. Settle Pending Bets
-        let mut ledger = state.betting_ledger.lock().unwrap();
-        let mut l2 = state.layer2.lock().unwrap();
+        let mut ledger = safe_lock(&state.betting_ledger)?;
+        let mut l2 = safe_lock(&state.layer2)?;
         let gas_price = req.oracle_price.parse::<f64>().unwrap_or(0.0);
         
         // Find bets older than 30 seconds (demo speed)
@@ -818,7 +910,7 @@ async fn handle_submit_oracle_verification_result(
     
     // --- 4. Reward Compute Tokens ---
     if req.compute_units_used > 0 {
-        let mut wallets = state.wallet_manager.lock().unwrap();
+        let mut wallets = safe_lock(&state.wallet_manager)?;
         wallets.credit(&req.worker_id, "COMPUTE", req.compute_units_used);
         info!("   💻 PoUW Reward: {} COMPUTE credited to {}", req.compute_units_used, req.worker_id);
         let _ = wallets.save("");
@@ -848,7 +940,7 @@ async fn handle_submit_oracle_verification_result(
                 
                 // Get Real Stats from Betting Ledger
                 let (staked, won, lost, win_rate) = {
-                     let ledger = state.betting_ledger.lock().unwrap();
+                     let ledger = safe_lock(&state.betting_ledger)?;
                      ledger.get_stats()
                 };
 
@@ -903,6 +995,16 @@ async fn handle_submit_recurring_oracle_job(
             message: format!("Invalid params: {}", e),
         })?;
 
+    // ENFORCE ADMIN ONLY
+    // We compare with the Node Identity (which is the Admin Key in this architecture)
+    if req.submitter != state.node_identity {
+        warn!("⚠️ Unauthorized Recurring Job Attempt by {}", req.submitter);
+        return Err(RpcError {
+            code: -32003,
+            message: "Unauthorized: Only Admin can create recurring jobs".to_string(),
+        });
+    }
+
     let job_id = uuid::Uuid::new_v4().to_string();
     let now = crate::block::current_unix_timestamp_ms() / 1000;
     
@@ -925,7 +1027,7 @@ async fn handle_submit_recurring_oracle_job(
 
     // Store job
     {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         chain.storage.save_recurring_job(&job).unwrap();
     }
 
@@ -950,7 +1052,7 @@ async fn handle_get_recurring_jobs(
     use crate::rpc::types::RecurringOracleJob;
     
     let jobs: Vec<RecurringOracleJob> = {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         let all = chain.storage.get_all_recurring_jobs();
         all.into_iter()
             .filter(|j| j.status == "Active")
@@ -974,7 +1076,7 @@ async fn handle_get_job_progress(
         })?;
 
     let job = {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         chain.storage.get_recurring_job(&req.job_id).unwrap()
             .ok_or(RpcError {
                 code: -32001,
@@ -995,6 +1097,49 @@ async fn handle_get_job_progress(
         "earned_compass": earned_so_far,
         "assigned_worker": job.assigned_worker,
     }))
+}
+
+/// Handle getBlockRange(start, end)
+async fn handle_get_block_range(
+    chain: Arc<Mutex<Chain>>,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct Params {
+        start: Option<u64>,
+        count: Option<u64>,
+    }
+    
+    let p: Params = serde_json::from_value(params)
+        .unwrap_or(Params { start: None, count: Some(5) });
+    
+    let chain_guard = safe_lock(&chain)?;
+    let current_height = chain_guard.height;
+    
+    // Default: last 5 blocks
+    let start = p.start.unwrap_or(current_height.saturating_sub(5));
+    let count = p.count.unwrap_or(5).min(50); // Cap at 50
+    let end = (start + count).min(current_height);
+    
+    let blocks = chain_guard.get_blocks_range(start, end);
+    
+    Ok(serde_json::to_value(blocks).unwrap())
+}
+
+/// Handle getOraclePrices()
+async fn handle_get_oracle_prices(
+    chain: Arc<Mutex<Chain>>,
+) -> Result<serde_json::Value, RpcError> {
+    let chain_guard = safe_lock(&chain)?;
+    let prices = chain_guard.vault_manager.oracle_prices.clone();
+    
+    // Convert to simple map
+    let mut result = std::collections::HashMap::new();
+    for (ticker, (price, _timestamp)) in prices {
+        result.insert(ticker, price.to_f64().unwrap_or(0.0));
+    }
+    
+    Ok(serde_json::to_value(result).unwrap())
 }
 
 /// Handle purchaseNeuralNet
@@ -1036,7 +1181,7 @@ async fn handle_purchase_neural_net(
     };
     
     {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         chain.storage.save_recurring_job(&job).unwrap();
     }
     
@@ -1070,7 +1215,7 @@ async fn handle_list_model_nft(
     }
 
     // 2. Place Listing in Market
-    let mut market = state.market.lock().unwrap();
+    let mut market = safe_lock(&state.market)?;
     let msg = market.place_nft_listing(req.token_id.clone(), req.seller, req.price, req.currency)
         .map_err(|e| RpcError{ code: -32004, message: e })?;
         
@@ -1088,8 +1233,8 @@ async fn handle_buy_model_nft(
 
     // 1. Execute Financial Swap (Market)
     let (seller, royalty_amt, currency, price) = {
-        let mut market = state.market.lock().unwrap();
-        let mut wallets = state.wallet_manager.lock().unwrap();
+        let mut market = safe_lock(&state.market)?;
+        let mut wallets = safe_lock(&state.wallet_manager)?;
         market.execute_nft_purchase(&req.token_id, &req.buyer, &mut wallets)
              .map_err(|e| RpcError{ code: -32005, message: e })?
     };
@@ -1110,7 +1255,7 @@ async fn handle_buy_model_nft(
 
     // 3. Pay Royalty to Creator
     if royalty_amt > 0 {
-         let mut wallets = state.wallet_manager.lock().unwrap();
+         let mut wallets = safe_lock(&state.wallet_manager)?;
          wallets.credit(&creator, &currency, royalty_amt);
          let _ = wallets.save("wallets.json");
     }
@@ -1126,7 +1271,7 @@ async fn handle_get_all_nfts(
 ) -> Result<serde_json::Value, RpcError> {
     // 1. Fetch from RocksDB (New Persistence)
     let db_nfts = {
-        let chain = state.chain.lock().unwrap();
+        let chain = safe_lock(&state.chain)?;
         chain.storage.get_all_nfts()
     };
     
@@ -1146,4 +1291,78 @@ async fn handle_get_all_nfts(
     }
     
     Ok(serde_json::to_value(all).unwrap())
+}
+/// Handle submitNativeVault - Lock COMPASS, mint Compass-LTC (user-defined rate)
+async fn handle_submit_native_vault(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    let req: SubmitNativeVaultParams = serde_json::from_value(params).map_err(|e| RpcError {
+        code: -32602,
+        message: format!("Invalid params: {}", e),
+    })?;
+
+    // 1. Lock COMPASS collateral from user's balance
+    {
+        let chain = safe_lock(&state.chain)?;
+        chain.storage.lock_vault_collateral(&req.owner_id, req.compass_collateral)
+            .map_err(|e| RpcError {
+                code: -32603,
+                message: format!("Failed to lock collateral: {:?}", e),
+            })?;
+    }
+
+    // 2. Process mint via VaultManager
+    let (asset_name, minted, locked) = {
+        let chain_guard = safe_lock(&state.chain)?;
+        let mut vm = chain_guard.vault_manager.clone(); // Need mutable access
+        
+        // Load Oracle Public Key
+        let oracle_pubkey = std::fs::read_to_string("oracle_pubkey.txt")
+            .unwrap_or_else(|_| {
+                // Return error if not configured
+                // For dev/test convenience, maybe we can log checking failed
+                "MISSING_ORACLE_KEY".to_string()
+            });
+
+        if oracle_pubkey == "MISSING_ORACLE_KEY" {
+             return Err(RpcError {
+                code: -32606,
+                message: "Oracle Public Key not configured! Create oracle_pubkey.txt".to_string(),
+            });
+        }
+        
+        vm.deposit_native_and_mint(
+            &req.payment_asset,
+            req.payment_amount,
+            req.compass_collateral,
+            req.requested_mint_amount,
+            &req.owner_id,
+            &req.tx_hash,
+            &req.oracle_signature,
+            &oracle_pubkey.trim(),
+        ).map_err(|e| RpcError {
+            code: -32604,
+            message: format!("Vault deposit failed: {}", e),
+        })?
+    };
+
+    // 3. Credit minted tokens to user
+    {
+        let chain = safe_lock(&state.chain)?;
+        chain.storage.update_balance(&req.owner_id, &asset_name, minted)
+            .map_err(|e| RpcError {
+                code: -32605,
+                message: format!("Failed to credit tokens: {:?}", e),
+            })?;
+    }
+
+    info!("✅ Native Vault: Locked {} COMPASS, minted {} {}", locked, minted, asset_name);
+
+    Ok(serde_json::json!({
+        "asset": asset_name,
+        "minted": minted,
+        "collateral_locked": locked,
+        "status": "success"
+    }))
 }

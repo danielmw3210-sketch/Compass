@@ -2,7 +2,6 @@ pub mod economics;
 pub mod assets;
 pub mod collateral;
 
-use serde::{Serialize, Deserialize};
 use std::sync::Arc;
 use crate::storage::Storage;
 

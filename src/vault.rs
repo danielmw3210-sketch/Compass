@@ -1,4 +1,3 @@
-use ed25519_dalek::{Signature, Verifier};
 use hex;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -337,6 +336,92 @@ impl VaultManager {
         );
 
         Ok((asset_name, requested_mint_amount))
+    }
+
+    /// Deposit native COMPASS as collateral and mint synthetic asset
+    /// User specifies their own rate - no validation
+    /// Message signed: "NATIVE_DEPOSIT:{payment_asset}:{payment_amount}:{tx_hash}:{compass_collateral}:{requested_mint_amount}:{owner}"
+    pub fn deposit_native_and_mint(
+        &mut self,
+        payment_asset: &str,          // "LTC" (what user sent to admin)
+        payment_amount: u64,          // Amount sent to admin address  
+        compass_collateral: u64,      // COMPASS to lock as collateral
+        requested_mint_amount: u64,   // Compass-LTC to mint
+        owner_id: &str,
+        tx_hash: &str,                // External payment proof
+        oracle_sig_hex: &str,
+        oracle_pubkey_hex: &str,
+    ) -> Result<(String, u64, u64), String> {
+        // Returns (Asset Name, Minted Amount, Collateral Locked)
+        
+        // 1. Verify Oracle Signature
+        let msg = format!(
+            "NATIVE_DEPOSIT:{}:{}:{}:{}:{}:{}",
+            payment_asset, payment_amount, tx_hash, compass_collateral, requested_mint_amount, owner_id
+        );
+        
+        if !crate::crypto::verify_with_pubkey_hex(msg.as_bytes(), oracle_sig_hex, oracle_pubkey_hex) {
+            return Err("Invalid Oracle Signature! Deposit not verified.".to_string());
+        }
+
+        // 2. Replay Protection
+        if self.processed_deposits.contains(tx_hash) {
+            return Err("Deposit Transaction already processed!".to_string());
+        }
+        if let Some(s) = &self.storage {
+             if s.is_deposit_processed(tx_hash) {
+                 return Err("Deposit Transaction already processed (DB)!".to_string());
+             }
+        }
+        
+        self.processed_deposits.insert(tx_hash.to_string());
+        if let Some(s) = &self.storage {
+             let _ = s.mark_deposit_processed(tx_hash);
+        }
+
+        // 3. Determine Asset Name
+        let asset_name = format!("Compass:{}:{}", owner_id, payment_asset);
+
+        // 4. Create/Update Vault (no fee for native collateral)
+        let vault = self.vaults.entry(asset_name.clone()).or_insert_with(|| {
+            Vault {
+                collateral_asset: "COMPASS".to_string(),  // Native collateral
+                compass_asset: asset_name.clone(),
+                vault_address: payment_asset.to_string(), // External asset identifier
+                exchange_rate: Decimal::ZERO,
+                collateral_balance: 0,  // Tracks COMPASS locked
+                minted_supply: 0,
+                accumulated_fees: 0,
+                mint_fee_rate: Decimal::ZERO,  // No fees on native
+                redeem_fee_rate: Decimal::ZERO,
+                derivation_path: String::new(),
+            }
+        });
+
+        // 5. Update Vault State (COMPASS collateral noted, payment amount tracked)
+        vault.collateral_balance += compass_collateral;  // COMPASS locked
+        vault.minted_supply += requested_mint_amount;
+
+        // Calculate implied rate
+        if vault.collateral_balance > 0 {
+            let minted_dec = Decimal::from(vault.minted_supply);
+            let col_bal_dec = Decimal::from(vault.collateral_balance);
+            vault.exchange_rate = minted_dec / col_bal_dec;
+        }
+
+        if let Some(s) = &self.storage {
+             let _ = s.save_vault(&vault.compass_asset, vault);
+        }
+
+        eprintln!("   [Native Vault] Locked {} COMPASS", compass_collateral);
+        eprintln!("   [Mint] Created {} {}", requested_mint_amount, asset_name);
+        eprintln!(
+            "   [Rate] 1 {} = {} COMPASS (user-defined)",
+            asset_name,
+            (compass_collateral as f64 / requested_mint_amount as f64)
+        );
+
+        Ok((asset_name, requested_mint_amount, compass_collateral))
     }
 
     /// Called when user burns Compass to redeem collateral

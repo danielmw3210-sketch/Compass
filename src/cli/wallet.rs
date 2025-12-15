@@ -77,7 +77,7 @@ pub fn handle_wallet_command(cmd: WalletCommands) {
 pub fn handle_account_command(cmd: AccountCommands) {
     let manager = WalletManager::load("wallets.json");
     match cmd {
-        AccountCommands::Create { wallet } => {
+        AccountCommands::Create { wallet: _ } => {
             println!("Account creation not fully implemented via derived paths yet.");
         }
         AccountCommands::List => {

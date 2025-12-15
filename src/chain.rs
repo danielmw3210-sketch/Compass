@@ -4,7 +4,15 @@ use crate::storage::Storage;
 use crate::vault::VaultManager;
 use crate::error::CompassError;
 use std::sync::Arc;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, debug};
+
+/// Fork detection result
+#[derive(Debug, Clone, PartialEq)]
+pub enum ForkStatus {
+    Compatible,  // Block extends current chain
+    Fork,        // Block creates a competing fork
+    Gap,         // Missing parent blocks
+}
 
 pub struct Chain {
     pub storage: Arc<Storage>,
@@ -20,13 +28,34 @@ impl Chain {
         let head_hash: Option<String> = storage.get("chain_info:head").unwrap_or(None);
         let mut height = 0;
 
-        let vault_manager = VaultManager::load("vaults.json");
+        // --- Vault Manager (Migrated to Sled) ---
+        let mut vault_manager = VaultManager::new_with_storage(storage.clone());
+        if vault_manager.vaults.is_empty() && std::path::Path::new("vaults.json").exists() {
+            info!("Persistence: ⚠️  Migrating 'vaults.json' to Sled DB...");
+            let old_vm = VaultManager::load("vaults.json");
+            for (k, v) in old_vm.vaults { 
+                vault_manager.vaults.insert(k, v); 
+            }
+            for d in old_vm.processed_deposits { 
+                vault_manager.processed_deposits.insert(d); 
+            }
+            for (k, v) in old_vm.oracle_prices { 
+                vault_manager.oracle_prices.insert(k, v); 
+            }
+            let _ = vault_manager.save(""); 
+            info!("Persistence: ✅ Vault Migration Complete.");
+        }
 
         if let Some(ref h) = head_hash {
             // Load block to get index/height
             if let Ok(Some(b)) = storage.get_block(h) {
                 height = b.header.index + 1; // Height is next index
+                info!("✅ Blockchain Persistence: Loaded {} blocks (Head: {}...", height, &h[..12]);
+            } else {
+                warn!("⚠️  Head hash found but block not in DB: {}", h);
             }
+        } else {
+            info!("🆕 No existing blockchain found - will initialize genesis");
         }
 
         Chain {
@@ -39,8 +68,11 @@ impl Chain {
 
     pub fn initialize_genesis(&mut self, config: &crate::genesis::GenesisConfig) -> Result<(), CompassError> {
         if self.height > 0 || self.head_hash.is_some() {
+            info!("⏩ Skipping genesis initialization (chain already has {} blocks)", self.height);
             return Ok(()); // Already initialized
         }
+        
+        info!("🌱 Initializing Genesis Block...");
 
         let genesis_block = crate::block::Block {
             header: crate::block::BlockHeader {
@@ -57,6 +89,14 @@ impl Chain {
         
         let mut final_block = genesis_block;
         final_block.header.hash = final_block.header.calculate_hash()?;
+        
+        // --- 🔒 MAINNET IMMUTABILITY LOCK ---
+        // This ensures the Genesis Parameters (Balances, Validators, Timestamp) can NEVER be changed.
+        let expected_genesis = "293bf8b6db2779c6b666291e8e01560d80b8364e45d4e392610b3474c709c790";
+        if final_block.header.hash != expected_genesis {
+            panic!("❌ GENESIS MISMATCH! The code expects hash {}, but generated {}. Did you modify genesis.json?", expected_genesis, final_block.header.hash);
+        }
+        // ------------------------------------
         
         // Commit without validation checks (it's genesis)
         self.commit_block(final_block)?;
@@ -185,6 +225,28 @@ impl Chain {
             }
             return Ok(());
         }
+    }
+    
+    /// Detect fork status of an incoming block
+    pub fn detect_fork(&self, block: &crate::block::Block) -> ForkStatus {
+        // Check if parent exists
+        let parent_exists = self.storage.get_block(&block.header.prev_hash)
+            .map(|o| o.is_some())
+            .unwrap_or(false);
+        
+        if !parent_exists && block.header.index > 0 {
+            return ForkStatus::Gap;
+        }
+        
+        // Check if this extends current head
+        if let Some(head) = &self.head_hash {
+            if &block.header.prev_hash == head {
+                return ForkStatus::Compatible;
+            }
+        }
+        
+        // Block has parent but doesn't extend head = Fork
+        ForkStatus::Fork
     }
 
     /// Verify block signature based on proposer type
@@ -640,8 +702,8 @@ impl Chain {
                 oracle_pubkey_hex,
             ).map_err(|e| CompassError::TransactionError(e.to_string()))?;
 
-            // Save Vault state
-            if let Err(e) = self.vault_manager.save("vaults.json") {
+            // Save Vault state to DB
+            if let Err(e) = self.vault_manager.save("") {
                  return Err(CompassError::DatabaseError(e.to_string()));
             }
 
@@ -749,7 +811,8 @@ impl Chain {
                 .burn_and_redeem(compass_asset, *burn_amount)
                 .map_err(|e| CompassError::TransactionError(e.to_string()))?;
             
-            if let Err(e) = self.vault_manager.save("vaults.json") {
+            // Save Vault state to DB
+            if let Err(e) = self.vault_manager.save("") {
                  return Err(CompassError::DatabaseError(e.to_string()));
             };
 

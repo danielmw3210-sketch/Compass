@@ -323,12 +323,16 @@ impl RpcClient {
         model_id: String,
         inputs: Vec<u8>,
         max_compute_units: u64,
+        bid_amount: u64,
+        bid_asset: String,
     ) -> Result<String, Box<dyn std::error::Error>> {
          let params = crate::rpc::types::SubmitComputeParams {
             job_id,
             model_id,
             inputs,
             max_compute_units,
+            bid_amount,
+            bid_asset,
             signature: "stub_sig".to_string(), // TODO: sign
             owner_id: "client_user".to_string(), // TODO: Pass actual user
         };
@@ -372,6 +376,20 @@ impl RpcClient {
 
     pub async fn get_all_nfts(&self) -> Result<Vec<crate::layer3::model_nft::ModelNFT>, String> {
         let res = self.send_request("getAllNFTs", serde_json::json!(null)).await?;
+        serde_json::from_value(res).map_err(|e| format!("Parse error: {}", e))
+    }
+
+    pub async fn get_block_range(&self, start: Option<u64>, count: Option<u64>) -> Result<Vec<crate::block::Block>, String> {
+        let params = serde_json::json!({
+            "start": start,
+            "count": count
+        });
+        let res = self.send_request("getBlockRange", params).await?;
+        serde_json::from_value(res).map_err(|e| format!("Parse error: {}", e))
+    }
+
+    pub async fn get_oracle_prices(&self) -> Result<std::collections::HashMap<String, f64>, String> {
+        let res = self.send_request("getOraclePrices", serde_json::json!(null)).await?;
         serde_json::from_value(res).map_err(|e| format!("Parse error: {}", e))
     }
 }

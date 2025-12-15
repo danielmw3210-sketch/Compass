@@ -104,6 +104,8 @@ pub enum Commands {
     Client,
     /// Generate Admin Key and Genesis Config (Trusted Setup)
     AdminGen,
+    /// Calculate Genesis Hash (Offline)
+    GenesisHash,
     
     /// List an NFT for sale
     ListNFT {

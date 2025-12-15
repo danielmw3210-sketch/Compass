@@ -108,6 +108,17 @@ pub struct SubmitBurnParams {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct SubmitNativeVaultParams {
+    pub payment_asset: String,        // "LTC"
+    pub payment_amount: u64,          // Amount sent to admin
+    pub compass_collateral: u64,      // COMPASS to lock
+    pub requested_mint_amount: u64,   // Compound-LTC to mint
+    pub owner_id: String,
+    pub tx_hash: String,              // External chain payment proof
+    pub oracle_signature: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GetPeersResponse {
     pub peers: Vec<String>,
 }
@@ -131,6 +142,8 @@ pub struct SubmitComputeParams {
     pub model_id: String,
     pub inputs: Vec<u8>,
     pub max_compute_units: u64,
+    pub bid_amount: u64,
+    pub bid_asset: String,
     pub signature: String,
     pub owner_id: String, // Added owner for billing
 }
@@ -145,10 +158,12 @@ pub struct GetPendingComputeJobsParams {
 pub struct PendingJob {
     pub job_id: String,
     pub model_id: String,
-    pub inputs: Vec<u8>,
+    // input removed
     pub max_compute_units: u64,
-    pub tx_hash: String,
-    pub owner_id: String,
+    pub creator: String, // Matches ComputeJob::creator
+    pub reward_amount: u64,
+    // tx_hash removed
+    // owner_id removed (using creator)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -228,6 +243,7 @@ pub struct SubmitRecurringJobParams {
     pub interval_minutes: u32,
     pub reward_per_update: u64,
     pub submitter: String,
+    pub signature: String, // Admin signature required
 }
 
 #[derive(Serialize, Deserialize, Debug)]

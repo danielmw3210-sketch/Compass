@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::crypto::KeyPair;
-use ed25519_dalek::{SigningKey, VerifyingKey, Signer, Verifier, Signature};
+use ed25519_dalek::{SigningKey, Signer, Signature};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -77,6 +77,25 @@ impl Identity {
         };
 
         Ok((identity, mnemonic))
+    }
+
+    /// Create Identity from existing Mnemonic (for recovery or wallet loading)
+    pub fn from_mnemonic(name: &str, role: NodeRole, mnemonic: &str, password: &str) -> Result<(Self, String), String> {
+        let keypair = KeyPair::from_mnemonic(mnemonic).map_err(|e| e)?;
+        let pubkey_hex = keypair.public_key_hex();
+        
+        let (encrypted, salt) = Self::encrypt_mnemonic(mnemonic, password)?;
+
+        let identity = Identity {
+            name: name.to_string(),
+            role,
+            public_key: pubkey_hex,
+            inner_key: Some(keypair.signing_key),
+            encrypted_mnemonic: encrypted,
+            encryption_salt: salt,
+        };
+
+        Ok((identity, mnemonic.to_string()))
     }
 
     fn encrypt_mnemonic(mnemonic: &str, password: &str) -> Result<(Vec<u8>, Vec<u8>), String> {

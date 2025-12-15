@@ -1,6 +1,5 @@
 use sled::Db;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use crate::error::CompassError;
 
 #[derive(Clone)]
@@ -323,7 +322,70 @@ impl Storage {
     }
 
 
-    // Flush
+    // --- Vault Collateral Locking ---
+    
+    /// Lock COMPASS as vault collateral (deduct from balance, track separately)
+    pub fn lock_vault_collateral(
+        &self,
+        wallet_id: &str,
+        amount: u64
+    ) -> Result<(), CompassError> {
+        let current = self.get_balance(wallet_id, "COMPASS")?;
+        if current < amount {
+            return Err(CompassError::DatabaseError("Insufficient COMPASS balance".to_string()));
+        }
+        
+        // Deduct from balance
+        let new_bal = current - amount;
+        self.set_balance(wallet_id, "COMPASS", new_bal)?;
+        
+        // Track locked amount
+        let key = format!("vault_collateral:{}:COMPASS", wallet_id);
+        let locked = self.get::<u64>(&key)?.unwrap_or(0);
+        self.put(&key, &(locked + amount))?;
+        
+        Ok(())
+    }
+    
+    /// Unlock collateral back to wallet
+    pub fn unlock_vault_collateral(
+        &self,
+        wallet_id: &str,
+        amount: u64
+    ) -> Result<(), CompassError> {
+        let key = format!("vault_collateral:{}:COMPASS", wallet_id);
+        let locked = self.get::<u64>(&key)?.unwrap_or(0);
+        
+        if locked < amount {
+            return Err(CompassError::DatabaseError("Insufficient collateral locked".to_string()));
+        }
+        
+        self.put(&key, &(locked - amount))?;
+        
+        // Add back to balance
+        let current = self.get_balance(wallet_id, "COMPASS")?;
+        self.set_balance(wallet_id, "COMPASS", current + amount)?;
+        
+        Ok(())
+    }
+    
+    /// Get total locked collateral for a wallet
+    pub fn get_locked_collateral(&self, wallet_id: &str) -> Result<u64, CompassError> {
+        let key = format!("vault_collateral:{}:COMPASS", wallet_id);
+        Ok(self.get::<u64>(&key)?.unwrap_or(0))
+    }
+
+    // --- Flush/Persist ---
+    // 4. Model NFTs
+    pub fn save_model_nft(&self, nft: &crate::layer3::model_nft::ModelNFT) -> Result<(), CompassError> {
+        let key = format!("model_nft:{}", nft.token_id);
+        self.put(&key, nft)
+    }
+
+    pub fn get_model_nft(&self, token_id: &str) -> Result<Option<crate::layer3::model_nft::ModelNFT>, CompassError> {
+        self.get(&format!("model_nft:{}", token_id))
+    }
+
     pub fn flush(&self) -> Result<(), CompassError> {
         self.db.flush().map_err(|e| CompassError::DatabaseError(e.to_string()))?;
         Ok(())

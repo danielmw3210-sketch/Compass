@@ -1,16 +1,13 @@
 {
-  "chain_id": "compass-alpha-1",
-  "timestamp": 1700000000000,
-  "initial_balances": {
-    "foundation": 1000000000000,
-    "Daniel": 500000000000,
-    "admin": 1000000000000
-  },
-  "initial_validators": [
-    {
-      "id": "admin",
-      "public_key": "5ec68aa1bf61d6990525f747f4f04e409320bf995eefce0c41dcd1a286a39b56",
-      "stake": 0
-    }
-  ]
+    "timestamp": 1697500000,
+    "initial_balances": {
+        "admin": 1000000000,
+        "foundation": 5000000000
+    },
+    "initial_validators": [
+        {
+            "id": "admin",
+            "public_key": "PLACEHOLDER_WILL_BE_UPDATED"
+        }
+    ]
 }
