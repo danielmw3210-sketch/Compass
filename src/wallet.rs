@@ -89,6 +89,7 @@ impl Wallet {
     }
 
     pub fn save(&self, path: &str) -> std::io::Result<()> {
+        println!("DEBUG: Wallet::save called for path: {}", path);
         let json = serde_json::to_string_pretty(self).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         fs::write(path, json)
     }

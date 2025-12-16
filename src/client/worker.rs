@@ -3,6 +3,7 @@ use crate::crypto::KeyPair;
 use crate::network::{NetMessage, TOPIC_COMPUTE_JOBS};
 use crate::layer3::compute::{ComputeJob, WorkProof, ComputeVerify};
 use tokio::sync::broadcast;
+use sha2::Digest;
 
 pub struct AiWorker {
     client: RpcClient, // Still needed for result submission to chain? No, gossip now.
@@ -83,19 +84,77 @@ impl AiWorker {
             }
         }
 
-        // 3. Execute Real Inference
+        // 3. Execute Real Inference OR Training
         let start = std::time::Instant::now();
-        println!("   🚀 Running ONNX Inference...");
         
-        let final_hash = match job.execute_inference() {
-            Ok(hash) => {
-                println!("   ✅ Inference Success (Hash: {}...)", &hash[..8]);
-                hash
-            },
-            Err(e) => {
-                println!("   ❌ Inference Failed: {}", e);
-                // Report Failure?
-                return;
+        let final_hash = if job.model_id.starts_with("TRAIN") {
+            println!("   🏋️ RECEIVED TRAINING JOB: {}", job.job_id);
+            
+            // Determine script based on model ID
+            let script_name = if job.model_id.contains("BTC") {
+                "scripts/train_btc_agent.py"
+            } else if job.model_id.contains("ETH") {
+                 "scripts/train_eth_agent.py"
+            } else if job.model_id.contains("SOL") {
+                 "scripts/train_sol_agent.py"
+            } else if job.model_id.contains("LTC") {
+                 "scripts/train_ltc_agent.py"
+            } else {
+                 "scripts/train_btc_agent.py" // Default
+            };
+
+            println!("   🔄 Executing Python Training Script: {}...", script_name);
+            
+            // Execute python script with fallback
+            let mut cmd = std::process::Command::new("python");
+            cmd.arg(script_name);
+            
+            let mut output_res = cmd.output();
+            
+            if output_res.is_err() {
+                 output_res = std::process::Command::new("py").arg(script_name).output();
+            }
+
+            match output_res {
+                Ok(out) if out.status.success() => {
+                    println!("   ✅ Training Complete.");
+                    // Check for generated model
+                    let ticker = if job.model_id.contains("BTC") { "btc" } 
+                                 else if job.model_id.contains("ETH") { "eth" }
+                                 else if job.model_id.contains("SOL") { "sol" }
+                                 else { "ltc" };
+                                 
+                    if let Ok(bytes) = std::fs::read(format!("models/{}_v1.onnx", ticker)) {
+                        format!("{:x}", sha2::Sha256::digest(&bytes))
+                    } else {
+                         // Check dist/models just in case
+                         if let Ok(bytes) = std::fs::read(format!("dist/models/{}_v1.onnx", ticker)) {
+                             format!("{:x}", sha2::Sha256::digest(&bytes))
+                         } else {
+                             "training_success_file_missing".to_string()
+                         }
+                    }
+                },
+                Ok(out) => {
+                    println!("   ❌ Training Script Failed: {:?}", String::from_utf8_lossy(&out.stderr));
+                     return;
+                },
+                Err(e) => {
+                    println!("   ❌ Training Launch Failed: {}", e);
+                    return;
+                }
+            }
+        } else {
+            println!("   🚀 Running ONNX Inference...");
+            match job.execute_inference() {
+                Ok(hash) => {
+                    println!("   ✅ Inference Success (Hash: {}...)", &hash[..8]);
+                    hash
+                },
+                Err(e) => {
+                    println!("   ❌ Inference Failed: {}", e);
+                    return;
+                }
             }
         };
 

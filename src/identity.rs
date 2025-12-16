@@ -157,6 +157,7 @@ impl Identity {
     }
 
     pub fn save(&self, path: &Path) -> Result<(), String> {
+        println!("DEBUG: Identity::save called for path: {:?}", path);
         // We only save the serializable parts (encrypted blob, no inner key)
         let json = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
         fs::write(path, json).map_err(|e| e.to_string())

@@ -15,6 +15,7 @@ use crate::crypto::KeyPair;
 use crate::network::{NetMessage, NetworkCommand, PeerManager, TransactionPayload};
 use crate::block::{self, BlockType};
 use crate::storage::Storage;
+pub mod oracle_scheduler;
 
 pub struct CompassNode {
     pub chain: Arc<Mutex<Chain>>,
@@ -63,11 +64,28 @@ impl CompassNode {
          Arc::new(match crate::identity::Identity::load_and_decrypt(std::path::Path::new("admin.json"), pass.trim()) {
              Ok(id) => {
                  println!("IDENTITY UNLOCKED: '{}'", id.name);
+                 // Create valid backup
+                 let _ = std::fs::copy("admin.json", "admin.backup.json");
                  id.into_keypair().expect("Identity locked")
              },
              Err(e) => {
                  println!("IDENTITY ERROR: Failed to unlock: {}", e);
-                 std::process::exit(1);
+                 if e.to_string().contains("missing field") {
+                     println!("⚠️  DETECTED CORRUPTION: Attempting to restore from backup...");
+                     match crate::identity::Identity::load_and_decrypt(std::path::Path::new("admin.backup.json"), pass.trim()) {
+                         Ok(id_bak) => {
+                             println!("✅ BACKUP RESTORED: '{}'", id_bak.name);
+                             let _ = std::fs::copy("admin.backup.json", "admin.json");
+                             id_bak.into_keypair().expect("Identity locked")
+                         },
+                         Err(e_bak) => {
+                             println!("❌ BACKUP FAILED: {}", e_bak);
+                             std::process::exit(1);
+                         }
+                     }
+                 } else {
+                     std::process::exit(1);
+                 }
              }
          })
         } else if std::path::Path::new("admin_key.mnemonic").exists() {
@@ -257,74 +275,16 @@ impl CompassNode {
         if !follower_mode {
             let chain_clone = self.chain.clone();
             let admin_pubkey = self.identity.public_key_hex();
+            let network_cmd_tx = self.cmd_tx.clone();
+            
+            // Start Oracle Scheduler (Real AI Price Oracle)
+            let chain_oracle = self.chain.clone();
+            let admin_pubkey_oracle = self.identity.public_key_hex();
             
             tokio::spawn(async move {
-                use crate::layer3::compute::{ComputeJob, ComputeJobStatus};
-                
-                
-                // Wait for node to fully start
-                tokio::time::sleep(Duration::from_secs(2)).await;
-                
-                info!("🔄 Neural Network Training Job System Starting");
-                info!("   Creating 10 jobs every 60 seconds");
-                info!("   Job Duration: 10 minutes to 1 day (randomized)");
-                
-                let mut job_counter = 0u64;
-                
-                loop {
-                    if let Ok(chain_guard) = chain_clone.lock() {
-                        info!("📋 Creating batch of 10 Neural Network Training jobs...");
-                        
-                        // Create 10 NN training jobs with varying parameters
-                        for i in 0..10 {
-                            job_counter += 1;
-                            
-                            // Randomize duration: 10 min (600s) to 1 day (86400s)
-                            let duration_secs = 600 + (job_counter * 1347) % 85800; // Pseudo-random
-                            let compute_units = 5000 + (i * 1000); // 5k-15k units
-                            let reward = 10 + (i * 2); // 10-28 COMPUTE
-                            
-                            let job = ComputeJob {
-                                job_id: format!("NN_TRAIN_{}", job_counter),
-                                creator: admin_pubkey.clone(),
-                                model_id: format!("oracle-bridge-nn-v{}", job_counter),
-                                max_compute_units: compute_units,
-                                reward_amount: reward,
-                                status: ComputeJobStatus::Pending,
-                                worker_id: None,
-                                result_hash: None,
-                                verifiers: Vec::new(),
-                                verification_status: ComputeJobStatus::Pending,
-                                timestamp: std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_secs(),
-                                completed_at: None,
-                                compute_rate: 0,
-                                started_at: None,
-                                min_duration: 10,
-                                inputs: vec![],
-                            };
-                            
-                            if let Err(e) = chain_guard.storage.save_compute_job(&job) {
-                                tracing::error!("Failed to create job {}: {}", job.job_id, e);
-                            } else {
-                                let duration_display = if duration_secs < 3600 {
-                                    format!("{}min", duration_secs / 60)
-                                } else {
-                                    format!("{}hr", duration_secs / 3600)
-                                };
-                                info!("  ✅ {} | Duration: {} | Reward: {} COMPUTE", 
-                                    job.job_id, duration_display, reward);
-                            }
-                        }
-                        
-                        info!("   ✨ 10 jobs created | Workers can claim now");
-                    }
-                    
-                    // Wait 1 minute before creating next batch
-                    tokio::time::sleep(Duration::from_secs(60)).await;
-                }
+                use crate::node::oracle_scheduler::OracleScheduler;
+                let scheduler = OracleScheduler::new(chain_oracle, admin_pubkey_oracle, network_cmd_tx);
+                scheduler.start().await;
             });
         }
         
@@ -451,6 +411,8 @@ impl CompassNode {
                                          name: params.name,
                                          description: params.description,
                                          creator: params.creator.clone(),
+                                         license: crate::layer3::model_nft::LicenseType::Commercial,
+                                         rental_status: None,
                                          // Defaults...
                                          accuracy: 0.0, win_rate: 0.0, total_predictions: 0, profitable_predictions: 0, total_profit: 0,
                                          training_samples: 0, training_epochs: 0, final_loss: 0.0, training_duration_seconds: 0,
@@ -600,6 +562,11 @@ impl CompassNode {
             std::process::exit(0);
         });
         
+        // 6. Auto-Trainer (Rust Native)
+        // This runs the enhanced Linear Regression model loop natively in the node
+        let trainer = crate::trainer::AutoTrainer::new();
+        trainer.start().await;
+
         info!("Node Running. Press Ctrl+C to stop.");
         // Keep main alive
         loop { tokio::time::sleep(Duration::from_secs(60)).await; }

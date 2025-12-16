@@ -1,0 +1,58 @@
+[
+  {
+    "asset": "BTC",
+    "strategy": "Heuristic",
+    "accuracy": 49.89,
+    "total_return": -1.0,
+    "num_predictions": 469
+  },
+  {
+    "asset": "BTC",
+    "strategy": "Buy & Hold",
+    "accuracy": 49.89,
+    "total_return": -1.0,
+    "num_predictions": 469
+  },
+  {
+    "asset": "ETH",
+    "strategy": "Heuristic",
+    "accuracy": 50.32,
+    "total_return": 3.0,
+    "num_predictions": 469
+  },
+  {
+    "asset": "ETH",
+    "strategy": "Buy & Hold",
+    "accuracy": 51.39,
+    "total_return": 13.0,
+    "num_predictions": 469
+  },
+  {
+    "asset": "SOL",
+    "strategy": "Heuristic",
+    "accuracy": 48.19,
+    "total_return": -17.0,
+    "num_predictions": 469
+  },
+  {
+    "asset": "SOL",
+    "strategy": "Buy & Hold",
+    "accuracy": 50.32,
+    "total_return": 3.0,
+    "num_predictions": 469
+  },
+  {
+    "asset": "LTC",
+    "strategy": "Heuristic",
+    "accuracy": 47.97,
+    "total_return": -19.0,
+    "num_predictions": 469
+  },
+  {
+    "asset": "LTC",
+    "strategy": "Buy & Hold",
+    "accuracy": 49.89,
+    "total_return": -1.0,
+    "num_predictions": 469
+  }
+]

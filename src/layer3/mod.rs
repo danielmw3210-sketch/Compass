@@ -9,3 +9,7 @@ pub mod model_nft;
 pub mod user_ops;
 pub mod brain;
 pub mod compute;
+pub mod training; // Pure Rust AI Training
+pub mod price_oracle; // Price Oracles & Epoch Tracking
+pub mod signal_model; // Per-asset BUY/SELL/HOLD Classification
+pub mod onnx_inference; // LSTM ONNX Inference

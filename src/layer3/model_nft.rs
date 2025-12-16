@@ -2,6 +2,20 @@
 use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum LicenseType {
+    OpenSource, // Free for everyone
+    Commercial, // Must pay royalties
+    Exclusive,  // Only owner can use
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RentalAgreement {
+    pub renter: String,
+    pub expires_at: u64,
+    pub rate_per_hour: u64, // Cost in COMPASS
+}
+
 /// AI Model NFT: Trained neural network minted as on-chain asset
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ModelNFT {
@@ -13,6 +27,10 @@ pub struct ModelNFT {
     pub description: String,
     pub creator: String,  // Original trainer's address
     
+    /// Rights & Licensing (New for AI Economy)
+    pub license: LicenseType,
+    pub rental_status: Option<RentalAgreement>,
+
     /// Performance stats
     pub accuracy: f64,
     pub win_rate: f64,
@@ -86,6 +104,8 @@ impl ModelNFT {
             name,
             description,
             creator: creator.clone(),
+            license: LicenseType::Commercial,
+            rental_status: None,
             accuracy: stats.accuracy,
             win_rate: stats.win_rate,
             total_predictions: stats.total_predictions,
@@ -137,6 +157,8 @@ impl ModelNFT {
             name: format!("Oracle Predictor - {}", ticker),
             description: format!("Autonomous Oracle Model trained on {} market data via Job {}", ticker, job_id),
             creator: creator.clone(),
+            license: LicenseType::Commercial,
+            rental_status: None,
             accuracy: stats.accuracy,
             win_rate: stats.win_rate,
             total_predictions: stats.total_predictions,

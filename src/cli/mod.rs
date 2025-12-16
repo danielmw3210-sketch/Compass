@@ -126,4 +126,7 @@ pub enum Commands {
         #[arg(long, default_value = "worker")]
         wallet: String,
     },
+    
+    /// Trigger training for all signal models (BTC, ETH, LTC, SOL)
+    TrainModels,
 }

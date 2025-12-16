@@ -18,7 +18,7 @@ candle-core = "0.7.1"
 candle-nn = "0.7.1"
 # candle-onnx removed due to protoc dependency
 ort = { version = "2.0.0-rc.0", features = ["download-binaries"] }
-smartcore = "0.2"
+smartcore = { version = "0.3.2", features = ["serde"] }
 ndarray = "0.15"
 ndarray-rand = "0.14" # New dependency for network initialization
 chrono = "0.4"

@@ -1,0 +1,10 @@
+[node]
+p2p_port = 19000
+rpc_port = 9000
+db_path = "./data/primary"
+log_level = "info"
+identity_file = "identity.json"
+bootnodes = []
+
+[consensus]
+slot_duration_ms = 1000

@@ -4,7 +4,7 @@ use crate::error::CompassError;
 
 #[derive(Clone)]
 pub struct Storage {
-    db: Db,
+    pub(crate) db: Db, // pub(crate) for NFT scanning in handlers
 }
 
 impl Storage {
@@ -186,6 +186,19 @@ impl Storage {
     // Persisted NFTs (Verification)
     pub fn get_all_nfts(&self) -> Vec<crate::layer3::model_nft::ModelNFT> {
         self.get_by_prefix("nft:")
+    }
+    
+    /// Clear all NFTs from the database (admin operation)
+    pub fn clear_all_nfts(&self) -> Result<u64, CompassError> {
+        let mut deleted = 0u64;
+        for result in self.db.scan_prefix(b"nft:") {
+            if let Ok((key, _)) = result {
+                self.db.remove(&key).map_err(|e| CompassError::DatabaseError(e.to_string()))?;
+                deleted += 1;
+            }
+        }
+        self.db.flush().map_err(|e| CompassError::DatabaseError(e.to_string()))?;
+        Ok(deleted)
     }
 
     // Compute Jobs
@@ -378,12 +391,200 @@ impl Storage {
     // --- Flush/Persist ---
     // 4. Model NFTs
     pub fn save_model_nft(&self, nft: &crate::layer3::model_nft::ModelNFT) -> Result<(), CompassError> {
-        let key = format!("model_nft:{}", nft.token_id);
+        let key = format!("nft:{}", nft.token_id);  // Fixed: Changed from "model_nft:" to match get_all_nfts()
         self.put(&key, nft)
     }
 
     pub fn get_model_nft(&self, token_id: &str) -> Result<Option<crate::layer3::model_nft::ModelNFT>, CompassError> {
         self.get(&format!("model_nft:{}", token_id))
+    }
+    
+    /// Find a Model NFT by the model_id used for inference (e.g., "price_decision_v2")
+    /// Scans all NFTs and returns the first match where the architecture/weights contain the model_id
+    pub fn get_model_nft_by_model_id(&self, model_id: &str) -> Result<Option<crate::layer3::model_nft::ModelNFT>, CompassError> {
+        // Scan all model_nft:* keys
+        let prefix = b"model_nft:";
+        for item in self.db.scan_prefix(prefix) {
+            if let Ok((_, value)) = item {
+                if let Ok(nft) = serde_json::from_slice::<crate::layer3::model_nft::ModelNFT>(&value) {
+                    // Match by token_id containing model_id, or architecture, or weights_uri
+                    if nft.token_id.contains(model_id) 
+                        || nft.architecture.contains(model_id)
+                        || nft.weights_uri.contains(model_id) 
+                        || nft.name.to_lowercase().contains(&model_id.replace("_", " ").to_lowercase())
+                    {
+                        return Ok(Some(nft));
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    // ============================================================
+    // PRICE ORACLE STORAGE
+    // ============================================================
+    
+    /// Save a price oracle state
+    pub fn save_price_oracle(&self, oracle: &crate::layer3::price_oracle::PriceOracle) -> Result<(), CompassError> {
+        let key = format!("price_oracle:{}", oracle.ticker);
+        self.put(&key, oracle)
+    }
+
+    /// Get price oracle for a ticker
+    pub fn get_price_oracle(&self, ticker: &str) -> Result<Option<crate::layer3::price_oracle::PriceOracle>, CompassError> {
+        let key = format!("price_oracle:{}", ticker);
+        self.get(&key)
+    }
+
+    /// Save a price point (historical)
+    pub fn save_price_point(&self, point: &crate::layer3::price_oracle::PricePoint) -> Result<(), CompassError> {
+        let key = format!("price_point:{}:{}", point.ticker, point.timestamp);
+        self.put(&key, point)
+    }
+
+    /// Get recent price points for a ticker
+    pub fn get_recent_prices(&self, ticker: &str, limit: usize) -> Result<Vec<crate::layer3::price_oracle::PricePoint>, CompassError> {
+        let prefix = format!("price_point:{}:", ticker);
+        let mut points = Vec::new();
+        
+        for item in self.db.scan_prefix(prefix.as_bytes()).rev() {
+            if let Ok((_, value)) = item {
+                if let Ok(point) = bincode::deserialize::<crate::layer3::price_oracle::PricePoint>(&value) {
+                    points.push(point);
+                    if points.len() >= limit {
+                        break;
+                    }
+                }
+            }
+        }
+        
+        Ok(points)
+    }
+
+    // ============================================================
+    // PREDICTION STORAGE
+    // ============================================================
+
+    /// Save a prediction record
+    pub fn save_prediction(&self, pred: &crate::layer3::price_oracle::PredictionRecord) -> Result<(), CompassError> {
+        let key = format!("prediction:{}", pred.id);
+        self.put(&key, pred)
+    }
+
+    /// Get a prediction record
+    pub fn get_prediction(&self, id: &str) -> Result<Option<crate::layer3::price_oracle::PredictionRecord>, CompassError> {
+        let key = format!("prediction:{}", id);
+        self.get(&key)
+    }
+
+    /// Get unverified predictions older than delay_secs
+    pub fn get_pending_verifications(&self, delay_secs: u64) -> Result<Vec<crate::layer3::price_oracle::PredictionRecord>, CompassError> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        let cutoff = now.saturating_sub(delay_secs);
+        let mut pending = Vec::new();
+        
+        let prefix = b"prediction:";
+        for item in self.db.scan_prefix(prefix) {
+            if let Ok((_, value)) = item {
+                if let Ok(pred) = bincode::deserialize::<crate::layer3::price_oracle::PredictionRecord>(&value) {
+                    // Unverified and old enough to verify
+                    if pred.is_correct.is_none() && pred.prediction_time <= cutoff {
+                        pending.push(pred);
+                    }
+                }
+            }
+        }
+        
+        Ok(pending)
+    }
+
+    // ============================================================
+    // EPOCH TRACKING STORAGE
+    // ============================================================
+
+    /// Save model epoch state
+    pub fn save_epoch_state(&self, state: &crate::layer3::price_oracle::ModelEpochState) -> Result<(), CompassError> {
+        let key = format!("epoch:{}:{}", state.ticker, state.model_id);
+        self.put(&key, state)
+    }
+
+    /// Get model epoch state
+    pub fn get_epoch_state(&self, ticker: &str, model_id: &str) -> Result<Option<crate::layer3::price_oracle::ModelEpochState>, CompassError> {
+        let key = format!("epoch:{}:{}", ticker, model_id);
+        self.get(&key)
+    }
+
+    /// Get all epoch states
+    pub fn get_all_epoch_states(&self) -> Result<Vec<crate::layer3::price_oracle::ModelEpochState>, CompassError> {
+        let prefix = b"epoch:";
+        let mut states = Vec::new();
+        
+        for item in self.db.scan_prefix(prefix) {
+            if let Ok((_, value)) = item {
+                if let Ok(state) = bincode::deserialize::<crate::layer3::price_oracle::ModelEpochState>(&value) {
+                    states.push(state);
+                }
+            }
+        }
+        
+        Ok(states)
+    }
+
+    // ============================================================
+    // SUBSCRIPTION STORAGE (Monetization)
+    // ============================================================
+
+    pub fn save_subscription(&self, sub: &crate::rpc::types::Subscription) -> Result<(), CompassError> {
+        let key = format!("subscription:{}", sub.subscriber);
+        self.put(&key, sub)
+    }
+
+    pub fn get_subscription(&self, subscriber: &str) -> Result<Option<crate::rpc::types::Subscription>, CompassError> {
+        self.get(&format!("subscription:{}", subscriber))
+    }
+    
+    pub fn get_all_subscriptions(&self) -> Result<Vec<crate::rpc::types::Subscription>, CompassError> {
+        let prefix = b"subscription:";
+        let mut subs = Vec::new();
+        for item in self.db.scan_prefix(prefix) {
+             if let Ok((_, value)) = item {
+                 if let Ok(sub) = bincode::deserialize::<crate::rpc::types::Subscription>(&value) {
+                     subs.push(sub);
+                 }
+             }
+        }
+        Ok(subs)
+    }
+
+    // ============================================================
+    // SHARED POOL STORAGE (Phase 5)
+    // ============================================================
+
+    pub fn save_model_pool(&self, pool: &crate::layer3::collective::ModelPool) -> Result<(), CompassError> {
+        let key = format!("model_pool:{}", pool.pool_id);
+        self.put(&key, pool)
+    }
+
+    pub fn get_model_pool(&self, pool_id: &str) -> Result<Option<crate::layer3::collective::ModelPool>, CompassError> {
+        self.get(&format!("model_pool:{}", pool_id))
+    }
+
+    pub fn get_all_model_pools(&self) -> Result<Vec<crate::layer3::collective::ModelPool>, CompassError> {
+        let prefix = b"model_pool:";
+        let mut pools = Vec::new();
+        for item in self.db.scan_prefix(prefix) {
+             if let Ok((_, value)) = item {
+                 if let Ok(pool) = bincode::deserialize::<crate::layer3::collective::ModelPool>(&value) {
+                     pools.push(pool);
+                 }
+             }
+        }
+        Ok(pools)
     }
 
     pub fn flush(&self) -> Result<(), CompassError> {

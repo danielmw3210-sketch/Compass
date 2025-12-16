@@ -20,15 +20,22 @@ New-Item -ItemType Directory -Path "$DistDir/models" | Out-Null
 
 # 4. Copy Binaries
 Write-Host "Copying files to dist..."
-Copy-Item "target/release/compass_node.exe" -Destination $DistDir
+Copy-Item "target/release/rust_compass.exe" -Destination $DistDir
 Copy-Item "target/release/gui.exe" -Destination $DistDir
-if (Test-Path "onnxruntime.dll") { Copy-Item "onnxruntime.dll" -Destination $DistDir }
+if (Test-Path "target/release/onnxruntime.dll") { Copy-Item "target/release/onnxruntime.dll" -Destination $DistDir }
 Copy-Item "models/*" -Destination "$DistDir/models" -Recurse
+if (Test-Path "scripts") { Copy-Item "scripts" -Destination $DistDir -Recurse }
 
 # 5. Create Default Configs
 Write-Host "Creating default configs..."
 Set-Content -Path "$DistDir/wallets.json" -Value "{}"
-Set-Content -Path "$DistDir/admin.json" -Value "{}"
+if (Test-Path "admin.json") { 
+    Write-Host "Copying existing admin.json..."
+    Copy-Item "admin.json" -Destination "$DistDir/admin.json" 
+}
+else {
+    Set-Content -Path "$DistDir/admin.json" -Value "{}"
+}
 Set-Content -Path "$DistDir/oracle.json" -Value "{}"
 
 # 6. Usage Instructions

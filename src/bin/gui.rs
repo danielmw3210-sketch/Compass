@@ -6,6 +6,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use rust_compass::wallet::{WalletManager, Wallet, WalletType};
 use rust_compass::layer3::compute::ComputeJob;
+use rust_compass::rpc::types::TrainingModelInfo;
+use rust_compass::layer3::onnx_inference::{ModelRegistry, price_to_signal};
+use std::sync::Mutex;
 
 #[tokio::main]
 async fn main() -> Result<(), eframe::Error> {
@@ -78,7 +81,9 @@ enum Page {
     Oracle,
     Vaults,
     Marketplace,
+    Portfolio, // NEW: Track training & NFTs
     Train,
+    Pools, // Phase 5
     Admin, // Phase 6 New
 }
 
@@ -108,6 +113,30 @@ struct JobInfo {
 struct BlockInfo {
     index: u64,
     hash: String,
+    timestamp: u64,
+}
+
+#[derive(Debug, Clone, Default)]
+struct EpochStats {
+    ticker: String,
+    model_id: String,
+    current_epoch: u32,
+    predictions_in_epoch: u32,
+    correct_in_epoch: u32,
+    total_predictions: u64,
+    total_correct: u64,
+    overall_accuracy: f64,
+    nft_minted: bool,
+}
+
+#[derive(Debug, Clone)]
+struct PredictionInfo {
+    id: String,
+    ticker: String,
+    predicted_price: f64,
+    actual_price: Option<f64>,
+    signal: String,
+    correct: Option<bool>,
     timestamp: u64,
 }
 
@@ -161,18 +190,24 @@ struct CompassApp {
     train_model_id: String,
     train_dataset: String,
     train_auto_loop: bool,
+    trainable_models: Vec<TrainingModelInfo>,
     
     // In-App Worker State
     gui_worker_active: bool,
     gui_worker_status: String,
     gui_worker_progress: f32,
     gui_worker_logs: Vec<String>,
-    gui_worker_tx: mpsc::Sender<bool>,
+    gui_worker_tx: mpsc::Sender<(bool, String)>, // (active, wallet_id)
     
-    // In-App Worker State
-
+    // Epoch Tracking (Phase 5)
+    epoch_stats: HashMap<String, EpochStats>, // ticker -> stats
+    prediction_history: Vec<PredictionInfo>,
     
-
+    // Shared Pools (Phase 5)
+    model_pools: Vec<rust_compass::layer3::collective::ModelPool>,
+    create_pool_name: String,
+    create_pool_type: String,
+    join_amount: String,
     
     // Communication
     rpc_tx: mpsc::Sender<RpcCommand>,
@@ -205,6 +240,16 @@ enum RpcCommand {
     SubmitNativeVault { payment_asset: String, payment_amount: u64, compass_collateral: u64, requested_mint_amount: u64, owner_id: String, tx_hash: String },
     SubmitRecurringJob { ticker: String, duration_hours: u32, interval_minutes: u32, reward_per_update: u64, submitter: String },
     PurchaseNeuralNet { owner: String, ticker: String },
+    PurchasePrediction { ticker: String, buyer_id: String },
+    GetTrainableModels,
+    GetEpochStats(String), // ticker
+    GetPredictionHistory(String, u64), // ticker, limit
+    // Shared Pools (Phase 5)
+    GetModelPools,
+    CreateModelPool { name: String, model_type: String, creator: String },
+    JoinPool { pool_id: String, contributor: String, amount: u64 },
+    ClaimDividends { pool_id: String, contributor: String },
+    MintNFT { ticker: String, model_id: String },
 }
 
 enum RpcResponse {
@@ -217,6 +262,10 @@ enum RpcResponse {
     TransactionSent { tx_hash: String },
     MarketplaceUpdate { listings: Vec<NFTInfo> },
     MyModelsUpdate { models: Vec<NFTInfo> },
+    TrainableModelsUpdate { models: Vec<TrainingModelInfo> },
+    EpochStatsUpdate { stats: EpochStats },
+    PredictionHistoryUpdate { predictions: Vec<PredictionInfo> },
+    ModelPoolsUpdate { pools: Vec<rust_compass::layer3::collective::ModelPool> }, // New
 
     WorkerUpdate { status: String, progress: f32, log: Option<String>, reward: Option<u64> }, // New for GUI Worker
     Error(String),
@@ -228,7 +277,7 @@ impl CompassApp {
         let (response_tx, response_rx) = mpsc::channel(32);
         
         // Spawn In-App Worker Thread
-        let (worker_tx, mut worker_rx) = mpsc::channel(32);
+        let (worker_tx, mut worker_rx): (mpsc::Sender<(bool, String)>, mpsc::Receiver<(bool, String)>) = mpsc::channel(32);
         let response_tx_clone = response_tx.clone();
         
         std::thread::spawn(move || {
@@ -240,14 +289,47 @@ impl CompassApp {
             rt.block_on(async move {
                 let client = RpcClient::new("http://localhost:9000/".to_string());
                 let mut active = false;
+                let mut worker_wallet = String::new(); // Wallet to receive rewards
+                
+                // Initialize AI Model Registry
+                let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                    status: "Initializing AI...".to_string(), 
+                    progress: 0.1,
+                    log: Some("🧠 Loading LSTM Neural Networks...".to_string()), 
+                    reward: None 
+                }).await;
+
+                let mut registry = ModelRegistry::new();
+                for ticker in ["BTCUSDT", "ETHUSDT", "SOLUSDT", "LTCUSDT"] {
+                    match registry.load_model(ticker) {
+                        Ok(_) => {
+                             let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                status: "Initializing AI...".to_string(), 
+                                progress: 0.1, 
+                                log: Some(format!("✅ Loaded Model: {}", ticker)), 
+                                reward: None 
+                            }).await;
+                        }
+                        Err(e) => {
+                             let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                status: "Initializing AI...".to_string(), 
+                                progress: 0.1, 
+                                log: Some(format!("⚠️ Model missing for {}: {}", ticker, e)), 
+                                reward: None 
+                            }).await;
+                        }
+                    }
+                }
+                let model_registry = Arc::new(Mutex::new(registry));
                 
                 loop {
-                    if let Ok(should_run) = worker_rx.try_recv() {
+                    if let Ok((should_run, wallet)) = worker_rx.try_recv() {
                         active = should_run;
+                        worker_wallet = wallet;
                         let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
                             status: if active { "Searching for jobs..." } else { "Paused" }.to_string(), 
                             progress: 0.0,
-                            log: Some(if active { "✅ Worker Started" } else { "⏸ Worker Paused" }.to_string()),
+                            log: Some(if active { format!("✅ Worker Started (Wallet: {})", worker_wallet) } else { "⏸ Worker Paused".to_string() }),
                             reward: None
                         }).await;
                     }
@@ -264,51 +346,165 @@ impl CompassApp {
                                      }).await;
                                      
                                          // Convert PendingJob (RPC) to ComputeJob (Logic)
+                                         println!("DEBUG [GUI Worker]: Accepted job_id='{}', model_id='{}'", job.job_id, job.model_id);
                                          let compute_job = ComputeJob::new(
                                              job.job_id.clone(),
                                              job.creator.clone(),
                                              job.model_id.clone(),
-                                             vec![], // TODO: Fetch from IPFS/RPC using job.inputs
+                                             job.inputs.clone(), // Correctly pass inputs from PendingJob
                                              job.max_compute_units,
                                          );
                                          
+                                         let mut final_result_data = Vec::new(); // Store bytes to send
                                          let mut final_hash = String::new();
+                                         
+                                         // Special Handling for Training Job
+                                         if job.model_id.starts_with("train_") {
+                                              // Extract ticker (train_sol_v1 -> sol)
+                                              let parts: Vec<&str> = job.model_id.split('_').collect();
+                                              let ticker_short = if parts.len() >= 2 { parts[1] } else { "sol" };
+                                              let ticker_upper = ticker_short.to_uppercase();
+                                              let binance_ticker = format!("{}USDT", ticker_upper); // e.g. BTCUSDT
 
-                                         // Execute Inference (ONNX)
-                                         let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
-                                             status: format!("Running Inference: {}", job.model_id), 
-                                             progress: 0.5,
-                                             log: Some("🧠 Loading ONNX Model & Running...".to_string()),
-                                             reward: None
-                                         }).await;
+                                              let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                                 status: format!("Training {} Agent...", ticker_upper), 
+                                                 progress: 0.1,
+                                                 log: Some(format!("🧠 Native Rust Training Started for {}", binance_ticker)),
+                                                 reward: None
+                                             }).await;
+                                             
+                                              // Execute Python Training Script (Option B)
+                                              let script_name = format!("scripts/train_{}_agent.py", ticker_short);
+                                              
+                                              let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                                  status: format!("Training {} Agent...", ticker_upper), 
+                                                  progress: 0.1,
+                                                  log: Some(format!("🐍 Executing Python Script: {}", script_name)),
+                                                  reward: None
+                                              }).await;
+                                              
+                                              // Run Python Script
+                                              let mut cmd_result = std::process::Command::new("python").arg(&script_name).output();
+                                              
+                                              // Fallback to 'py' if 'python' is missing (Windows)
+                                              if cmd_result.is_err() {
+                                                  cmd_result = std::process::Command::new("py").arg(&script_name).output();
+                                              }
 
-                                         match compute_job.execute_inference() {
-                                             Ok(hash) => {
-                                                 final_hash = hash;
-                                                 let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
-                                                     status: "Inference Complete".to_string(), 
-                                                     progress: 1.0,
-                                                     log: Some(format!("✅ Result Hash: {}", final_hash)),
-                                                     reward: None
-                                                 }).await;
-                                             }
-                                             Err(e) => {
-                                                 // Fallback to dummy task if model missing (for prototype flow)
-                                                 let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
-                                                     status: "Fallback Mode".to_string(), 
-                                                     progress: 0.5,
-                                                     log: Some(format!("⚠️ Inference Failed: {}. Running backup task...", e)),
-                                                     reward: None
-                                                 }).await;
-                                                 final_hash = compute_job.execute_deterministic_task(1000).unwrap_or_default();
-                                             }
-                                         }
-                                         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                                              match cmd_result {
+                                                  Ok(output) => {
+                                                      if output.status.success() {
+                                                          let stdout = String::from_utf8_lossy(&output.stdout);
+                                                          let last_line = stdout.lines().last().unwrap_or("Done");
+                                                          
+                                                          let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                                              status: "Training Complete".to_string(), 
+                                                              progress: 1.0,
+                                                              log: Some(format!("✅ Training Success: {}", last_line)),
+                                                              reward: None
+                                                          }).await;
+                                                          
+                                                          // HOT RELOAD MODEL
+                                                          if let Ok(mut reg) = model_registry.lock() {
+                                                              match reg.load_model(&binance_ticker) {
+                                                                  Ok(_) => println!("🔄 Hot-reloaded model for {}", binance_ticker),
+                                                                  Err(e) => println!("⚠️ Failed to reload model: {}", e),
+                                                              }
+                                                          }
+                                                          
+                                                          final_hash = format!("{}_training_done", ticker_short); 
+                                                          final_result_data = format!("minted_{}_via_python", ticker_short).as_bytes().to_vec();
+                                                      } else {
+                                                          let stderr = String::from_utf8_lossy(&output.stderr);
+                                                          let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                                              status: "Training Failed".to_string(), 
+                                                              progress: 0.0,
+                                                              log: Some(format!("❌ Info: {}", stderr)), // stderr often has useful info even on failure
+                                                              reward: None
+                                                          }).await;
+                                                      }
+                                                  }
+                                                  Err(e) => {
+                                                       let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                                          status: "Execution Error".to_string(), 
+                                                          progress: 0.0,
+                                                          log: Some(format!("❌ Failed to spawn python: {}", e)),
+                                                          reward: None
+                                                      }).await;
+                                                  }
+                                              }
+
+                                          } else {
+                                              // Execute LSTM Inference (Option B)
+                                              let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                                  status: format!("Running LSTM Inference: {}", job.model_id), 
+                                                  progress: 0.5,
+                                                  log: Some("🧠 Processing inputs through neural net...".to_string()),
+                                                  reward: None
+                                              }).await;
+    
+                                              // Determine ticker from job model_id
+                                              let ticker = if job.model_id.contains("btc") { "BTCUSDT" }
+                                                  else if job.model_id.contains("eth") { "ETHUSDT" }
+                                                  else if job.model_id.contains("ltc") { "LTCUSDT" }
+                                                  else { "SOLUSDT" }; // Default
+
+                                              // Parse inputs (Vec<Vec<f64>>)
+                                              let sequence: Vec<Vec<f64>> = serde_json::from_slice(&job.inputs).unwrap_or_default();
+                                              let current_price = sequence.last().and_then(|c| c.first().cloned()).unwrap_or(0.0);
+
+                                              // Run Prediction
+                                              let registry = model_registry.lock().unwrap();
+                                              match registry.predict(ticker, &sequence) {
+                                                  Ok(predicted_price) => {
+                                                      // Convert Price -> Signal
+                                                      let signal_val = price_to_signal(current_price, predicted_price, 0.005); // 0.5% Threshold
+                                                      
+                                                      // Create Proof of Inference (Hash)
+                                                      let hash = format!("lstm_{}_{:.2}_{}", ticker, predicted_price, signal_val);
+                                                      final_hash = hash.clone();
+
+                                                      // Prepare Result JSON
+                                                      let result = serde_json::json!({
+                                                          "prediction": signal_val,
+                                                          "predicted_price": predicted_price,
+                                                          "current_price": current_price,
+                                                          "hash": hash
+                                                      });
+                                                      final_result_data = result.to_string().into_bytes();
+
+                                                      // Log Success
+                                                      let signal_str = match signal_val { 0 => "SELL", 1 => "HOLD", 2 => "BUY", _ => "?" };
+                                                      let log_msg = format!("🔮 LSTM Validated: {} (${:.2} -> ${:.2})", signal_str, current_price, predicted_price);
+                                                      
+                                                      let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                                          status: "Inference Complete".to_string(), 
+                                                          progress: 1.0,
+                                                          log: Some(log_msg),
+                                                          reward: None
+                                                      }).await;
+                                                  }
+                                                  Err(e) => {
+                                                      // Fallback Logic
+                                                      let _ = response_tx_clone.send(RpcResponse::WorkerUpdate { 
+                                                          status: "Inference Error".to_string(), 
+                                                          progress: 0.0,
+                                                          log: Some(format!("❌ LSTM Inference Failed: {}", e)),
+                                                          reward: None
+                                                      }).await;
+                                                      
+                                                      // Fallback to HOLD
+                                                      final_result_data = serde_json::json!({ "prediction": 1, "hash": "fallback" }).to_string().into_bytes();
+                                                      final_hash = "fallback".to_string();
+                                                  }
+                                              }
+                                          }
+                                      tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                                      
                                      let req = serde_json::json!({
                                          "job_id": job.job_id,
-                                         "worker_id": "GUI_WORKER",
-                                         "result_data": final_hash.as_bytes().to_vec(),
+                                          "worker_id": worker_wallet.clone(),
+                                         "result_data": final_result_data,
                                          "signature": "gui_sig",
                                          "compute_rate": 5000,
                                          "compute_units_used": 100
@@ -526,6 +722,128 @@ impl CompassApp {
                                  Err(e) => { let _ = response_tx.send(RpcResponse::Error(format!("Mint Failed: {}", e))).await; }
                              }
                         }
+                        RpcCommand::PurchasePrediction { ticker, buyer_id } => {
+                             let req = serde_json::json!({ "ticker": ticker, "buyer_id": buyer_id });
+                             match client.call_method::<serde_json::Value, serde_json::Value>("purchasePrediction", req).await {
+                                 Ok(res) => { 
+                                     // Format the signal for display
+                                     let signal = res.get("signal").and_then(|s| s.as_str()).unwrap_or("UNKNOWN");
+                                     let price = res.get("price").and_then(|p| p.as_f64()).unwrap_or(0.0);
+                                     let timestamp = res.get("timestamp").and_then(|t| t.as_u64()).unwrap_or(0);
+                                     
+                                     let msg = format!("🔮 SIGNAL RECEIVED ({}) \nTrend: {}\nTarget: ${:.2}", ticker, signal, price);
+                                     // Reuse TransactionSent or add new Response type? 
+                                     // Let's use TransactionSent for simplicity as it shows success in status bar
+                                     let _ = response_tx.send(RpcResponse::TransactionSent { tx_hash: msg }).await; 
+                                 }
+                                 Err(e) => { let _ = response_tx.send(RpcResponse::Error(format!("Buy Signal Failed: {}", e))).await; }
+                             }
+                        }
+                        RpcCommand::GetTrainableModels => {
+                            match client.call_method::<serde_json::Value, Vec<rust_compass::rpc::types::TrainingModelInfo>>("getTrainableModels", serde_json::json!({})).await {
+                                Ok(models) => {
+                                    let _ = response_tx.send(RpcResponse::TrainableModelsUpdate { models }).await;
+                                }
+                                Err(e) => {
+                                    let _ = response_tx.send(RpcResponse::Error(format!("Failed to fetch models: {}", e))).await;
+                                }
+                            }
+                        }
+                        RpcCommand::GetEpochStats(ticker) => {
+                            // Match oracle scheduler format: signal_{ticker_short}_v2
+                            let ticker_short = ticker.to_lowercase().replace("usdt", "");
+                            let model_id = format!("signal_{}_v2", ticker_short);
+                            
+                            let req = serde_json::json!({
+                                "ticker": ticker,
+                                "model_id": model_id
+                            });
+                            match client.call_method::<serde_json::Value, serde_json::Value>("getModelEpochStats", req).await {
+                                Ok(res) => {
+                                    let stats = EpochStats {
+                                        ticker: ticker.clone(),
+                                        model_id: res.get("model_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                                        current_epoch: res.get("current_epoch").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                                        predictions_in_epoch: res.get("predictions_in_epoch").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                                        correct_in_epoch: res.get("correct_in_epoch").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                                        total_predictions: res.get("total_predictions").and_then(|v| v.as_u64()).unwrap_or(0),
+                                        total_correct: res.get("total_correct").and_then(|v| v.as_u64()).unwrap_or(0),
+                                        overall_accuracy: res.get("overall_accuracy").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                                        nft_minted: res.get("nft_minted").and_then(|v| v.as_bool()).unwrap_or(false),
+                                    };
+                                    let _ = response_tx.send(RpcResponse::EpochStatsUpdate { stats }).await;
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                        RpcCommand::GetPredictionHistory(ticker, limit) => {
+                            let req = serde_json::json!({
+                                "ticker": ticker,
+                                "limit": limit
+                            });
+                            match client.call_method::<serde_json::Value, serde_json::Value>("getPredictionHistory", req).await {
+                                Ok(res) => {
+                                    let preds: Vec<PredictionInfo> = res.get("predictions")
+                                        .and_then(|v| v.as_array())
+                                        .map(|arr| arr.iter().filter_map(|p| {
+                                            Some(PredictionInfo {
+                                                id: p.get("id")?.as_str()?.to_string(),
+                                                ticker: p.get("ticker")?.as_str()?.to_string(),
+                                                predicted_price: p.get("predicted_price")?.as_f64()?,
+                                                actual_price: p.get("actual_price").and_then(|v| v.as_f64()),
+                                                signal: p.get("signal").and_then(|v| v.as_str()).unwrap_or("HOLD").to_string(),
+                                                correct: p.get("correct").and_then(|v| v.as_bool()),
+                                                timestamp: p.get("timestamp").and_then(|v| v.as_u64()).unwrap_or(0),
+                                            })
+                                        }).collect())
+                                        .unwrap_or_default();
+                                    let _ = response_tx.send(RpcResponse::PredictionHistoryUpdate { predictions: preds }).await;
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                        RpcCommand::GetModelPools => {
+                            match client.call_method::<serde_json::Value, Vec<rust_compass::layer3::collective::ModelPool>>("getModelPools", serde_json::json!({})).await {
+                                Ok(pools) => { let _ = response_tx.send(RpcResponse::ModelPoolsUpdate { pools }).await; }
+                                Err(_) => {}
+                            }
+                        }
+                        RpcCommand::CreateModelPool { name, model_type, creator } => {
+                             let req = serde_json::json!({ "name": name, "model_type": model_type, "creator": creator });
+                             match client.call_method::<serde_json::Value, serde_json::Value>("createModelPool", req).await {
+                                 Ok(_) => { let _ = response_tx.send(RpcResponse::TransactionSent { tx_hash: "Pool Created".to_string() }).await; }
+                                 Err(e) => { let _ = response_tx.send(RpcResponse::Error(format!("Pool Create Failed: {}", e))).await; }
+                             }
+                        }
+                        RpcCommand::JoinPool { pool_id, contributor, amount } => {
+                             let req = serde_json::json!({ "pool_id": pool_id, "contributor": contributor, "amount": amount });
+                             match client.call_method::<serde_json::Value, serde_json::Value>("joinPool", req).await {
+                                 Ok(_) => { let _ = response_tx.send(RpcResponse::TransactionSent { tx_hash: "Joined Pool".to_string() }).await; }
+                                 Err(e) => { let _ = response_tx.send(RpcResponse::Error(format!("Join Failed: {}", e))).await; }
+                             }
+                        }
+                        RpcCommand::ClaimDividends { pool_id, contributor } => {
+                             let req = serde_json::json!({ "pool_id": pool_id, "contributor": contributor });
+                             match client.call_method::<serde_json::Value, serde_json::Value>("claimDividends", req).await {
+                                 Ok(res) => { 
+                                      let amt = res.get("amount").and_then(|v| v.as_u64()).unwrap_or(0);
+                                      let _ = response_tx.send(RpcResponse::TransactionSent { tx_hash: format!("Claimed {} COMPUTE", amt) }).await; 
+                                 }
+                                 Err(e) => { let _ = response_tx.send(RpcResponse::Error(format!("Claim Failed: {}", e))).await; }
+                             }
+                        }
+                        RpcCommand::MintNFT { ticker, model_id } => {
+                            let req = serde_json::json!({ "ticker": ticker, "model_id": model_id });
+                            match client.call_method::<serde_json::Value, serde_json::Value>("mintModelNFT", req).await {
+                                Ok(res) => {
+                                    let message = res.get("message").and_then(|v| v.as_str()).unwrap_or("NFT Minted!");
+                                    let _ = response_tx.send(RpcResponse::TransactionSent { tx_hash: message.to_string() }).await;
+                                }
+                                Err(e) => {
+                                    let _ = response_tx.send(RpcResponse::Error(format!("Mint Failed: {}", e))).await;
+                                }
+                            }
+                        }
                     }
                 }
             });
@@ -571,6 +889,7 @@ impl CompassApp {
             train_model_id: String::new(),
             train_dataset: "ipfs://mnist-sample-v1".to_string(),
             train_auto_loop: false,
+            trainable_models: Vec::new(),
             
             gui_worker_active: false,
             gui_worker_status: "Paused".to_string(),
@@ -578,8 +897,15 @@ impl CompassApp {
             gui_worker_logs: Vec::new(),
             gui_worker_tx: worker_tx,
             
+            // Epoch tracking
+            epoch_stats: HashMap::new(),
+            prediction_history: Vec::new(),
 
-            
+            // Shared Pools (Phase 5)
+            model_pools: Vec::new(),
+            create_pool_name: String::new(),
+            create_pool_type: "signal-classifier".to_string(),
+            join_amount: "100".to_string(),
 
             
             local_wallet_manager: WalletManager::load("wallets.json"),
@@ -598,10 +924,29 @@ impl CompassApp {
         // Poll based on current page
         let _ = self.rpc_tx.try_send(RpcCommand::GetStatus);
         
+        // ALWAYS Poll Balance for selected wallet (for header display)
+        if !self.selected_wallet.is_empty() {
+            let _ = self.rpc_tx.try_send(RpcCommand::GetBalance(self.selected_wallet.clone(), "Compass".to_string()));
+            let _ = self.rpc_tx.try_send(RpcCommand::GetBalance(self.selected_wallet.clone(), "COMPUTE".to_string()));
+        }
+        
         match self.current_page {
             Page::Dashboard => {
                 let _ = self.rpc_tx.try_send(RpcCommand::GetRecentBlocks(5));
             }
+            Page::Portfolio => {
+                // Poll epoch stats for all tickers
+                let _ = self.rpc_tx.try_send(RpcCommand::GetEpochStats("BTCUSDT".to_string()));
+                let _ = self.rpc_tx.try_send(RpcCommand::GetEpochStats("ETHUSDT".to_string()));
+                let _ = self.rpc_tx.try_send(RpcCommand::GetEpochStats("SOLUSDT".to_string()));
+                let _ = self.rpc_tx.try_send(RpcCommand::GetEpochStats("LTCUSDT".to_string()));
+                // Poll user's NFTs
+                let _ = self.rpc_tx.try_send(RpcCommand::GetMyModels(self.current_user.clone()));
+            }
+            Page::Pools => {
+                 let _ = self.rpc_tx.try_send(RpcCommand::GetModelPools);
+            }
+
             Page::Wallet => {
                 for wallet in self.wallets.keys() {
                     let _ = self.rpc_tx.try_send(RpcCommand::GetBalance(wallet.clone(), "Compass".to_string()));
@@ -610,6 +955,13 @@ impl CompassApp {
             }
             Page::Workers => {
                 let _ = self.rpc_tx.try_send(RpcCommand::GetComputeJobs);
+                // Poll epoch stats for all tickers
+                let _ = self.rpc_tx.try_send(RpcCommand::GetEpochStats("BTCUSDT".to_string()));
+                let _ = self.rpc_tx.try_send(RpcCommand::GetEpochStats("ETHUSDT".to_string()));
+                let _ = self.rpc_tx.try_send(RpcCommand::GetEpochStats("SOLUSDT".to_string()));
+                let _ = self.rpc_tx.try_send(RpcCommand::GetEpochStats("LTCUSDT".to_string()));
+                // Poll prediction history
+                let _ = self.rpc_tx.try_send(RpcCommand::GetPredictionHistory("BTCUSDT".to_string(), 20));
             }
             Page::Oracle => {
                 let _ = self.rpc_tx.try_send(RpcCommand::GetOraclePrices);
@@ -622,7 +974,9 @@ impl CompassApp {
             }
             Page::Train => {
                 let _ = self.rpc_tx.try_send(RpcCommand::GetMyModels(self.current_user.clone()));
+                let _ = self.rpc_tx.try_send(RpcCommand::GetMyModels(self.current_user.clone()));
                 let _ = self.rpc_tx.try_send(RpcCommand::GetMarketplaceListings);
+                let _ = self.rpc_tx.try_send(RpcCommand::GetTrainableModels);
                 
                 // Auto-Loop Logic
                 if self.train_auto_loop && !self.train_model_id.is_empty() {
@@ -668,7 +1022,8 @@ impl eframe::App for CompassApp {
                     self.oracle_prices = prices;
                 }
                 RpcResponse::TransactionSent { tx_hash } => {
-                    self.error_msg = Some(format!("✅ Transaction sent: {}", &tx_hash[..16]));
+                    let display_hash = if tx_hash.len() > 16 { &tx_hash[..16] } else { &tx_hash };
+                    self.error_msg = Some(format!("✅ Transaction sent: {}", display_hash));
                 }
                 RpcResponse::Error(e) => {
                     self.error_msg = Some(format!("Error: {}", e));
@@ -678,6 +1033,9 @@ impl eframe::App for CompassApp {
                 }
                 RpcResponse::MyModelsUpdate { models } => {
                     self.my_models = models;
+                }
+                RpcResponse::TrainableModelsUpdate { models } => {
+                    self.trainable_models = models;
                 }
                 RpcResponse::WorkerUpdate { status, progress, log, reward } => {
                      self.gui_worker_status = status;
@@ -689,6 +1047,15 @@ impl eframe::App for CompassApp {
                      if let Some(r) = reward {
                          self.total_rewards += r;
                      }
+                }
+                RpcResponse::EpochStatsUpdate { stats } => {
+                    self.epoch_stats.insert(stats.ticker.clone(), stats);
+                }
+                RpcResponse::PredictionHistoryUpdate { predictions } => {
+                    self.prediction_history = predictions;
+                }
+                RpcResponse::ModelPoolsUpdate { pools } => {
+                    self.model_pools = pools;
                 }
                 _ => {}
             }
@@ -737,11 +1104,13 @@ impl eframe::App for CompassApp {
                 ui.vertical(|ui| {
                     self.drawer_item(ui, Page::Dashboard, "📊", "Dashboard");
                     self.drawer_item(ui, Page::Wallet, "💰", "Wallet");
+                    self.drawer_item(ui, Page::Portfolio, "📂", "Portfolio");
                     self.drawer_item(ui, Page::Workers, "⚙️", "Workers");
                     self.drawer_item(ui, Page::Oracle, "🔮", "Oracle");
                     self.drawer_item(ui, Page::Vaults, "🏦", "Vaults");
                     self.drawer_item(ui, Page::Marketplace, "🛒", "Marketplace");
                     self.drawer_item(ui, Page::Train, "🧠", "Train Model");
+                    self.drawer_item(ui, Page::Pools, "👥", "Collective Pools"); // Phase 5
                     
                      if self.current_user == "admin" {
                         self.drawer_item(ui, Page::Admin, "🛑", "Admin Panel");
@@ -790,13 +1159,17 @@ impl eframe::App for CompassApp {
             match self.current_page {
                 Page::Dashboard => self.render_dashboard(ui),
                 Page::Wallet => self.render_wallet(ui),
+                Page::Portfolio => self.render_portfolio(ui),
                 Page::Workers => self.render_workers(ui),
                 Page::Oracle => self.render_oracle(ui),
                 Page::Vaults => self.render_vaults(ui),
                 Page::Marketplace => self.render_marketplace(ui),
                 Page::Train => self.render_train(ui),
-                Page::Admin => self.render_admin(ui),
+                Page::Pools => self.render_pools(ui),
+                Page::Admin => {
+                self.render_admin(ui);
             }
+        }
         });
     }
 }
@@ -884,6 +1257,20 @@ impl CompassApp {
                     ui.label(egui::RichText::new(&self.sync_status).size(18.0).strong().color(egui::Color32::GREEN));
                 });
             });
+        });
+        
+        ui.add_space(20.0);
+
+        // Admin Continual Training Status
+        ui.group(|ui| {
+            ui.horizontal(|ui| {
+                 ui.label(egui::RichText::new("🧠 Admin Enhanced Model:").strong().size(16.0));
+                 ui.label(egui::RichText::new("ACTIVE (Continual Training)").color(egui::Color32::GREEN).strong().size(16.0));
+                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                     ui.label(egui::RichText::new("v1.2.0").monospace().color(egui::Color32::GRAY));
+                 });
+            });
+            ui.label("The Admin Node is running a 24/7 background training loop to improve the 'price_decision_v1' model.");
         });
         
         ui.add_space(30.0);
@@ -1004,7 +1391,7 @@ impl CompassApp {
             ui.add_space(5.0);
             
             if ui.checkbox(&mut self.gui_worker_active, "Enable In-App Worker").changed() {
-                 let _ = self.gui_worker_tx.try_send(self.gui_worker_active);
+                 let _ = self.gui_worker_tx.try_send((self.gui_worker_active, self.selected_wallet.clone()));
             }
             
             ui.add_space(5.0);
@@ -1064,6 +1451,76 @@ impl CompassApp {
             ui.label(egui::RichText::new("Performance").strong());
             ui.separator();
             ui.label(format!("Total Rewards Earned: {} COMPUTE", self.total_rewards));
+        });
+        
+        // Epoch Progress Panel (Phase 5)
+        ui.add_space(20.0);
+        ui.separator();
+        ui.heading("📊 Model Epoch Progress");
+        ui.add_space(10.0);
+        
+        let tickers = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "LTCUSDT"];
+        
+        for ticker in tickers {
+            let stats = self.epoch_stats.get(ticker).cloned().unwrap_or_default();
+            
+            ui.group(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(format!("{}", ticker)).strong().size(14.0));
+                    
+                    if stats.nft_minted {
+                        ui.label(egui::RichText::new("✅ NFT MINTED").color(egui::Color32::GREEN));
+                    } else {
+                        ui.label(egui::RichText::new(format!("Epoch {}/10", stats.current_epoch)).color(egui::Color32::YELLOW));
+                    }
+                });
+                
+                // Epoch progress bar
+                let epoch_progress = stats.predictions_in_epoch as f32 / 10.0;
+                ui.add(egui::ProgressBar::new(epoch_progress).text(format!("{}/10 predictions", stats.predictions_in_epoch)));
+                
+                // Accuracy
+                ui.horizontal(|ui| {
+                    let accuracy_color = if stats.overall_accuracy >= 0.75 {
+                        egui::Color32::GREEN
+                    } else if stats.overall_accuracy >= 0.5 {
+                        egui::Color32::YELLOW
+                    } else {
+                        egui::Color32::RED
+                    };
+                    
+                    ui.label("Accuracy:");
+                    ui.label(egui::RichText::new(format!("{:.1}%", stats.overall_accuracy * 100.0)).color(accuracy_color).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(format!("{}/{} correct", stats.total_correct, stats.total_predictions));
+                    });
+                });
+            });
+        }
+        
+        // Recent Predictions
+        ui.add_space(10.0);
+        ui.collapsing("Recent Predictions", |ui| {
+            egui::ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
+                if self.prediction_history.is_empty() {
+                    ui.label(egui::RichText::new("No predictions yet...").italics().color(egui::Color32::GRAY));
+                } else {
+                    for pred in self.prediction_history.iter().take(20) {
+                        ui.horizontal(|ui| {
+                            let icon = match pred.correct {
+                                Some(true) => "✅",
+                                Some(false) => "❌",
+                                None => "⏳"
+                            };
+                            ui.label(icon);
+                            ui.label(format!("{} ${:.2} ({})", pred.ticker, pred.predicted_price, pred.signal));
+                            if let Some(actual) = pred.actual_price {
+                                ui.label(format!("→ ${:.2}", actual));
+                            }
+                        });
+                    }
+                }
+            });
         });
     }
     
@@ -1127,6 +1584,40 @@ impl CompassApp {
                         ui.label(egui::RichText::new(log));
                     }
                 });
+        });
+
+        ui.add_space(20.0);
+
+        // Signal Marketplace Section
+        ui.group(|ui| {
+            ui.label(egui::RichText::new("🛒 Signal Marketplace").strong());
+            ui.separator();
+            ui.label("Purchase exclusive AI signals powered by the decentralized neural network.");
+            ui.add_space(10.0);
+            
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new("BTCUSDT (1h)").strong());
+                ui.label("Price: 5 COMPASS");
+                if ui.button("⚡ Buy Signal").clicked() {
+                     let _ = self.rpc_tx.try_send(RpcCommand::PurchasePrediction {
+                         ticker: "BTCUSDT".to_string(),
+                         buyer_id: self.selected_wallet.clone() // Use selected wallet to pay
+                     });
+                }
+            });
+            
+            ui.add_space(5.0);
+            
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new("ETHUSDT (1h)").strong());
+                ui.label("Price: 5 COMPASS");
+                if ui.button("⚡ Buy Signal").clicked() {
+                     let _ = self.rpc_tx.try_send(RpcCommand::PurchasePrediction {
+                         ticker: "ETHUSDT".to_string(),
+                         buyer_id: self.selected_wallet.clone()
+                     });
+                }
+            });
         });
     }
     
@@ -1242,6 +1733,214 @@ impl CompassApp {
         });
     }
 
+        fn render_portfolio(&mut self, ui: &mut egui::Ui) {
+        ui.heading("📂 Portfolio");
+        ui.label(egui::RichText::new("Track your training progress, owned NFTs, and marketplace listings")
+            .color(egui::Color32::GRAY));
+        ui.add_space(20.0);
+        
+        // ===== TRAINING EPOCH PROGRESS =====
+        ui.group(|ui| {
+            ui.label(egui::RichText::new("🧠 Training Progress").size(18.0).strong());
+            ui.separator();
+            ui.label("Track your models\' progress towards NFT minting (requires 10 epochs with 75%+ accuracy)");
+            ui.add_space(10.0);
+            
+            if self.epoch_stats.is_empty() {
+                ui.label(egui::RichText::new("No active training sessions")
+                    .color(egui::Color32::GRAY));
+                ui.label("💡 Tip: Submitted training jobs will appear here once they start generating predictions");
+            } else {
+                for (key, stats) in &self.epoch_stats {
+                    ui.group(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(&stats.ticker).size(16.0).strong());
+                            ui.label(egui::RichText::new(format!("Model: {}", stats.model_id))
+                                .size(12.0)
+                                .color(egui::Color32::GRAY));
+                        });
+                        
+                        ui.add_space(8.0);
+                        
+                        // Progress bar to epoch 10
+                        let progress = (stats.current_epoch as f32 / 10.0).min(1.0);
+                        let accuracy_color = if stats.overall_accuracy >= 0.75 {
+                            egui::Color32::from_rgb(34, 197, 94) // Green
+                        } else {
+                            egui::Color32::from_rgb(251, 146, 60) // Orange
+                        };
+                        
+                        ui.horizontal(|ui| {
+                            ui.label(format!("Epoch {}/10", stats.current_epoch));
+                            ui.add(egui::ProgressBar::new(progress)
+                                .desired_width(200.0)
+                                .fill(accuracy_color));
+                            ui.label(format!("{:.1}% accuracy", stats.overall_accuracy * 100.0));
+                        });
+                        
+                        ui.horizontal(|ui| {
+                            ui.label(format!("Predictions: {}/{} in current epoch", 
+                                stats.predictions_in_epoch, 
+                                10)); // epochs have 10 predictions each
+                            ui.label(format!("Total: {} ({} correct)", 
+                                stats.total_predictions,
+                                stats.total_correct));
+                        });
+                        
+                        // Show mint button if qualified (10+ epochs, 75%+ accuracy)
+                        if stats.current_epoch >= 10 && stats.overall_accuracy >= 0.75 {
+                            // Show mint button with estimated value
+                            let est_value = 1000 + (stats.overall_accuracy * 1000.0) as u64 + (stats.current_epoch as u64 * 50);
+                            
+                            ui.horizontal(|ui| {
+                                if stats.nft_minted {
+                                    ui.label(egui::RichText::new("⚠️  Flag set but no NFT found")
+                                        .color(egui::Color32::from_rgb(251, 146, 60))
+                                         .size(11.0));
+                                } else {
+                                    ui.label(egui::RichText::new("🎉 Ready to mint!")
+                                        .color(egui::Color32::from_rgb(34, 197, 94))
+                                        .strong());
+                                }
+                                
+                                if ui.button(egui::RichText::new("🎨 Mint NFT")
+                                    .size(14.0)
+                                    .strong()).clicked() {
+                                    let _ = self.rpc_tx.try_send(RpcCommand::MintNFT {
+                                        ticker: stats.ticker.clone(),
+                                        model_id: stats.model_id.clone(),
+                                    });
+                                }
+                            });
+                            
+                            ui.label(egui::RichText::new(format!("💰 Est. Value: ~{} COMPASS", est_value))
+                                .size(12.0)
+                                .color(egui::Color32::GRAY));
+                            ui.label(egui::RichText::new("💡 Tip: Train longer for higher value!")
+                                .size(11.0)
+                                .color(egui::Color32::DARK_GRAY)
+                                .italics());
+                        }
+                    });
+                    
+                    ui.add_space(10.0);
+                }
+            }
+        });
+        
+        ui.add_space(20.0);
+        
+        // ===== OWNED NFTs =====
+        ui.group(|ui| {
+            ui.label(egui::RichText::new("🎨 My NFTs").size(18.0).strong());
+            ui.separator();
+            ui.label("Your AI model NFTs - list them on the marketplace to earn from rentals and sales");
+            ui.add_space(10.0);
+            
+            if self.my_models.is_empty() {
+                ui.label(egui::RichText::new("You don't own any model NFTs yet")
+                    .color(egui::Color32::GRAY));
+                ui.label("💡 Tip: Train a model to 10 epochs with 75%+ accuracy to mint your first NFT");
+            } else {
+                egui::Grid::new("portfolio_nfts").striped(true).num_columns(6).show(ui, |ui| {
+                    // Header
+                    ui.label(egui::RichText::new("NFT").strong());
+                    ui.label(egui::RichText::new("Name").strong());
+                    ui.label(egui::RichText::new("Accuracy").strong());
+                    ui.label(egui::RichText::new("List Price").strong());
+                    ui.label(egui::RichText::new("Status").strong());
+                    ui.label(egui::RichText::new("Actions").strong());
+                    ui.end_row();
+                    
+                    for nft in &self.my_models.clone() {
+                        // NFT Icon
+                        ui.label("🤖");
+                        
+                        // Name
+                        ui.label(&nft.name);
+                        
+                        // Accuracy
+                        let acc_color = if nft.accuracy >= 0.80 {
+                            egui::Color32::from_rgb(34, 197, 94)
+                        } else if nft.accuracy >= 0.70 {
+                            egui::Color32::from_rgb(251, 146, 60)
+                        } else {
+                            egui::Color32::from_rgb(239, 68, 68)
+                        };
+                        ui.label(egui::RichText::new(format!("{:.1}%", nft.accuracy * 100.0))
+                            .color(acc_color));
+                        
+                        // List Price (editable)
+                        let price_label = if nft.price > 0 {
+                            format!("{} COMPASS", nft.price)
+                        } else {
+                            "Not Listed".to_string()
+                        };
+                        ui.label(price_label);
+                        
+                        // Status
+                        let status = if nft.price > 0 {
+                            egui::RichText::new("🟢 Listed").color(egui::Color32::from_rgb(34, 197, 94))
+                        } else {
+                            egui::RichText::new("⚫ Unlisted").color(egui::Color32::GRAY)
+                        };
+                        ui.label(status);
+                        
+                        // Actions
+                        ui.horizontal(|ui| {
+                            if nft.price > 0 {
+                                if ui.button("📝 Update Price").clicked() {
+                                    // TODO: Open price edit dialog
+                                }
+                                if ui.button("❌ Unlist").clicked() {
+                                    let _ = self.rpc_tx.try_send(RpcCommand::BuyNFT {
+                                        token_id: nft.token_id.clone(),
+                                        buyer: "UNLIST".to_string(), // Special marker
+                                    });
+                                }
+                            } else {
+                                if ui.button("📤 List on Marketplace").clicked() {
+                                    // TODO: Open listing dialog with price input
+                                    // For now, list at default price
+                                    let _ = self.rpc_tx.try_send(RpcCommand::BuyNFT {
+                                        token_id: nft.token_id.clone(),
+                                        buyer: "LIST:1000".to_string(), // price:amount format
+                                    });
+                                }
+                            }
+                        });
+                        
+                        ui.end_row();
+                    }
+                });
+            }
+        });
+        
+        ui.add_space(20.0);
+        
+        // ===== MARKETPLACE EARNINGS =====
+        ui.group(|ui| {
+            ui.label(egui::RichText::new("💰 Marketplace Earnings").size(18.0).strong());
+            ui.separator();
+            
+            ui.horizontal(|ui| {
+                ui.label("Total Royalties Earned:");
+                ui.label(egui::RichText::new("0 COMPUTE").strong()); // TODO: Track this
+            });
+            
+            ui.horizontal(|ui| {
+                ui.label("Active Rentals:");
+                ui.label(egui::RichText::new("0").strong()); // TODO: Track this
+            });
+            
+            ui.add_space(10.0);
+            ui.label(egui::RichText::new("Coming soon: Rental tracking and earnings dashboard")
+                .color(egui::Color32::GRAY)
+                .size(12.0));
+        });
+    }
+
+
     fn render_marketplace(&mut self, ui: &mut egui::Ui) {
         ui.heading("Marketplace");
         ui.add_space(10.0);
@@ -1287,6 +1986,32 @@ impl CompassApp {
         ui.group(|ui| {
             ui.label(egui::RichText::new("Start Training Job").strong());
             ui.separator();
+
+            // Available Network Models (Dynamic)
+            if !self.trainable_models.is_empty() {
+                ui.label(egui::RichText::new("Available Network Campaigns").strong().color(egui::Color32::LIGHT_BLUE));
+                 egui::Grid::new("train_models_grid").striped(true).show(ui, |ui| {
+                    ui.label(egui::RichText::new("Ticker").strong());
+                    ui.label(egui::RichText::new("Description").strong());
+                    ui.label(egui::RichText::new("Reward").strong());
+                    ui.label(egui::RichText::new("Action").strong());
+                    ui.end_row();
+
+                    for model in &self.trainable_models {
+                        ui.label(egui::RichText::new(&model.ticker).strong());
+                        ui.label(&model.description);
+                        ui.label(format!("{} CP", model.reward));
+                        
+                        if ui.button("Select").clicked() {
+                            self.train_model_id = model.model_id.clone();
+                            self.train_dataset = "latest_oracle_data".to_string(); // Auto-fill
+                        }
+                        ui.end_row();
+                    }
+                });
+                ui.add_space(10.0);
+                ui.separator();
+            }
             
             // Model Selector
             ui.horizontal(|ui| {
@@ -1412,6 +2137,25 @@ impl CompassApp {
                   });
              }
          });
+
+         ui.add_space(20.0);
+
+         ui.group(|ui| {
+             ui.label(egui::RichText::new("Enhanced Model Training (24h Loop)").strong());
+             ui.separator();
+             ui.label("Runs a continuous background training session on live BTC data. Automatically updates the 'price_decision_v1' model and mints a new version.");
+             
+             ui.add_space(10.0);
+             
+             if ui.button(egui::RichText::new("🚀 Start Training Session (External Window)").size(16.0)).clicked() {
+                 // Launch the PowerShell script
+                 let _ = std::process::Command::new("powershell")
+                     .args(&["-ExecutionPolicy", "Bypass", "-File", "scripts/start_training_session.ps1"])
+                     .spawn();
+                 
+                 self.error_msg = Some("✅ Training Session Launched in new window".to_string());
+             }
+         });
     }
 
     fn render_login(&mut self, ctx: &egui::Context) {
@@ -1477,8 +2221,7 @@ impl CompassApp {
                                  self.showing_create_wallet = false;
                              }
                          }
-                    } else {
-                        // Regular Login
+                         } else {
                         ui.label(egui::RichText::new("Login").size(20.0).strong());
                         ui.add_space(20.0);
                         
@@ -1517,6 +2260,81 @@ impl CompassApp {
         });
     });
 }
+
+    fn render_pools(&mut self, ui: &mut egui::Ui) {
+        ui.heading("👥 Shared Function Model Pools");
+        ui.label("Co-own high-performance models and earn royalties.");
+        ui.separator();
+
+        // Create Section
+        ui.collapsing("Create New Pool", |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Name:");
+                ui.text_edit_singleline(&mut self.create_pool_name);
+            });
+            ui.horizontal(|ui| {
+                ui.label("Type:");
+                ui.text_edit_singleline(&mut self.create_pool_type);
+            });
+            if ui.button("Create Pool").clicked() {
+                let _ = self.rpc_tx.try_send(RpcCommand::CreateModelPool {
+                    name: self.create_pool_name.clone(),
+                    model_type: self.create_pool_type.clone(),
+                    creator: self.current_user.clone()
+                });
+            }
+        });
+        ui.separator();
+        
+        // Refresh Button
+        if ui.button("🔄 Refresh Pools").clicked() {
+             let _ = self.rpc_tx.try_send(RpcCommand::GetModelPools);
+        }
+
+        // List
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            if self.model_pools.is_empty() {
+                ui.label("No active pools found.");
+            }
+            
+            for pool in &self.model_pools {
+                ui.group(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading(&pool.name);
+                        ui.label(egui::RichText::new(&pool.pool_id).small().weak());
+                    });
+                    ui.label(format!("Type: {}", pool.model_type));
+                    ui.label(format!("Total Staked: {} COMPASS", pool.total_staked));
+                    ui.label(format!("Vault Balance: {} COMPUTE", pool.vault_balance));
+                    
+                    let my_share = pool.get_share(&self.current_user);
+                    if my_share > 0.0 {
+                        ui.label(egui::RichText::new(format!("Your Share: {:.2}%", my_share * 100.0)).color(egui::Color32::GREEN));
+                        if ui.button("💰 Claim Dividends").clicked() {
+                             let _ = self.rpc_tx.try_send(RpcCommand::ClaimDividends {
+                                 pool_id: pool.pool_id.clone(),
+                                 contributor: self.current_user.clone()
+                             });
+                        }
+                    } else {
+                        ui.horizontal(|ui| {
+                            ui.label("Stake:");
+                            ui.text_edit_singleline(&mut self.join_amount); 
+                            if ui.button("Join Pool").clicked() {
+                                if let Ok(amt) = self.join_amount.parse::<u64>() {
+                                    let _ = self.rpc_tx.try_send(RpcCommand::JoinPool {
+                                        pool_id: pool.pool_id.clone(),
+                                        contributor: self.current_user.clone(),
+                                        amount: amt
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
 
     fn attempt_login(&mut self) {
         if self.login_username.is_empty() {

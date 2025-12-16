@@ -158,12 +158,10 @@ pub struct GetPendingComputeJobsParams {
 pub struct PendingJob {
     pub job_id: String,
     pub model_id: String,
-    // input removed
+    pub inputs: Vec<u8>, // Inputs for the job (Restored)
     pub max_compute_units: u64,
     pub creator: String, // Matches ComputeJob::creator
     pub reward_amount: u64,
-    // tx_hash removed
-    // owner_id removed (using creator)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -294,3 +292,103 @@ pub struct BuyModelNFTParams {
     pub buyer: String,
     pub signature: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TrainingModelInfo {
+    pub ticker: String,
+    pub model_id: String,
+    pub architecture: String,
+    pub description: String,
+    pub reward: u64,
+    pub estimated_duration: String,
+}
+
+// === NFT LENDING MARKET ===
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListModelForRentParams {
+    pub token_id: String,
+    pub rate_per_hour: u64, // COMPASS per hour
+    pub owner: String,
+    pub signature: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RentModelParams {
+    pub token_id: String,
+    pub renter: String,
+    pub duration_hours: u64,
+    pub signature: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetRentableModelsParams {
+    // Empty - returns all models available for rent
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RentableModelInfo {
+    pub token_id: String,
+    pub name: String,
+    pub owner: String,
+    pub accuracy: f64,
+    pub rate_per_hour: u64,
+    pub architecture: String,
+}
+
+// === MONETIZATION (SUBSCRIPTIONS) ===
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Subscription {
+    pub subscriber: String,
+    pub plan_type: String, // "basic", "premium"
+    pub start_time: u64,
+    pub end_time: u64,
+    pub features: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PurchaseSubscriptionParams {
+    pub subscriber: String,
+    pub plan_type: String, // "premium"
+    pub duration_days: u32,
+    pub signature: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetLatestSignalParams {
+    pub ticker: String,
+    pub subscriber: String,
+}
+
+// === SHARED MODEL POOLS (Phase 5) ===
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CreateModelPoolParams {
+    pub name: String,
+    pub model_type: String, // "signal-classifier"
+    pub creator: String,
+    pub signature: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct JoinPoolParams {
+    pub pool_id: String,
+    pub contributor: String,
+    pub amount: u64, // COMPASS
+    pub signature: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ClaimDividendsParams {
+    pub pool_id: String,
+    pub contributor: String,
+    pub signature: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetPoolParams {
+    pub pool_id: Option<String>, // If None, get all
+}
+
+

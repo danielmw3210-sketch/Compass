@@ -22,6 +22,7 @@ pub mod network;
 pub mod encoding;
 pub mod identity;
 pub mod interactive;
+pub mod trainer; // Rust Native AI
 pub mod init;
 pub mod node;
 pub mod config;

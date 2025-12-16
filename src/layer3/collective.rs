@@ -287,3 +287,75 @@ impl ModelMarketplace {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 }
+
+/// A Shared Model Pool allows users to pool COMPASS tokens to co-own a high-performance model.
+/// Royalties from the model are distributed to contributors based on their stake share.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModelPool {
+    /// Unique ID of the pool (e.g., "pool-btc-alpha")
+    pub pool_id: String,
+    /// Display name
+    pub name: String,
+    /// Type of model (e.g., "signal-classifier", "gpt-4-finetune")
+    pub model_type: String, 
+    /// Total COMPASS staked in this pool
+    pub total_staked: u64,
+    /// Map of Wallet Address -> Staked Amount
+    pub contributors: HashMap<String, u64>,
+    /// Accumulated rewards (royalties) ready for distribution
+    pub vault_balance: u64, 
+    /// Epoch count (for tracking performance)
+    pub epoch: u64,
+}
+
+impl ModelPool {
+    /// Create a new empty pool
+    pub fn new(id: String, name: String, model_type: String) -> Self {
+        ModelPool {
+            pool_id: id,
+            name,
+            model_type,
+            total_staked: 0,
+            contributors: HashMap::new(),
+            vault_balance: 0,
+            epoch: 0,
+        }
+    }
+
+    /// Add stake from a contributor
+    pub fn add_stake(&mut self, contributor: String, amount: u64) {
+        let current = self.contributors.entry(contributor.clone()).or_insert(0);
+        *current += amount;
+        self.total_staked += amount;
+    }
+
+    /// Remove stake (if allowed, currently locked)
+    pub fn remove_stake(&mut self, contributor: &str, amount: u64) -> Result<(), String> {
+        if let Some(balance) = self.contributors.get_mut(contributor) {
+            if *balance >= amount {
+                *balance -= amount;
+                self.total_staked -= amount;
+                if *balance == 0 {
+                    self.contributors.remove(contributor);
+                }
+                Ok(())
+            } else {
+                Err("Insufficient stake".to_string())
+            }
+        } else {
+            Err("Not a contributor".to_string())
+        }
+    }
+
+    /// Calculate share percentage for a user (0.0 to 1.0)
+    pub fn get_share(&self, contributor: &str) -> f64 {
+        if self.total_staked == 0 { return 0.0; }
+        let stake = self.contributors.get(contributor).copied().unwrap_or(0);
+        stake as f64 / self.total_staked as f64
+    }
+
+    /// Add revenue to the pool's vault
+    pub fn add_revenue(&mut self, amount: u64) {
+        self.vault_balance += amount;
+    }
+}

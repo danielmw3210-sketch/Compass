@@ -125,11 +125,28 @@ async fn main() {
                                             match crate::identity::Identity::load_and_decrypt(final_path, pass.trim()) {
                                                 Ok(id) => {
                                                     println!("Identity '{}' unlocked ({})", id.name, id.public_key);
+                                                    // Create valid backup
+                                                    let _ = std::fs::copy("admin.json", "admin.backup.json");
                                                     Some(Arc::new(id.into_keypair().expect("Failed to convert identity")))
                                                 },
                                                 Err(e) => {
                                                     error!("Failed to unlock identity: {}", e);
-                                                    std::process::exit(1); 
+                                                    if e.to_string().contains("missing field") {
+                                                        println!("⚠️  DETECTED CORRUPTION: Attempting to restore from backup...");
+                                                        match crate::identity::Identity::load_and_decrypt(std::path::Path::new("admin.backup.json"), pass.trim()) {
+                                                            Ok(id_bak) => {
+                                                                println!("✅ BACKUP RESTORED: '{}'", id_bak.name);
+                                                                let _ = std::fs::copy("admin.backup.json", "admin.json");
+                                                                Some(Arc::new(id_bak.into_keypair().expect("Failed to convert identity")))
+                                                            },
+                                                            Err(e_bak) => {
+                                                                println!("❌ BACKUP FAILED: {}", e_bak);
+                                                                std::process::exit(1);
+                                                            }
+                                                        }
+                                                    } else {
+                                                        std::process::exit(1); 
+                                                    }
                                                 }
                                             }
                                         } else {
@@ -141,11 +158,28 @@ async fn main() {
                                              match crate::identity::Identity::load_and_decrypt(final_path, pass.trim()) {
                                                  Ok(id) => {
                                                      println!("Identity '{}' unlocked ({})", id.name, id.public_key);
+                                                     // Create valid backup
+                                                     let _ = std::fs::copy("admin.json", "admin.backup.json");
                                                      Some(Arc::new(id.into_keypair().expect("Failed to convert identity")))
                                                  },
                                                  Err(e) => {
                                                      error!("Failed to unlock identity: {}", e);
-                                                     std::process::exit(1); 
+                                                     if e.to_string().contains("missing field") {
+                                                        println!("⚠️  DETECTED CORRUPTION: Attempting to restore from backup...");
+                                                        match crate::identity::Identity::load_and_decrypt(std::path::Path::new("admin.backup.json"), pass.trim()) {
+                                                            Ok(id_bak) => {
+                                                                println!("✅ BACKUP RESTORED: '{}'", id_bak.name);
+                                                                let _ = std::fs::copy("admin.backup.json", "admin.json");
+                                                                Some(Arc::new(id_bak.into_keypair().expect("Failed to convert identity")))
+                                                            },
+                                                            Err(e_bak) => {
+                                                                println!("❌ BACKUP FAILED: {}", e_bak);
+                                                                std::process::exit(1);
+                                                            }
+                                                        }
+                                                    } else {
+                                                        std::process::exit(1); 
+                                                    }
                                                  }
                                              }
                                         }
@@ -289,6 +323,18 @@ async fn main() {
                 match client.call_method::<serde_json::Value, serde_json::Value>("buyModelNFT", req).await {
                     Ok(res) => println!("✅ Purchased: {}", res),
                     Err(e) => println!("❌ Error: {}", e),
+                }
+            },
+            Commands::TrainModels => {
+                println!("🧠 Starting Training Job for All Signal Models...");
+                match crate::layer3::signal_model::train_all_signal_models().await {
+                    Ok(paths) => {
+                        println!("✅ Training Complete. Models saved:");
+                        for p in paths {
+                            println!(" - {}", p);
+                        }
+                    },
+                    Err(e) => println!("❌ Training Failed: {}", e),
                 }
             },
         }
