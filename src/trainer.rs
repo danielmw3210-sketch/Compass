@@ -84,11 +84,25 @@ impl AutoTrainer {
 }
 
 async fn fetch_price() -> Result<f64, String> {
-    let url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
+    // Use Kraken API (Binance is geo-blocked in US)
+    let url = "https://api.kraken.com/0/public/Ticker?pair=XXBTZUSD";
     let resp = reqwest::get(url).await.map_err(|e| e.to_string())?
         .json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
     
-    resp["price"].as_str()
+    // Check for errors
+    if let Some(errors) = resp.get("error").and_then(|e| e.as_array()) {
+        if !errors.is_empty() {
+            return Err(format!("Kraken error: {:?}", errors));
+        }
+    }
+    
+    // Extract price from result.XXBTZUSD.c[0] (last trade price)
+    resp.get("result")
+        .and_then(|r| r.get("XXBTZUSD"))
+        .and_then(|t| t.get("c"))
+        .and_then(|c| c.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|p| p.as_str())
         .ok_or("No price field".to_string())?
         .parse::<f64>()
         .map_err(|e| e.to_string())

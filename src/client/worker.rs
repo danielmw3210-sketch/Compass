@@ -31,19 +31,45 @@ impl AiWorker {
         let worker_id = self.keypair.public_key_hex();
         println!("🤖 P2P Verified Compute Worker Started.");
         println!("   Worker ID: {}", worker_id);
-        println!("   Listening on topic: {}", TOPIC_COMPUTE_JOBS);
+        println!("   Node URL: {}", self._client.node_url);
+        println!("   Polling for jobs every 5 seconds...\n");
 
         loop {
-            tokio::select! {
-                Ok((msg, _source)) = self.gossip_rx.recv() => {
-                    match msg {
-                        NetMessage::ComputeJob(job) => {
-                            self.handle_job(job).await;
-                        }
-                        _ => {}
+            // Poll for pending jobs via RPC
+            match self.poll_pending_jobs().await {
+                Ok(jobs) if !jobs.is_empty() => {
+                    println!("📋 Found {} pending job(s)", jobs.len());
+                    for job in jobs {
+                        self.handle_job(job).await;
                     }
                 }
+                Ok(_) => {
+                    // No jobs, continue polling
+                }
+                Err(e) => {
+                    println!("⚠️ Failed to fetch jobs: {}", e);
+                }
             }
+            
+            // Wait before next poll
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+    }
+    
+    async fn poll_pending_jobs(&self) -> Result<Vec<ComputeJob>, String> {
+        let resp = self._client.call_method::<serde_json::Value, serde_json::Value>(
+            "getPendingComputeJobs",
+            serde_json::json!({ "worker_id": self.keypair.public_key_hex() })
+        ).await.map_err(|e| format!("RPC error: {}", e))?;
+        
+        // Parse jobs from response
+        if let Some(jobs_arr) = resp.get("jobs").and_then(|j| j.as_array()) {
+            let jobs: Vec<ComputeJob> = jobs_arr.iter()
+                .filter_map(|j| serde_json::from_value(j.clone()).ok())
+                .collect();
+            Ok(jobs)
+        } else {
+            Ok(vec![])
         }
     }
 

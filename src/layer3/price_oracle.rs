@@ -34,23 +34,55 @@ impl PriceOracle {
         }
     }
 
-    /// Fetch current price from Binance
+    /// Fetch current price from Kraken (US-friendly, Binance is geo-blocked)
     pub async fn fetch_binance_price(ticker: &str) -> Result<f64, String> {
+        // Convert ticker format: BTCUSDT -> XXBTZUSD, ETHUSDT -> XETHZUSD
+        let kraken_pair = match ticker {
+            "BTCUSDT" => "XXBTZUSD",
+            "ETHUSDT" => "XETHZUSD",
+            "SOLUSDT" => "SOLUSD",
+            "LTCUSDT" => "XLTCZUSD",
+            _ => return Err(format!("Unsupported ticker: {}", ticker)),
+        };
+        
         let url = format!(
-            "https://api.binance.com/api/v3/ticker/price?symbol={}",
-            ticker
+            "https://api.kraken.com/0/public/Ticker?pair={}",
+            kraken_pair
         );
 
-        let response: BinanceTickerResponse = reqwest::get(&url)
+        let response = reqwest::get(&url)
             .await
-            .map_err(|e| format!("HTTP error: {}", e))?
+            .map_err(|e| format!("HTTP error: {}", e))?;
+        
+        let json: serde_json::Value = response
             .json()
             .await
             .map_err(|e| format!("JSON parse error: {}", e))?;
-
-        response
-            .price
-            .parse::<f64>()
+        
+        // Check for errors
+        if let Some(errors) = json.get("error").and_then(|e| e.as_array()) {
+            if !errors.is_empty() {
+                return Err(format!("Kraken API error: {:?}", errors));
+            }
+        }
+        
+        // Extract price from result
+        // Kraken returns: {"result": {"XXBTZUSD": {"c": ["97234.00000", "0.01"]}}}  
+        // "c" is the last trade closed [price, volume]
+        let result = json.get("result")
+            .ok_or("No result field")?;
+        
+        let ticker_data = result.as_object()
+            .and_then(|obj| obj.values().next())
+            .ok_or("No ticker data")?;
+        
+        let price_str = ticker_data.get("c")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|p| p.as_str())
+            .ok_or("No price in response")?;
+        
+        price_str.parse::<f64>()
             .map_err(|e| format!("Price parse error: {}", e))
     }
 
