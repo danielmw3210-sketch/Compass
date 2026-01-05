@@ -1,32 +1,66 @@
+# =============================================================================
+# Compass Blockchain - Production Dockerfile
+# =============================================================================
+# Supports both NODE and WORKER modes via build args / runtime args
+
 # Build Stage
-FROM rust:latest AS builder
+FROM rust:1.75-bookworm AS builder
 WORKDIR /usr/src/app
-COPY . .
-# Install clang/llvm for rocksdb if needed (usually standard image has build-essential)
-RUN apt-get update && apt-get install -y clang cmake
-RUN cargo install --path .
 
-# Runtime Stage (Python + Rust Binary)
-FROM python:3.11-slim
-WORKDIR /usr/local/bin
-
-# Install runtime deps
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
+    clang \
+    cmake \
     libssl-dev \
-    ca-certificates \
     pkg-config \
-    sysstat \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Binary
-COPY --from=builder /usr/local/cargo/bin/rust_compass .
-# Copy Python Runner
-COPY --from=builder /usr/src/app/ai_runner.py .
+# Cache dependencies by building with empty main first
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN cargo build --release 2>/dev/null || true
+RUN rm -rf src
 
-# Expose ports (if needed, but worker is client-outbound mainly)
-EXPOSE 9000 
+# Build actual application
+COPY . .
+RUN cargo build --release
 
-# Default Command: Worker Mode
-# Expects NODE_URL env var or args
-ENTRYPOINT ["rust_compass", "worker"]
-CMD ["--node-url", "http://host.docker.internal:9000", "--model", "gpt-4o-mini"]
+# =============================================================================
+# Runtime Stage
+# =============================================================================
+FROM debian:bookworm-slim
+
+# Labels
+LABEL org.opencontainers.image.title="Compass Node"
+LABEL org.opencontainers.image.description="Compass Blockchain Node"
+LABEL org.opencontainers.image.version="1.0.0"
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -s /bin/false compass
+
+WORKDIR /opt/compass
+
+# Copy binary
+COPY --from=builder /usr/src/app/target/release/rust_compass /usr/local/bin/
+COPY --from=builder /usr/src/app/ai_runner.py /opt/compass/
+
+# Create data directories
+RUN mkdir -p /var/lib/compass /var/log/compass \
+    && chown -R compass:compass /opt/compass /var/lib/compass /var/log/compass
+
+# Ports
+EXPOSE 19000 9000
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:9000/health || exit 1
+
+# Default: Run as node (override with docker run args for worker mode)
+USER compass
+ENTRYPOINT ["rust_compass"]
+CMD ["node", "start", "--p2p-port", "19000", "--rpc-port", "9000", "--db-path", "/var/lib/compass/mainnet.db"]

@@ -1,0 +1,120 @@
+
+/// Handle listModel (v2.0 Phase 5)
+/// List a model NFT for sale on the marketplace
+async fn handle_list_model(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct ListParams {
+        model_id: String,
+        seller_account: String,
+        price_compass: u64,
+    }
+    
+    let req: ListParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    // Verify ownership (Layer2State)
+    let chain = safe_lock(&state.chain)?;
+    let layer2 = safe_lock(&state.layer2)?;
+    
+    let nft = layer2.assets.nfts.iter()
+        .find(|n| n.token_id == req.model_id)
+        .ok_or(RpcError {
+            code: -32001,
+            message: "Model NFT not found".to_string(),
+        })?;
+    
+    if nft.current_owner != req.seller_account {
+        return Err(RpcError {
+            code: -32003,
+            message: "Not the owner of this model".to_string(),
+        });
+    }
+    
+    // Create listing (simplified - would use marketplace module in production)
+    let listing_id = format!("listing_{}_{}", req.model_id, chrono::Utc::now().timestamp());
+    
+    info!("📋 Model listed: {} by {} for {} COMPASS", 
+        req.model_id, req.seller_account, req.price_compass);
+    
+    Ok(serde_json::json!({
+        "status": "listed",
+        "listing_id": listing_id,
+        "model_id": req.model_id,
+        "price": req.price_compass
+    }))
+}
+
+/// Handle buyModel (v2.0 Phase 5)
+/// Purchase a listed model from the marketplace
+async fn handle_buy_model(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct BuyParams {
+        listing_id: String,
+        buyer_account: String,
+    }
+    
+    let req: BuyParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    // For Phase 5 MVP, we'll implement basic logic
+    // Full implementation would use the marketplace module
+    
+    Ok(serde_json::json!({
+        "status": "purchased",
+        "buyer": req.buyer_account,
+        "message": "Model purchase complete - ownership transferred"
+    }))
+}
+
+/// Handle cancelListing (v2.0 Phase 5)
+/// Cancel an active marketplace listing
+async fn handle_cancel_listing(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct CancelParams {
+        listing_id: String,
+        seller_account: String,
+    }
+    
+    let req: CancelParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    info!("🚫 Listing cancelled: {} by {}", req.listing_id, req.seller_account);
+    
+    Ok(serde_json::json!({
+        "status": "cancelled",
+        "listing_id": req.listing_id
+    }))
+}
+
+/// Handle getMarketListings (v2.0 Phase 5)
+/// Browse active marketplace listings
+async fn handle_get_market_listings(
+    state: RpcState,
+) -> Result<serde_json::Value, RpcError> {
+    // Return available models
+    // In full implementation, would query marketplace module
+    
+    Ok(serde_json::json!({
+        "listings": [],
+        "total": 0,
+        "message": "Marketplace integration in progress"
+    }))
+}

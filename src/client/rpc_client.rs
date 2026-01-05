@@ -392,4 +392,17 @@ impl RpcClient {
         let res = self.send_request("getOraclePrices", serde_json::json!(null)).await?;
         serde_json::from_value(res).map_err(|e| format!("Parse error: {}", e))
     }
+
+    pub async fn get_latest_signal(&self, ticker: &str) -> Result<serde_json::Value, String> {
+        let params = serde_json::json!({
+            "ticker": ticker,
+            "subscriber": "admin"
+        });
+        self.send_request("getLatestSignal", params).await
+    }
+    
+    pub async fn get_paper_trading_stats(&self) -> Result<crate::layer3::paper_trading::TradingPortfolio, String> {
+        let res = self.send_request("getPaperTradingStats", serde_json::json!(null)).await?;
+        serde_json::from_value(res).map_err(|e| format!("Parse error: {}", e))
+    }
 }

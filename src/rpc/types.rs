@@ -261,6 +261,23 @@ pub struct MintModelNFTParams {
     pub name: String,
     pub description: String,
     pub signature: String,
+    
+    // NFT Statistics (preserves model performance data)
+    pub accuracy: f64,
+    pub generation: u32,
+    pub training_epochs: u64,
+    pub total_predictions: u64,
+    pub win_rate: f64,
+    pub profitable_predictions: u64,
+    pub total_profit: i64,
+    pub training_samples: u64,
+    pub final_loss: f64,
+    pub training_duration_seconds: u64,
+    
+    // Model Metadata
+    pub architecture: String,
+    pub parent_models: Vec<String>,
+    pub mint_price: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

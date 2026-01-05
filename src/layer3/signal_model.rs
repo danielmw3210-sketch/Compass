@@ -12,9 +12,10 @@ use smartcore::linalg::basic::matrix::DenseMatrix;
 use smartcore::ensemble::random_forest_classifier::RandomForestClassifierParameters;
 
 /// Trading signal classification labels
-const LABEL_SELL: f64 = 0.0;
-const LABEL_HOLD: f64 = 1.0;
-const LABEL_BUY: f64 = 2.0;
+/// Trading signal classification labels (Used in training thresholds)
+pub const LABEL_SELL: f64 = 0.0;
+pub const LABEL_HOLD: f64 = 1.0;
+pub const LABEL_BUY: f64 = 2.0;
 
 /// Supported tickers for signal models
 pub const SIGNAL_TICKERS: [&str; 4] = ["BTCUSDT", "SOLUSDT", "LTCUSDT", "ETHUSDT"];
@@ -33,11 +34,10 @@ fn calculate_sma(prices: &[f64], period: usize) -> Vec<f64> {
 fn calculate_ema(prices: &[f64], period: usize) -> Vec<f64> {
     let k = 2.0 / (period as f64 + 1.0);
     let mut ema = vec![0.0; prices.len()];
-    let mut sma_start = 0.0;
     
     // Initial SMA for first EMA point
     if prices.len() > period {
-        sma_start = prices[0..period].iter().sum::<f64>() / period as f64;
+        let sma_start = prices[0..period].iter().sum::<f64>() / period as f64;
         ema[period - 1] = sma_start;
         
         for i in period..prices.len() {
@@ -121,6 +121,55 @@ fn calculate_rsi(prices: &[f64], period: usize) -> Vec<f64> {
     rsi
 }
 
+/// Calculate Average True Range (ATR) - Volatility Indicator
+fn calculate_atr(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<f64> {
+    let mut tr = vec![0.0; highs.len()];
+    
+    // True Range = max(high-low, |high-prev_close|, |low-prev_close|)
+    for i in 1..highs.len() {
+        let h_l = highs[i] - lows[i];
+        let h_c = (highs[i] - closes[i-1]).abs();
+        let l_c = (lows[i] - closes[i-1]).abs();
+        tr[i] = h_l.max(h_c).max(l_c);
+    }
+    
+    // ATR is EMA of True Range
+    calculate_ema(&tr, period)
+}
+
+/// Calculate Stochastic Oscillator - Momentum Indicator
+fn calculate_stochastic(highs: &[f64], lows: &[f64], closes: &[f64], period: usize) -> Vec<f64> {
+    let mut k = vec![50.0; closes.len()];
+    
+    for i in period..closes.len() {
+        let lowest = lows[i-period..i].iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let highest = highs[i-period..i].iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        
+        if highest != lowest {
+            k[i] = ((closes[i] - lowest) / (highest - lowest)) * 100.0;
+        }
+    }
+    k
+}
+
+/// Calculate On-Balance Volume (OBV) - Volume-based Trend Indicator
+fn calculate_obv(closes: &[f64], volumes: &[f64]) -> Vec<f64> {
+    let mut obv = vec![0.0; closes.len()];
+    if closes.is_empty() { return obv; }
+    
+    obv[0] = volumes[0];
+    for i in 1..closes.len() {
+        obv[i] = obv[i-1] + if closes[i] > closes[i-1] { 
+            volumes[i] 
+        } else if closes[i] < closes[i-1] { 
+            -volumes[i] 
+        } else { 
+            0.0 
+        };
+    }
+    obv
+}
+
 // --- Main Training Logic ---
 
 /// Train a signal model for the specified ticker
@@ -139,16 +188,29 @@ pub async fn train_signal_model(ticker: &str) -> Result<String, Box<dyn Error + 
     let resp = client.get(url).query(&params).send().await?;
     let json_data: Vec<serde_json::Value> = resp.json().await?;
     
+    let mut high_prices: Vec<f64> = Vec::new();
+    let mut low_prices: Vec<f64> = Vec::new();
     let mut close_prices: Vec<f64> = Vec::new();
     let mut volumes: Vec<f64> = Vec::new();
     
     for k in &json_data {
+        // Binance klines format: [time, open, high, low, close, volume, ...]
+        if let Some(h_str) = k[2].as_str() {
+            if let Ok(h) = h_str.parse::<f64>() {
+                high_prices.push(h);
+            }
+        }
+        if let Some(l_str) = k[3].as_str() {
+            if let Ok(l) = l_str.parse::<f64>() {
+                low_prices.push(l);
+            }
+        }
         if let Some(c_str) = k[4].as_str() {
             if let Ok(p) = c_str.parse::<f64>() {
                 close_prices.push(p);
             }
         }
-        if let Some(v_str) = k[5].as_str() { // Volume is index 5
+        if let Some(v_str) = k[5].as_str() {
              if let Ok(v) = v_str.parse::<f64>() {
                  volumes.push(v);
              }
@@ -161,13 +223,18 @@ pub async fn train_signal_model(ticker: &str) -> Result<String, Box<dyn Error + 
 
     println!("🧠 [Signal Model] Computing indicators for {} candles...", close_prices.len());
 
-    // 2. Compute Indicators (Batch)
+    // 2. Compute Indicators (Batch) - ENHANCED with ATR, Stochastic, OBV
     let sma_20 = calculate_sma(&close_prices, 20);
     let sma_50 = calculate_sma(&close_prices, 50);
     let sma_200 = calculate_sma(&close_prices, 200);
     let (_, _, macd_hist) = calculate_macd(&close_prices);
     let (bb_mid, bb_upper, bb_lower) = calculate_bollinger_bands(&close_prices, 20);
     let rsi = calculate_rsi(&close_prices, 14);
+    
+    // NEW INDICATORS (Week 1 Enhancement)
+    let atr = calculate_atr(&high_prices, &low_prices, &close_prices, 14);
+    let stochastic = calculate_stochastic(&high_prices, &low_prices, &close_prices, 14);
+    let obv = calculate_obv(&close_prices, &volumes);
 
     // 3. Prepare Features and Labels
     let look_ahead = 6; // Predict 30 mins ahead (6 * 5m)
@@ -178,7 +245,7 @@ pub async fn train_signal_model(ticker: &str) -> Result<String, Box<dyn Error + 
     }
     
     let n_samples = close_prices.len() - start_idx - look_ahead;
-    // Features:
+    // ENHANCED Features (11 total - was 8):
     // 0: RSI
     // 1: MACD Histogram
     // 2: BB Width % ((Upper-Lower)/Mid)
@@ -186,8 +253,11 @@ pub async fn train_signal_model(ticker: &str) -> Result<String, Box<dyn Error + 
     // 4: SMA 20/50 Divergence %
     // 5: SMA 50/200 Divergence %
     // 6: Price Change % (Last 5 candles)
-    // 7: Volume Change % (vs SMA 20 volume) - simplified to just last/avg
-    let n_features = 8;
+    // 7: Volume Ratio (Current / Avg last 20)
+    // 8: ATR (Volatility) - NEW
+    // 9: Stochastic Oscillator - NEW
+    // 10: OBV Momentum - NEW
+    let n_features = 11;
     
     let mut x_data: Vec<f64> = Vec::with_capacity(n_samples * n_features);
     let mut y_data: Vec<u32> = Vec::with_capacity(n_samples);
@@ -218,13 +288,26 @@ pub async fn train_signal_model(ticker: &str) -> Result<String, Box<dyn Error + 
         x_data.push(div_50_200);
         
         // Feature 6: Price Momentum (5 candles)
-        let mom_Price = if close_prices[i-5] != 0.0 { (price - close_prices[i-5]) / close_prices[i-5] } else { 0.0 };
-        x_data.push(mom_Price);
+        let mom_price = if close_prices[i-5] != 0.0 { (price - close_prices[i-5]) / close_prices[i-5] } else { 0.0 };
+        x_data.push(mom_price);
         
         // Feature 7: Volume Ratio (Current / Avg last 20)
         let vol_avg: f64 = volumes[i-20..i].iter().sum::<f64>() / 20.0;
         let vol_ratio = if vol_avg != 0.0 { volumes[i] / vol_avg } else { 1.0 };
         x_data.push(vol_ratio);
+        
+        // Feature 8: ATR (Normalized by price - volatility %)
+        let atr_pct = if price != 0.0 { atr[i] / price } else { 0.0 };
+        x_data.push(atr_pct);
+        
+        // Feature 9: Stochastic Oscillator (already 0-100 scale)
+        x_data.push(stochastic[i]);
+        
+        // Feature 10: OBV Momentum (change in OBV over last 5 periods)
+        let obv_momentum = if i >= 5 && obv[i-5] != 0.0 {
+            (obv[i] - obv[i-5]) / obv[i-5].abs()
+        } else { 0.0 };
+        x_data.push(obv_momentum);
         
         // Label: Look Ahead
         let future_price = close_prices[i + look_ahead];
@@ -323,11 +406,11 @@ pub fn predict_signal(ticker: &str, features: &[f64]) -> Result<u32, Box<dyn Err
     let rf: RandomForestClassifier<f64, u32, DenseMatrix<f64>, Vec<u32>> = bincode::deserialize(&model_bytes)?;
     
     // Create input matrix [1, n_features]
-    // NOTE: This assumes 'features' passed in matches the training set (8 features)
+    // NOTE: This assumes 'features' passed in matches the training set (11 features - ENHANCED)
     // The calling code (oracle_scheduler) needs to prepare these features.
     
-    if features.len() != 8 {
-        return Err(format!("Model expects 8 features, got {}", features.len()).into());
+    if features.len() != 11 {
+        return Err(format!("Model expects 11 features, got {}", features.len()).into());
     }
     
     println!("🔍 [Model Inference] {} | Features: {:?}", ticker, features);
@@ -342,27 +425,37 @@ pub fn predict_signal(ticker: &str, features: &[f64]) -> Result<u32, Box<dyn Err
 }
 
 /// Compute features for the *last* candle in the series, for inference.
-/// Returns the 8-feature vector expected by the model.
-pub fn compute_inference_features(prices: &[f64], volumes: &[f64]) -> Result<Vec<f64>, String> {
-    if prices.len() < 200 {
-        return Err(format!("Insufficient data: {}/200 candles needed for SMA200", prices.len()));
+/// Returns the 11-feature vector expected by the enhanced model.
+pub fn compute_inference_features(
+    highs: &[f64],
+    lows: &[f64],
+    closes: &[f64],
+    volumes: &[f64]
+) -> Result<Vec<f64>, String> {
+    if closes.len() < 200 {
+        return Err(format!("Insufficient data: {}/200 candles needed for SMA200", closes.len()));
     }
     
-    let i = prices.len() - 1; // Last index
-    let price = prices[i];
+    let i = closes.len() - 1; // Last index
+    let price = closes[i];
     
     // 1. Indicators
     // Note: This computes indicators for the whole series, which is inefficient for just 1 point
     // but correct and robust. Optimization: incremental calculation.
     
-    let sma_20 = calculate_sma(prices, 20);
-    let sma_50 = calculate_sma(prices, 50);
-    let sma_200 = calculate_sma(prices, 200);
-    let (_, _, macd_hist) = calculate_macd(prices);
-    let (bb_mid, bb_upper, bb_lower) = calculate_bollinger_bands(prices, 20);
-    let rsi = calculate_rsi(prices, 14);
+    let sma_20 = calculate_sma(closes, 20);
+    let sma_50 = calculate_sma(closes, 50);
+    let sma_200 = calculate_sma(closes, 200);
+    let (_, _, macd_hist) = calculate_macd(closes);
+    let (bb_mid, bb_upper, bb_lower) = calculate_bollinger_bands(closes, 20);
+    let rsi = calculate_rsi(closes, 14);
     
-    let mut features = Vec::with_capacity(8);
+    // NEW INDICATORS (Week 1 Enhancement)
+    let atr = calculate_atr(highs, lows, closes, 14);
+    let stochastic = calculate_stochastic(highs, lows, closes, 14);
+    let obv = calculate_obv(closes, volumes);
+    
+    let mut features = Vec::with_capacity(11);
     
     // Feature 0: RSI
     features.push(rsi[i]);
@@ -387,13 +480,26 @@ pub fn compute_inference_features(prices: &[f64], volumes: &[f64]) -> Result<Vec
     features.push(div_50_200);
     
     // Feature 6: Price Momentum (5 candles)
-    let mom_price = if i >= 5 && prices[i-5] != 0.0 { (price - prices[i-5]) / prices[i-5] } else { 0.0 };
+    let mom_price = if i >= 5 && closes[i-5] != 0.0 { (price - closes[i-5]) / closes[i-5] } else { 0.0 };
     features.push(mom_price);
     
     // Feature 7: Volume Ratio
     let vol_avg: f64 = if i >= 20 { volumes[i-20..i].iter().sum::<f64>() / 20.0 } else { volumes[i] };
     let vol_ratio = if vol_avg != 0.0 { volumes[i] / vol_avg } else { 1.0 };
     features.push(vol_ratio);
+    
+    // Feature 8: ATR (Normalized by price - volatility %)
+    let atr_pct = if price != 0.0 { atr[i] / price } else { 0.0 };
+    features.push(atr_pct);
+    
+    // Feature 9: Stochastic Oscillator (already 0-100 scale)
+    features.push(stochastic[i]);
+    
+    // Feature 10: OBV Momentum (change in OBV over last 5 periods)
+    let obv_momentum = if i >= 5 && obv[i-5] != 0.0 {
+        (obv[i] - obv[i-5]) / obv[i-5].abs()
+    } else { 0.0 };
+    features.push(obv_momentum);
     
     Ok(features)
 }

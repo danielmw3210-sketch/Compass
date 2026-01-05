@@ -6,7 +6,7 @@ use tokio::sync::broadcast;
 use sha2::Digest;
 
 pub struct AiWorker {
-    client: RpcClient, // Still needed for result submission to chain? No, gossip now.
+    _client: RpcClient, // Still needed for result submission to chain? No, gossip now.
     gossip_tx: broadcast::Sender<(NetMessage, String)>,
     gossip_rx: broadcast::Receiver<(NetMessage, String)>,
     keypair: KeyPair,
@@ -20,7 +20,7 @@ impl AiWorker {
     ) -> Self {
         let gossip_rx = gossip_tx.subscribe();
         AiWorker {
-            client: RpcClient::new(node_url),
+            _client: RpcClient::new(node_url),
             gossip_tx,
             gossip_rx,
             keypair,

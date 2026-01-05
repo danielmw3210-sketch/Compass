@@ -1,14 +1,60 @@
 version: '3.8'
 
 services:
-  compass-worker:
-    build: .
-    image: compass-worker:latest
+  # ==========================================================================
+  # Compass Node (Leader/Validator)
+  # ==========================================================================
+  compass-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: compass-node:mainnet
+    container_name: compass-node
     restart: always
-    # REPLACE http://1.2.3.4:9000 with your Admin Node's Public IP
-    command: ["--node-url", "http://1.2.3.4:9000", "--model", "gpt-4o-mini"]
+    ports:
+      - "19000:19000" # P2P
+      - "9000:9000" # RPC
+    volumes:
+      - compass-data:/var/lib/compass
+      - ./admin.json:/opt/compass/admin.json:ro
+      - ./genesis.json:/opt/compass/genesis.json:ro
+    environment:
+      - RUST_LOG=info
+    command: [ "node", "start", "--p2p-port", "19000", "--rpc-port", "9000", "--db-path", "/var/lib/compass/mainnet.db" ]
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================================================
+  # Compass Worker (AI Compute)
+  # ==========================================================================
+  compass-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: compass-worker:mainnet
+    container_name: compass-worker
+    restart: always
+    depends_on:
+      compass-node:
+        condition: service_healthy
+    environment:
+      - RUST_LOG=info
+    command: [ "worker", "--node-url", "http://compass-node:9000", "--model", "gpt-4o-mini" ]
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  compass-data:
+    driver: local

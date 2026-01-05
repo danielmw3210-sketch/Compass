@@ -129,11 +129,86 @@ impl TradingSignal {
     }
 }
 
+/// Prediction timeframe for multi-horizon forecasting
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum PredictionTimeframe {
+    FiveMinutes,
+    ThirtyMinutes,
+    OneHour,
+    ThreeHours,
+    SixHours,
+    TwentyFourHours,
+}
+
+impl PredictionTimeframe {
+    /// Get duration in seconds
+    pub fn seconds(&self) -> u64 {
+        match self {
+            Self::FiveMinutes => 300,
+            Self::ThirtyMinutes => 1800,
+            Self::OneHour => 3600,
+            Self::ThreeHours => 10800,
+            Self::SixHours => 21600,
+            Self::TwentyFourHours => 86400,
+        }
+    }
+    
+    /// Get number of 5-minute candles
+    pub fn candles(&self) -> usize {
+        match self {
+            Self::FiveMinutes => 1,
+            Self::ThirtyMinutes => 6,
+            Self::OneHour => 12,
+            Self::ThreeHours => 36,
+            Self::SixHours => 72,
+            Self::TwentyFourHours => 288,
+        }
+    }
+    
+    /// Get model suffix for file naming
+    pub fn model_suffix(&self) -> &'static str {
+        match self {
+            Self::FiveMinutes => "5m",
+            Self::ThirtyMinutes => "30m",
+            Self::OneHour => "1h",
+            Self::ThreeHours => "3h",
+            Self::SixHours => "6h",
+            Self::TwentyFourHours => "24h",
+        }
+    }
+    
+    /// Display name
+    pub fn display(&self) -> &'static str {
+        match self {
+            Self::FiveMinutes => "5min",
+            Self::ThirtyMinutes => "30min",
+            Self::OneHour => "1hr",
+            Self::ThreeHours => "3hr",
+            Self::SixHours => "6hr",
+            Self::TwentyFourHours => "24hr",
+        }
+    }
+    
+    /// All supported timeframes
+    pub fn all() -> Vec<Self> {
+        vec![
+            Self::FiveMinutes,
+            Self::ThirtyMinutes,
+            Self::OneHour,
+            Self::ThreeHours,
+            Self::SixHours,
+            Self::TwentyFourHours,
+        ]
+    }
+}
+
 /// A single price/signal prediction with verification tracking
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PredictionRecord {
     pub id: String,
     pub ticker: String,
+    #[serde(default = "default_owner")]
+    pub owner: String, // NEW: Owner of the model making this prediction
     pub model_id: String,
     
     // Prediction data
@@ -141,6 +216,10 @@ pub struct PredictionRecord {
     pub predicted_signal: TradingSignal,
     pub confidence: f64,
     pub prediction_time: u64,
+    
+    // Multi-timeframe support
+    pub timeframe: PredictionTimeframe,
+    pub target_timestamp: u64,  // When to verify (prediction_time + timeframe.seconds())
     
     // Verification data (filled in later)
     pub actual_price: Option<f64>,
@@ -160,28 +239,38 @@ impl PredictionRecord {
         predicted_signal: TradingSignal,
         confidence: f64,
         epoch: u32,
+        timeframe: PredictionTimeframe,  // NEW parameter
     ) -> Self {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
         
-        let id = format!("PRED_{}_{}", ticker, now);
+        let target_timestamp = now + timeframe.seconds();
+        let id = format!("PRED_{}_{}_{}", ticker, timeframe.model_suffix(), now);
         
         Self {
             id,
             ticker: ticker.to_string(),
+            owner: "admin".to_string(), // Default to admin for legacy/system predictions
             model_id: model_id.to_string(),
             predicted_price,
             predicted_signal,
             confidence,
             prediction_time: now,
+            timeframe,
+            target_timestamp,
             actual_price: None,
             actual_signal: None,
             is_correct: None,
             verification_time: None,
             epoch,
         }
+    }
+
+    pub fn with_owner(mut self, owner: &str) -> Self {
+        self.owner = owner.to_string();
+        self
     }
 
     /// Verify this prediction against actual price
@@ -199,7 +288,7 @@ impl PredictionRecord {
         // For price: within 1% is considered correct
         // For signal: exact match
         let price_error = ((actual_price - self.predicted_price) / self.predicted_price).abs();
-        let price_correct = price_error < 0.01; // 1% tolerance
+        let _price_correct = price_error < 0.01; // 1% tolerance
         let signal_correct = self.predicted_signal == actual_signal;
         
         // Overall correctness: signal must match (more important)
@@ -241,6 +330,8 @@ impl Default for EpochConfig {
 pub struct ModelEpochState {
     pub model_id: String,
     pub ticker: String,
+    #[serde(default = "default_owner")]
+    pub owner: String, // NEW: Owner account
     pub config: EpochConfig,
     
     // Current epoch stats
@@ -261,11 +352,16 @@ pub struct ModelEpochState {
     pub nft_token_id: Option<String>,
 }
 
+fn default_owner() -> String {
+    "admin".to_string()
+}
+
 impl ModelEpochState {
     pub fn new(model_id: &str, ticker: &str, config: EpochConfig) -> Self {
         Self {
             model_id: model_id.to_string(),
             ticker: ticker.to_string(),
+            owner: "admin".to_string(), // Default
             config,
             current_epoch: 1,
             predictions_in_epoch: 0,
@@ -277,6 +373,11 @@ impl ModelEpochState {
             nft_minted: false,
             nft_token_id: None,
         }
+    }
+
+    pub fn with_owner(mut self, owner: &str) -> Self {
+        self.owner = owner.to_string();
+        self
     }
 
     /// Record a verified prediction

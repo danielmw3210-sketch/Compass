@@ -1,0 +1,136 @@
+
+// Phase 7: Paper Trading Tab Implementation
+impl CompassApp {
+    pub(crate) fn render_paper_trading(&mut self, ui: &mut egui::Ui) {
+        ui.heading("📊 Paper Trading Dashboard");
+        ui.add_space(10.0);
+        
+        // Stats summary
+        ui.horizontal(|ui| {
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("Total P&L");
+                    let color = if self.total_pnl >= 0 {
+                        egui::Color32::GREEN
+                    } else {
+                        egui::Color32::RED
+                    };
+                    ui.colored_label(color, format!("{} COMPASS", self.total_pnl));
+                });
+            });
+            
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("Win Rate");
+                    ui.label(format!("{:.1}%", self.win_rate * 100.0));
+                });
+            });
+            
+            ui.group(|ui| {
+                ui.vertical(|ui| {
+                    ui.label("Active Positions");
+                    ui.label(format!("{}", self.active_positions.len()));
+                });
+            });
+        });
+        
+        ui.add_space(10.0);
+        ui.separator();
+        
+        // Latest Signals
+        ui.heading("Latest Signals");
+        ui.group(|ui| {
+            egui::Grid::new("signals_grid")
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("Ticker");
+                    ui.label("Signal");
+                    ui.label("Confidence");
+                    ui.label("Time");
+                    ui.end_row();
+                    
+                    for signal in &self.latest_signals {
+                        ui.label(&signal.ticker);
+                        
+                        let (color, emoji) = match signal.action.as_str() {
+                            "BUY" => (egui::Color32::GREEN, "📈"),
+                            "SELL" => (egui::Color32::RED, "📉"),
+                            _ => (egui::Color32::GRAY, "⏸"),
+                        };
+                        ui.colored_label(color, format!("{} {}", emoji, signal.action));
+                        
+                        ui.label(format!("{:.1}%", signal.confidence * 100.0));
+                        ui.label(format_timestamp(signal.timestamp));
+                        ui.end_row();
+                    }
+                });
+        });
+        
+        ui.add_space(10.0);
+        
+        // Active Positions
+        ui.heading("Active Positions");
+        ui.group(|ui| {
+            if self.active_positions.is_empty() {
+                ui.label("No active positions");
+            } else {
+                egui::Grid::new("positions_grid")
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Ticker");
+                        ui.label("Direction");
+                        ui.label("Entry");
+                        ui.label("Current");
+                        ui.label("P&L");
+                        ui.end_row();
+                        
+                        for pos in &self.active_positions {
+                            ui.label(&pos.ticker);
+                            ui.label(&pos.direction);
+                            ui.label(format!("${:.2}", pos.entry_price));
+                            ui.label(format!("${:.2}", pos.current_price));
+                            
+                            let color = if pos.pnl >= 0 {
+                                egui::Color32::GREEN
+                            } else {
+                                egui::Color32::RED
+                            };
+                            ui.colored_label(color, format!("{} COMPASS", pos.pnl));
+                            ui.end_row();
+                        }
+                    });
+            }
+        });
+        
+        ui.add_space(10.0);
+        
+        if ui.button("🔄 Refresh Data").clicked() {
+            self.refresh_paper_trading();
+        }
+    }
+    
+    fn refresh_paper_trading(&mut self) {
+        // TODO: Call RPC to get latest signals and positions
+        // For now, add mock data
+        self.latest_signals = vec![
+            Signal {
+                ticker: "BTC".to_string(),
+                action: "BUY".to_string(),
+                confidence: 0.85,
+                timestamp: chrono::Utc::now().timestamp() as u64,
+            },
+            Signal {
+                ticker: "ETH".to_string(),
+                action: "HOLD".to_string(),
+                confidence: 0.62,
+                timestamp: chrono::Utc::now().timestamp() as u64,
+            },
+        ];
+    }
+}
+
+fn format_timestamp(ts: u64) -> String {
+    use chrono::{DateTime, Utc};
+    let dt = DateTime::<Utc>::from_timestamp(ts as i64, 0).unwrap();
+    dt.format("%H:%M:%S").to_string()
+}

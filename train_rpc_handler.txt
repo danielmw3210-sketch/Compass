@@ -1,0 +1,47 @@
+// Add this to src/rpc/handlers.rs dispatcher
+
+// In the match statement, add:
+"trainModel" => handle_train_model(state.clone(), req.params).await,
+
+// Then add this handler function:
+
+#[derive(serde::Deserialize)]
+struct TrainModelParams {
+    ticker: String,
+    account_name: String,
+}
+
+async fn handle_train_model(
+    state: RpcState,
+    params: Option<serde_json::Value>,
+) -> Result<serde_json::Value, RpcError> {
+    let params: TrainModelParams = if let Some(p) = params {
+        serde_json::from_value(p).map_err(|e| RpcError::InvalidParams(e.to_string()))?
+    } else {
+        return Err(RpcError::InvalidParams("Missing params".to_string()));
+    };
+
+    // Start training in background
+    let ticker = params.ticker.clone();
+    tokio::spawn(async move {
+        use crate::layer3::signal_model;
+        
+        println!("[RPC] Starting training for {}", ticker);
+        
+        // Train the model
+        match signal_model::train_and_save_model(&ticker).await {
+            Ok(_) => {
+                println!("[RPC] Training completed for {}", ticker);
+            }
+            Err(e) => {
+                eprintln!("[RPC] Training failed for {}: {}", ticker, e);
+            }
+        }
+    });
+
+    Ok(serde_json::json!({
+        "status": "training_started",
+        "ticker": params.ticker,
+        "message": format!("Training started for {}", params.ticker)
+    }))
+}

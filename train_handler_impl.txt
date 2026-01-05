@@ -1,0 +1,42 @@
+// Add to end of src/rpc/handlers.rs (before the final closing brace)
+
+// Phase 7: Model Training RPC Handler
+#[derive(serde::Deserialize)]
+struct TrainModelParams {
+    ticker: String,
+}
+
+async fn handle_train_model(
+    _state: RpcState,
+    params: Option<serde_json::Value>,
+) -> Result<serde_json::Value, RpcError> {
+    let params: TrainModelParams = if let Some(p) = params {
+        serde_json::from_value(p).map_err(|e| RpcError::InvalidParams(e.to_string()))?
+    } else {
+        return Err(RpcError::InvalidParams("Missing params".to_string()));
+    };
+
+    let ticker_full = format!("{}USDT", params.ticker.to_uppercase());
+    
+    // Start training in background task
+    tokio::spawn(async move {
+        use crate::layer3::signal_model;
+        
+        println!("[RPC] Starting training for {}", ticker_full);
+        
+        match signal_model::train_signal_model(&ticker_full).await {
+            Ok(path) => {
+                println!("[RPC] ✅ Training completed for {}: {}", ticker_full, path);
+            }
+            Err(e) => {
+                eprintln!("[RPC] ❌ Training failed for {}: {}", ticker_full, e);
+            }
+        }
+    });
+
+    Ok(serde_json::json!({
+        "status": "training_started",
+        "ticker": params.ticker,
+        "message": format!("Training started for {}", params.ticker)
+    }))
+}

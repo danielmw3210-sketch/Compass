@@ -1,53 +1,23 @@
-#![allow(dead_code)]
-// Modules are now in lib.rs
-use rust_compass::block;
-use rust_compass::chain;
-use rust_compass::layer2;
-use rust_compass::error;
-use rust_compass::client;
-use rust_compass::crypto;
-use rust_compass::genesis;
-use rust_compass::gulf_stream;
-use rust_compass::market;
-use rust_compass::poh_recorder;
-use rust_compass::vm;
-use rust_compass::oracle;
-use rust_compass::rpc;
-use rust_compass::storage;
-use rust_compass::vault;
-use rust_compass::layer3;
-use rust_compass::vdf;
-use rust_compass::wallet;
-use rust_compass::worker_menu;
-use rust_compass::cli;
-use rust_compass::network;
-use rust_compass::encoding;
-use rust_compass::identity;
-use rust_compass::interactive;
-use rust_compass::init;
-use rust_compass::node;
-use rust_compass::config;
-// use rust_compass::ai_marketplace;
-
-use block::{
+use rust_compass::block::{
     create_transfer_block,
     current_unix_timestamp_ms, BlockHeader, BlockType,
 }; 
-use crypto::KeyPair;
-use network::{NetMessage, TransactionPayload};
+use rust_compass::crypto::KeyPair;
+use rust_compass::network::NetworkCommand;
 // use libp2p::identity; // Conflict with mod identity; use explicit path if needed
 
-use market::{Market, OrderSide};
+use rust_compass::market::{Market, OrderSide};
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::sync::Arc;
-use vault::VaultManager;
-use wallet::{WalletManager, WalletType};
+use rust_compass::vault::VaultManager;
+use rust_compass::wallet::{self, WalletManager, Wallet, WalletType};
 use tracing::{info, warn, error};
 use tracing_subscriber::FmtSubscriber;
 
 use clap::Parser;
-use cli::{Cli, Commands};
+use rust_compass::cli::{self, Cli, Commands};
+use rust_compass::config;
 
 /// Simple file logger
 fn log_to_file(msg: &str) {
@@ -82,7 +52,7 @@ async fn main() {
                 match cmd {
                     cli::node::NodeCommands::Start { rpc_port, peer, p2p_port: _, db_path: _, ephemeral } => {
                         // Load Config
-                        let mut config = crate::config::CompassConfig::load_or_default("config.toml");
+                        let mut config = rust_compass::config::CompassConfig::load_or_default("config.toml");
                         
                         // CLI overrides Config (Priority: CLI > Config > Default)
                         if let Some(p) = rpc_port { config.node.rpc_port = p; }
@@ -107,7 +77,7 @@ async fn main() {
                                 println!("Found Identity File: {:?}", final_path);
                                 
                                 // Try Empty Password First (for Automation/Testnet)
-                                match crate::identity::Identity::load_and_decrypt(final_path, "") {
+                                match rust_compass::identity::Identity::load_and_decrypt(final_path, "") {
                                     Ok(id) => {
                                         println!("Identity '{}' unlocked (Passwordless) ({})", id.name, id.public_key);
                                         Some(Arc::new(id.into_keypair().expect("Failed to convert identity")))
@@ -122,7 +92,7 @@ async fn main() {
                                             let mut pass = String::new();
                                             std::io::stdin().read_line(&mut pass).unwrap();
                                             
-                                            match crate::identity::Identity::load_and_decrypt(final_path, pass.trim()) {
+                                            match rust_compass::identity::Identity::load_and_decrypt(final_path, pass.trim()) {
                                                 Ok(id) => {
                                                     println!("Identity '{}' unlocked ({})", id.name, id.public_key);
                                                     // Create valid backup
@@ -133,7 +103,7 @@ async fn main() {
                                                     error!("Failed to unlock identity: {}", e);
                                                     if e.to_string().contains("missing field") {
                                                         println!("⚠️  DETECTED CORRUPTION: Attempting to restore from backup...");
-                                                        match crate::identity::Identity::load_and_decrypt(std::path::Path::new("admin.backup.json"), pass.trim()) {
+                                                        match rust_compass::identity::Identity::load_and_decrypt(std::path::Path::new("admin.backup.json"), pass.trim()) {
                                                             Ok(id_bak) => {
                                                                 println!("✅ BACKUP RESTORED: '{}'", id_bak.name);
                                                                 let _ = std::fs::copy("admin.backup.json", "admin.json");
@@ -155,7 +125,7 @@ async fn main() {
                                              let mut pass = String::new();
                                              std::io::stdin().read_line(&mut pass).unwrap();
                                              
-                                             match crate::identity::Identity::load_and_decrypt(final_path, pass.trim()) {
+                                             match rust_compass::identity::Identity::load_and_decrypt(final_path, pass.trim()) {
                                                  Ok(id) => {
                                                      println!("Identity '{}' unlocked ({})", id.name, id.public_key);
                                                      // Create valid backup
@@ -166,7 +136,7 @@ async fn main() {
                                                      error!("Failed to unlock identity: {}", e);
                                                      if e.to_string().contains("missing field") {
                                                         println!("⚠️  DETECTED CORRUPTION: Attempting to restore from backup...");
-                                                        match crate::identity::Identity::load_and_decrypt(std::path::Path::new("admin.backup.json"), pass.trim()) {
+                                                        match rust_compass::identity::Identity::load_and_decrypt(std::path::Path::new("admin.backup.json"), pass.trim()) {
                                                             Ok(id_bak) => {
                                                                 println!("✅ BACKUP RESTORED: '{}'", id_bak.name);
                                                                 let _ = std::fs::copy("admin.backup.json", "admin.json");
@@ -262,14 +232,14 @@ async fn main() {
                 cli::ops::handle_burn_command(vault_id, amount, asset, dest_addr, from, None).await;
             }
             Commands::Worker { node_url, model_id, wallet } => {
-                let id = crate::interactive::load_identity(&wallet)
+                let id = rust_compass::interactive::load_identity(&wallet)
                     .expect(&format!("❌ Failed to load wallet '{}'. Please create it first.", wallet));
                 let kp = id.into_keypair().expect("Failed to decrypt identity");
                 
                 // Create dummy gossip channel for standalone worker
                 let (gossip_tx, _gossip_rx) = tokio::sync::broadcast::channel(100);
                 
-                let mut worker = crate::client::AiWorker::new(node_url, kp, gossip_tx);
+                let mut worker = rust_compass::client::AiWorker::new(node_url, kp, gossip_tx);
                 worker.start().await;
             }
             Commands::Client => {
@@ -282,17 +252,17 @@ async fn main() {
                 handle_genesis_hash();
             },
             Commands::Keys { cmd } => {
-                crate::cli::keys::handle_keys_command(cmd);
+                rust_compass::cli::keys::handle_keys_command(cmd);
             },
             Commands::Interactive => {
-                crate::interactive::start().await;
+                rust_compass::interactive::start().await;
             },
             Commands::ListNFT { token_id, price, currency, wallet } => {
-                let id = crate::interactive::load_identity(&wallet)
+                let id = rust_compass::interactive::load_identity(&wallet)
                     .expect(&format!("❌ Wallet '{}' not found.", wallet));
                 let seller = id.public_key;
                 
-                let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                let client = rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                 println!("📦 Listing NFT {} for {} {} (Seller: {})...", token_id, price, currency, seller);
                 
                 let req = serde_json::json!({
@@ -308,11 +278,11 @@ async fn main() {
                 }
             },
             Commands::BuyNFT { token_id, wallet } => {
-                let id = crate::interactive::load_identity(&wallet)
+                let id = rust_compass::interactive::load_identity(&wallet)
                     .expect(&format!("❌ Wallet '{}' not found.", wallet));
                 let buyer = id.public_key;
                 
-                let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                let client = rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                 println!("💰 Buying NFT {} as {}...", token_id, buyer);
                 
                 let req = serde_json::json!({
@@ -327,7 +297,7 @@ async fn main() {
             },
             Commands::TrainModels => {
                 println!("🧠 Starting Training Job for All Signal Models...");
-                match crate::layer3::signal_model::train_all_signal_models().await {
+                match rust_compass::layer3::signal_model::train_all_signal_models().await {
                     Ok(paths) => {
                         println!("✅ Training Complete. Models saved:");
                         for p in paths {
@@ -339,14 +309,42 @@ async fn main() {
             },
         }
     } else {
-        // No subcommand? Start Unified Interactive Launcher (Compass OS)
-        crate::interactive::start().await;
+        // v2.0: No subcommand - Start headless node (GUI removed)
+        println!("Starting Compass Node in headless mode...");
+        println!("Use CLI commands or connect via RPC at port 9000");
+        
+        let config = config::CompassConfig::load_or_default("config.toml");
+        
+        // Load or create admin identity
+        let admin_path = std::path::Path::new("admin.json");
+        let identity = if admin_path.exists() {
+            print!("Enter password to unlock admin identity: ");
+            std::io::Write::flush(&mut std::io::stdout()).unwrap();
+            let mut pass = String::new();
+            std::io::stdin().read_line(&mut pass).unwrap();
+            
+            match rust_compass::identity::Identity::load_and_decrypt(admin_path, pass.trim()) {
+                Ok(id) => {
+                    println!("Loaded admin identity: {}", id.name);
+                    id.into_keypair().expect("Failed to get keypair")
+                }
+                Err(e) => {
+                    println!("Failed to load identity: {}. Generating ephemeral key.", e);
+                    rust_compass::crypto::KeyPair::generate()
+                }
+            }
+        } else {
+            println!("No admin.json found. Generating ephemeral identity.");
+            rust_compass::crypto::KeyPair::generate()
+        };
+        
+        rust_compass::node::run_node_mode_internal(config, None, Some(std::sync::Arc::new(identity))).await;
     }
 }
 
 fn handle_admin_gen() {
     use std::collections::HashMap;
-    use crate::genesis::{GenesisConfig, GenesisValidator};
+    use rust_compass::genesis::{GenesisConfig, GenesisValidator};
 
     println!("=== Generator for Admin Trusted Setup ===");
     
@@ -393,12 +391,12 @@ fn handle_admin_gen() {
 
 fn handle_genesis_hash() {
     println!("Loading genesis.json...");
-    let config = crate::genesis::GenesisConfig::load("genesis.json").expect("Failed to load genesis.json");
+    let config = rust_compass::genesis::GenesisConfig::load("genesis.json").expect("Failed to load genesis.json");
     
-    let genesis_block = crate::block::Block {
-        header: crate::block::BlockHeader {
+    let genesis_block = rust_compass::block::Block {
+        header: rust_compass::block::BlockHeader {
             index: 0,
-            block_type: crate::block::BlockType::Genesis,
+            block_type: rust_compass::block::BlockType::Genesis,
             proposer: "genesis".to_string(),
             signature_hex: "".to_string(),
             prev_hash: "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
@@ -437,12 +435,12 @@ async fn run_client_mode() {
         if let Some(daniel) = wallet_manager.get_wallet("Daniel") {
             // Clone Daniel as Admin for devnet
              let admin_w = daniel.clone();
-             wallet_manager.create_wallet(&admin_w, "admin", crate::wallet::WalletType::Admin);
+             wallet_manager.create_wallet(&admin_w, "admin", rust_compass::wallet::WalletType::Admin);
              println!("System: Cloned 'Daniel' wallet to 'admin' for Validator consistency.");
         } else {
              // Create fresh admin
-             let admin_w = crate::wallet::Wallet::new_account("admin");
-             wallet_manager.create_wallet(&admin_w, "admin", crate::wallet::WalletType::Admin);
+             let admin_w = rust_compass::wallet::Wallet::new_account("admin");
+             wallet_manager.create_wallet(&admin_w, "admin", rust_compass::wallet::WalletType::Admin);
              println!("System: Created new 'admin' wallet.");
         }
     }
@@ -521,7 +519,7 @@ async fn run_client_mode() {
                     let amt: u64 = s.trim().parse().unwrap_or(0);
                     
                     // 1. Get Node Info (Height + Head Hash)
-                    let rpc = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                    let rpc = rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                     let node_info = match rpc.get_node_info().await {
                          Ok(v) => v,
                          Err(e) => {
@@ -627,7 +625,7 @@ async fn run_client_mode() {
                     // Also show blockchain balances via RPC
                     println!("\n=== Blockchain Balances (On-Chain) ===");
                     let rpc_client =
-                        crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                        rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
 
                     match rpc_client.get_account_info(&current_user).await {
                         Ok(info) => {
@@ -707,8 +705,8 @@ async fn run_client_mode() {
                     // Create transfer payload
                     // Send to node via RPC
                     println!("Submitting transfer to node (RPC)...");
-                    let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
-                    let timestamp = crate::block::current_unix_timestamp_ms() as u64;
+                    let client = rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                    let timestamp = rust_compass::block::current_unix_timestamp_ms() as u64;
                     
                     let res = client.submit_transaction(
                          &current_user,
@@ -764,7 +762,7 @@ async fn run_client_mode() {
                     }
 
                     // RPC Logic for Mint
-                    let rpc = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                    let rpc = rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                     // 1. Get Node Info
                     let node_info = match rpc.get_node_info().await {
                          Ok(v) => v,
@@ -807,7 +805,7 @@ async fn run_client_mode() {
                     header.signature_hex = kp.sign_hex(pre_sign.expect("Failed to calculate hash").as_bytes());
 
                     // 5. Submit
-                    let mint_params = crate::rpc::types::SubmitMintParams {
+                    let mint_params = rust_compass::rpc::types::SubmitMintParams {
                         vault_id: format!("Compass-{}", collateral_asset),
                         collateral_asset: collateral_asset.clone(),
                         collateral_amount: col_amt,
@@ -906,7 +904,7 @@ async fn run_client_mode() {
                                 Ok(pr) => {
 
                                     // Submit via RPC
-                                    let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                                    let client = rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                                     
                                     // Manually construct correct RPC call for PlaceOrder
                                     // Since submit_transaction is for transfers, we might need a generic `send_request` or `submit_tx` if implemented.
@@ -952,11 +950,11 @@ async fn run_client_mode() {
                     let collateral_asset = asset_input.trim().to_uppercase();
                     
                     // Load vault key manager
-                    let vault_keys = crate::vault::VaultKeyManager::load_or_generate("vault_master.seed");
+                    let vault_keys = rust_compass::vault::VaultKeyManager::load_or_generate("vault_master.seed");
                     let master_seed = vault_keys.get_seed();
                     
                     // Generate vault address
-                    let (vault_address, derivation_path) = crate::vault::VaultManager::generate_vault_address(
+                    let (vault_address, derivation_path) = rust_compass::vault::VaultManager::generate_vault_address(
                         &current_user,
                         &collateral_asset,
                         master_seed,
@@ -1039,7 +1037,7 @@ async fn run_client_mode() {
 
                     println!("Submitting Compute Job [{}] with bid {} COMPASS...", job_id, bid_amount);
                     // Submit via RPC
-                    let client = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                    let client = rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                     
                     let res = client.submit_compute(
                         job_id.clone(),
@@ -1115,7 +1113,7 @@ async fn run_client_mode() {
                         
                         // Check balance via RPC (On-Chain)
                         // Check balance via RPC (On-Chain)
-                        let rpc = crate::client::RpcClient::new("http://127.0.0.1:9000".to_string());
+                        let rpc = rust_compass::client::RpcClient::new("http://127.0.0.1:9000".to_string());
                         
                         // Robust check: Use get_account_info like Option 1
                         let balance = match rpc.get_account_info(&current_user).await {
@@ -1139,7 +1137,7 @@ async fn run_client_mode() {
                                     let msg = current_user.clone(); // Sign our ID as proof
                                     let sig = kp.sign_hex(msg.as_bytes());
                                     
-                                    let params = crate::rpc::types::RegisterValidatorParams {
+                                    let params = rust_compass::rpc::types::RegisterValidatorParams {
                                         validator_id: current_user.clone(),
                                         pubkey: pubkey,
                                         stake_amount: 1000_00000000,
@@ -1169,4 +1167,4 @@ async fn run_client_mode() {
     }
 }
 
-// run_node_mode_internal moved to crate::node::run_node_mode_internal
+// run_node_mode_internal moved to rust_compass::node::run_node_mode_internal

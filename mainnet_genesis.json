@@ -1,0 +1,15 @@
+{
+    "chain_id": "compass-mainnet",
+    "timestamp": 1735948800,
+    "initial_balances": {
+        "admin": 1000000000000,
+        "foundation": 1000000000000
+    },
+    "initial_validators": [
+        {
+            "id": "validator-1",
+            "public_key": "REPLACE_WITH_ADMIN_PUBLIC_KEY",
+            "stake": 100000000000
+        }
+    ]
+}

@@ -1,0 +1,94 @@
+
+// Phase 7: Enhanced Marketplace Tab
+impl CompassApp {
+    pub(crate) fn render_marketplace_enhanced(&mut self, ui: &mut egui::Ui) {
+        ui.heading("🛒 AI Model Marketplace");
+        ui.add_space(10.0);
+        
+        ui.horizontal(|ui| {
+            if ui.button("🔄 Refresh Listings").clicked() {
+                self.refresh_marketplace();
+            }
+            
+            ui.label(format!("{} models available", self.marketplace_listings.len()));
+        });
+        
+        ui.add_space(10.0);
+        ui.separator();
+        
+        // Model listings
+        egui::ScrollArea::vertical()
+            .max_height(500.0)
+            .show(ui, |ui| {
+                if self.marketplace_listings.is_empty() {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(50.0);
+                        ui.label("No models listed yet");
+                        ui.label("Train a model and mint it as an NFT to list here!");
+                    });
+                } else {
+                    for listing in &self.marketplace_listings.clone() {
+                        ui.group(|ui| {
+                            ui.horizontal(|ui| {
+                                // Model info
+                                ui.vertical(|ui| {
+                                    ui.heading(&listing.name);
+                                    ui.label(format!("by {}", listing.creator));
+                                    ui.add_space(5.0);
+                                    ui.label(&listing.description);
+                                    ui.add_space(5.0);
+                                    
+                                    ui.horizontal(|ui| {
+                                        ui.label(format!("Accuracy: {:.1}%", listing.accuracy * 100.0));
+                                        ui. separator();
+                                        ui.label(format!("Win Rate: {:.1}%", listing.win_rate * 100.0));
+                                    });
+                                });
+                                
+                                // Buy section
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    ui.vertical(|ui| {
+                                        ui.heading(format!("{} COMPASS", listing.price));
+                                        if ui.button("💰 Buy Model").clicked() {
+                                            self.buy_model(&listing.token_id);
+                                        }
+                                    });
+                                });
+                            });
+                        });
+                        ui.add_space(8.0);
+                    }
+                }
+            });
+    }
+    
+    fn refresh_marketplace(&mut self) {
+        // TODO: Call RPC getMarketListings
+        // For now, add mock data
+        self.marketplace_listings = vec![
+            MarketplaceListing {
+                token_id: "MODEL-001".to_string(),
+                name: "BTC Predictor Pro".to_string(),
+                creator: "alice".to_string(),
+                accuracy: 0.87,
+                win_rate: 0.72,
+                price: 5000,
+                description: "High-accuracy Bitcoin price predictor trained on 2 years of data".to_string(),
+            },
+            MarketplaceListing {
+                token_id: "MODEL-002".to_string(),
+                name: "ETH Signal Master".to_string(),
+                creator: "bob".to_string(),
+                accuracy: 0.82,
+                win_rate: 0.68,
+                price: 3500,
+                description: "Ethereum trend detector with strong long-term performance".to_string(),
+            },
+        ];
+    }
+    
+    fn buy_model(&mut self, token_id: &str) {
+        // TODO: Call RPC buyModel
+        self.transfer_status = format!("Purchasing model {}...", token_id);
+    }
+}

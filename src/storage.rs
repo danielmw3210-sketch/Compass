@@ -80,6 +80,20 @@ impl Storage {
         self.get_by_prefix("wallet:")
     }
 
+    // --- Accounts (v2.0: Account-based system) ---
+    pub fn save_account(&self, account: &crate::account::Account) -> Result<(), CompassError> {
+        self.put(&format!("account:{}", account.name), account)
+    }
+
+    pub fn get_account(&self, name: &str) -> Result<Option<crate::account::Account>, CompassError> {
+        self.get(&format!("account:{}", name))
+    }
+
+    pub fn get_all_accounts(&self) -> Vec<crate::account::Account> {
+        self.get_by_prefix("account:")
+    }
+
+
     // --- Vaults (Phase 2) ---
     pub fn save_vault(&self, id: &str, vault: &crate::vault::Vault) -> Result<(), CompassError> {
         self.put(&format!("vault:{}", id), vault)
@@ -184,14 +198,12 @@ impl Storage {
     }
 
     // Persisted NFTs (Verification)
-    pub fn get_all_nfts(&self) -> Vec<crate::layer3::model_nft::ModelNFT> {
-        self.get_by_prefix("nft:")
-    }
+    // Persisted NFTs (Verification) - Helper methods moved below to match save_model_nft
     
     /// Clear all NFTs from the database (admin operation)
     pub fn clear_all_nfts(&self) -> Result<u64, CompassError> {
         let mut deleted = 0u64;
-        for result in self.db.scan_prefix(b"nft:") {
+        for result in self.db.scan_prefix(b"model_nft:") {
             if let Ok((key, _)) = result {
                 self.db.remove(&key).map_err(|e| CompassError::DatabaseError(e.to_string()))?;
                 deleted += 1;
@@ -391,12 +403,29 @@ impl Storage {
     // --- Flush/Persist ---
     // 4. Model NFTs
     pub fn save_model_nft(&self, nft: &crate::layer3::model_nft::ModelNFT) -> Result<(), CompassError> {
-        let key = format!("nft:{}", nft.token_id);  // Fixed: Changed from "model_nft:" to match get_all_nfts()
+        let key = format!("model_nft:{}", nft.token_id); 
         self.put(&key, nft)
     }
 
     pub fn get_model_nft(&self, token_id: &str) -> Result<Option<crate::layer3::model_nft::ModelNFT>, CompassError> {
         self.get(&format!("model_nft:{}", token_id))
+    }
+    
+    pub fn get_all_nfts(&self) -> Vec<crate::layer3::model_nft::ModelNFT> {
+        let prefix = "model_nft:";
+        let mut nfts = Vec::new();
+        for item in self.db.scan_prefix(prefix) {
+            if let Ok((_, value)) = item {
+                if let Ok(nft) = serde_json::from_slice::<crate::layer3::model_nft::ModelNFT>(&value) {
+                    nfts.push(nft);
+                }
+            }
+        }
+        nfts
+    }
+
+    pub fn get_nfts_by_owner(&self, owner: &str) -> Vec<crate::layer3::model_nft::ModelNFT> {
+        self.get_all_nfts().into_iter().filter(|n| n.current_owner == owner).collect()
     }
     
     /// Find a Model NFT by the model_id used for inference (e.g., "price_decision_v2")
@@ -507,16 +536,32 @@ impl Storage {
     // EPOCH TRACKING STORAGE
     // ============================================================
 
-    /// Save model epoch state
+    /// Save model epoch state (Namespaced by owner)
     pub fn save_epoch_state(&self, state: &crate::layer3::price_oracle::ModelEpochState) -> Result<(), CompassError> {
-        let key = format!("epoch:{}:{}", state.ticker, state.model_id);
+        let key = format!("epoch:{}:{}:{}", state.owner, state.ticker, state.model_id);
         self.put(&key, state)
     }
 
-    /// Get model epoch state
-    pub fn get_epoch_state(&self, ticker: &str, model_id: &str) -> Result<Option<crate::layer3::price_oracle::ModelEpochState>, CompassError> {
-        let key = format!("epoch:{}:{}", ticker, model_id);
+    /// Get model epoch state (Namespaced by owner)
+    pub fn get_epoch_state(&self, owner: &str, ticker: &str, model_id: &str) -> Result<Option<crate::layer3::price_oracle::ModelEpochState>, CompassError> {
+        let key = format!("epoch:{}:{}:{}", owner, ticker, model_id);
         self.get(&key)
+    }
+
+    /// Get all epoch states for a specific owner
+    pub fn get_epoch_states_by_owner(&self, owner: &str) -> Result<Vec<crate::layer3::price_oracle::ModelEpochState>, CompassError> {
+        let prefix = format!("epoch:{}:", owner);
+        let mut states = Vec::new();
+        
+        for item in self.db.scan_prefix(prefix) {
+            if let Ok((_, value)) = item {
+                if let Ok(state) = bincode::deserialize::<crate::layer3::price_oracle::ModelEpochState>(&value) {
+                    states.push(state);
+                }
+            }
+        }
+        
+        Ok(states)
     }
 
     /// Get all epoch states
@@ -585,6 +630,71 @@ impl Storage {
              }
         }
         Ok(pools)
+    }
+
+    // ============================================================
+    // MIGRATION UTILS
+    // ============================================================
+    
+    pub fn migrate_legacy_nfts(&self) -> Result<usize, CompassError> {
+        let prefix = b"nft:";
+        let mut count = 0;
+        let mut batch = sled::Batch::default();
+        
+        for item in self.db.scan_prefix(prefix) {
+             if let Ok((key, value)) = item {
+                 if let Ok(nft) = bincode::deserialize::<crate::layer3::model_nft::ModelNFT>(&value) {
+                     // Save with new key
+                     let new_key = format!("model_nft:{}", nft.token_id);
+                     if let Ok(encoded) = bincode::serialize(&nft) {
+                        batch.insert(new_key.as_bytes(), encoded);
+                        batch.remove(key);
+                        count += 1;
+                     }
+                 }
+             }
+        }
+        
+        if count > 0 {
+            self.db.apply_batch(batch).map_err(|e| CompassError::DatabaseError(e.to_string()))?;
+            println!("Migration: Moved {} legacy 'nft:' records to 'model_nft:'", count);
+        }
+        Ok(count)
+    }
+    
+    // === Paper Trading Storage ===
+    
+    pub fn save_paper_trade(&self, trade: &crate::layer3::paper_trading::PaperTrade) -> Result<(), CompassError> {
+        let key = format!("pt:{}", trade.trade_id);
+        self.put(&key, trade)
+    }
+    
+    pub fn get_paper_trade(&self, trade_id: &str) -> Result<Option<crate::layer3::paper_trading::PaperTrade>, CompassError> {
+        let key = format!("pt:{}", trade_id);
+        self.get(&key)
+    }
+    
+    pub fn get_all_paper_trades(&self) -> Result<Vec<crate::layer3::paper_trading::PaperTrade>, CompassError> {
+        let mut trades = Vec::new();
+        let prefix = b"pt:";
+        
+        for item in self.db.scan_prefix(prefix) {
+            if let Ok((_key, value)) = item {
+                if let Ok(trade) = bincode::deserialize(&value) {
+                    trades.push(trade);
+                }
+            }
+        }
+        
+        Ok(trades)
+    }
+    
+    pub fn save_portfolio(&self, portfolio: &crate::layer3::paper_trading::TradingPortfolio) -> Result<(), CompassError> {
+        self.put("paper_portfolio", portfolio)
+    }
+    
+    pub fn get_portfolio(&self) -> Result<Option<crate::layer3::paper_trading::TradingPortfolio>, CompassError> {
+        self.get("paper_portfolio")
     }
 
     pub fn flush(&self) -> Result<(), CompassError> {

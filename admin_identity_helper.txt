@@ -1,0 +1,23 @@
+
+// Helper: Load or create admin identity for auto-start
+fn load_or_create_admin_identity() -> KeyPair {
+    let admin_path = std::path::Path::new("admin.json");
+    
+    if admin_path.exists() {
+        // Try to load with default password
+        if let Ok(id) = Identity::load_and_decrypt(admin_path, "D4rkness10@@") {
+            if let Ok(kp) = id.into_keypair() {
+                println!("[OK] Loaded admin identity");
+                return kp;
+            }
+        }
+    }
+    
+    // Create new admin identity with default password
+    println!("[NEW] Creating admin identity with default password");
+    let kp = KeyPair::generate();
+    let id = Identity::from_keypair(kp.clone(), "admin".to_string(), "D4rkness10@@".to_string());
+    let _ = id.save_encrypted(admin_path, "D4rkness10@@");
+    
+    kp
+}

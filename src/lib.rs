@@ -1,3 +1,4 @@
+pub mod account; // v2.0 account-based system (must be before storage)
 pub mod block;
 pub mod chain;
 pub mod layer2;
@@ -16,7 +17,7 @@ pub mod vault;
 pub mod layer3;
 pub mod vdf;
 pub mod wallet;
-pub mod worker_menu;
+pub mod  worker_menu;
 pub mod cli;
 pub mod network;
 pub mod encoding;
@@ -26,4 +27,4 @@ pub mod trainer; // Rust Native AI
 pub mod init;
 pub mod node;
 pub mod config;
-// pub mod ai_marketplace;
+// GUI module removed - use web interface or CLI instead

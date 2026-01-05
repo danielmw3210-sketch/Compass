@@ -1,0 +1,77 @@
+
+/// Handle convertCompute (v2.0 Phase 4)
+/// Convert COMPUTE tokens to COMPASS at 100:1 ratio
+async fn handle_convert_compute(
+    state: RpcState,
+    params: Value,
+) -> Result<Value, RpcError> {
+    #[derive(Deserialize)]
+    struct ConvertParams {
+        account: String,
+        compute_amount: u64,
+    }
+    
+    let req: ConvertParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    let chain = safe_lock(&state.chain)?;
+    
+    // Use compute_integration helper
+    use crate::layer3::compute_integration;
+    
+    let compass_minted = compute_integration::convert_compute_to_compass(
+        &chain.balance_store,
+        &req.account,
+        req.compute_amount,
+    ).map_err(|e| RpcError {
+        code: -32001,
+        message: e,
+    })?;
+    
+    let bal_store = chain.balance_store.lock().unwrap();
+    let new_compass_balance = bal_store.get_balance(&req.account, &"COMPASS".to_string());
+    let new_compute_balance = bal_store.get_balance(&req.account, &"COMPUTE".to_string());
+    
+    Ok(json!({
+        "burned_compute": req.compute_amount,
+        "minted_compass": compass_minted,
+        "new_compass_balance": new_compass_balance,
+        "new_compute_balance": new_compute_balance,
+        "conversion_rate": "100:1"
+    }))
+}
+
+/// Handle getAccountBalances (v2.0 Phase 4)
+/// Get all balances across layers for an account
+async fn handle_get_account_balances(
+    state: RpcState,
+    params: Value,
+) -> Result<Value, RpcError> {
+    #[derive(Deserialize)]
+    struct BalanceParams {
+        account: String,
+    }
+    
+    let req: BalanceParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    let chain = safe_lock(&state.chain)?;
+    
+    use crate::layer3::compute_integration;
+    
+    let balances = compute_integration::get_account_balances(
+        &chain.balance_store,
+        &req.account,
+    ).map_err(|e| RpcError {
+        code: -32001,
+        message: e,
+    })?;
+    
+    Ok(balances)
+}

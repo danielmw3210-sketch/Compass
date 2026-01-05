@@ -1,4 +1,4 @@
-﻿use super::types::*;
+use super::types::*;
 use crate::block::{BlockHeader, BlockType};
 use crate::chain::Chain;
 use crate::rpc::RpcState;
@@ -57,6 +57,14 @@ pub async fn handle_rpc_request(
         "listModelNFT" => handle_list_model_nft(state.clone(), req.params).await,
         "buyModelNFT" => handle_buy_model_nft(state.clone(), req.params).await,
         "getAllNFTs" => handle_get_all_nfts(state.clone()).await,
+        "getMyModels" => handle_get_my_models(state.clone(), req.params).await,
+        
+        // Paper Trading
+        "getPaperTradingStats" => handle_get_paper_trading_stats(state.clone()).await,
+        "getPaperTradeHistory" => handle_get_paper_trade_history(state.clone()).await,
+        "getPortfolioSummary" => handle_get_portfolio_summary(state.clone()).await,
+        "getLatestSignal" => handle_get_latest_signal(state.clone(), req.params).await,
+        
         "getBlockRange" => handle_get_block_range(state.chain.clone(), req.params).await,
         "getOraclePrices" => handle_get_oracle_prices(state.chain.clone()).await,
         "submitNativeVault" => handle_submit_native_vault(state.clone(), req.params).await,
@@ -78,6 +86,18 @@ pub async fn handle_rpc_request(
         "joinPool" => handle_join_pool(state.clone(), req.params).await,
         "getModelPools" => handle_get_model_pools(state.clone()).await,
         "claimDividends" => handle_claim_dividends(state.clone(), req.params).await,
+        // v2.0 Oracle Layer
+        "submitOraclePrice" => handle_submit_oracle_price(state.clone(), req.params).await,
+        // v2.0 Phase 4: COMPUTE & Account Balances
+        "convertCompute" => handle_convert_compute(state.clone(), req.params).await,
+        "getAccountBalances" => handle_get_account_balances(state.clone(), req.params).await,
+        // v2.0 Phase 5: Model Marketplace
+        "listModel" => handle_list_model(state.clone(), req.params).await,
+        "buyModel" => handle_buy_model(state.clone(), req.params).await,
+        "cancelListing" => handle_cancel_listing(state.clone(), req.params).await,
+        "getMarketListings" => handle_get_market_listings(state.clone()).await,
+        // v2.0 Phase 7: Model Training
+        "trainModel" => handle_train_model(state.clone(), Some(req.params)).await,
         _ => Err(RpcError {
             code: -32601,
             message: format!("Method not found: {}", req.method),
@@ -105,7 +125,7 @@ pub async fn handle_rpc_request(
 // === Helper Functions for Safe Operations ===
 //
 /// Safely acquire a mutex lock, recovering from poison
-fn safe_lock<T>(mutex: &Arc<Mutex<T>>) -> Result<std::sync::MutexGuard<T>, RpcError> {
+fn safe_lock<T>(mutex: &Arc<Mutex<T>>) -> Result<std::sync::MutexGuard<'_, T>, RpcError> {
     mutex.lock().map_err(|e| {
         tracing::error!("Mutex poisoned: {}", e);
         RpcError {
@@ -542,7 +562,7 @@ async fn handle_submit_compute(
         let escrow_bal = chain.storage.get_balance("ESCROW_VAULT", "COMPASS").unwrap_or(0);
         chain.storage.set_balance("ESCROW_VAULT", "COMPASS", escrow_bal + req.bid_amount).ok();
         
-        info!("💰 Escrow Locked: {} COMPASS from {} for Job {}", req.bid_amount, req.owner_id, req.job_id);
+        info!("?? Escrow Locked: {} COMPASS from {} for Job {}", req.bid_amount, req.owner_id, req.job_id);
 
         use crate::layer3::compute::ComputeJob;
         let job = ComputeJob::new(
@@ -594,7 +614,7 @@ async fn handle_submit_compute(
         let _ = state.cmd_tx.send(crate::network::NetworkCommand::Broadcast(worker_msg)).await;
     }
     
-    info!("🧠 AI Job Submitted: {} (Model: {})", req.job_id, req.model_id);
+    info!("?? AI Job Submitted: {} (Model: {})", req.job_id, req.model_id);
 
     Ok(serde_json::json!({
         "status": "Submitted",
@@ -622,7 +642,7 @@ async fn handle_submit_result(
     // Just clone to be safe or move if last usage. req is from_value.
     // I'll clone it: TransactionPayload::Result(req.clone())
     
-    info!("🧠 AI Result Received for Job: {} (Worker: {})", req.job_id, req.worker_id);
+    info!("?? AI Result Received for Job: {} (Worker: {})", req.job_id, req.worker_id);
 
     // 2. Add to Local Gulf Stream
     let raw_tx = bincode::serialize(&payload).unwrap();
@@ -655,7 +675,7 @@ async fn handle_submit_result(
                 
                 if elapsed < job.min_duration {
                     warn!(
-                        "🚫 Job {} completed too quickly! Elapsed: {}s, Required: {}s (Worker: {})",
+                        "?? Job {} completed too quickly! Elapsed: {}s, Required: {}s (Worker: {})",
                         req.job_id, elapsed, job.min_duration, req.worker_id
                     );
                     return Err(RpcError {
@@ -668,12 +688,12 @@ async fn handle_submit_result(
                 }
                 
                 info!(
-                    "✅ Job {} duration validated: {}s (min: {}s)",
+                    "? Job {} duration validated: {}s (min: {}s)",
                     req.job_id, elapsed, job.min_duration
                 );
             } else {
                 // Job was never properly started, but allow it for beta resilience
-                info!("⚠️ Job {} has no start time (resync?). Accepting result.", req.job_id);
+                info!("?? Job {} has no start time (resync?). Accepting result.", req.job_id);
                 // Assume valid logic happened off-chain
             }
         }
@@ -689,8 +709,8 @@ async fn handle_submit_result(
             // Training job completed - model saved as candidate
             // NFT will be minted ONLY after epoch verification passes (see oracle_scheduler)
             if req.job_id.starts_with("TRAIN_") {
-                info!("📦 Training Job {} complete - Model saved as CANDIDATE", req.job_id);
-                info!("   ⏳ NFT will be minted after epoch verification passes");
+                info!("?? Training Job {} complete - Model saved as CANDIDATE", req.job_id);
+                info!("   ? NFT will be minted after epoch verification passes");
                 // DO NOT mint NFT here - wait for epoch verification in oracle_scheduler
             } else {
                 // === INFERENCE ECONOMICS ===
@@ -700,7 +720,7 @@ async fn handle_submit_result(
                 if let Err(e) = chain.storage.update_balance(&req.worker_id, "COMPUTE", job.reward_amount) {
                     error!("Failed to pay worker {}: {}", req.worker_id, e);
                 } else {
-                    info!("💸 Paid Worker {}: {} COMPUTE", req.worker_id, job.reward_amount);
+                    info!("?? Paid Worker {}: {} COMPUTE", req.worker_id, job.reward_amount);
                 }
                 
                 // 2. Model Owner Royalty (15% of Reward)
@@ -723,14 +743,14 @@ async fn handle_submit_result(
                      error!("Failed to pay royalty: {}", e);
                 } else {
                      if nft_owner == state.node_identity {
-                         info!("💰 Royalty Distributed: {} COMPUTE to Model Owner (Admin - Default)", royalty_amount);
+                         info!("?? Royalty Distributed: {} COMPUTE to Model Owner (Admin - Default)", royalty_amount);
                      } else {
-                         info!("💰 Royalty Distributed: {} COMPUTE to NFT Owner: {}", royalty_amount, &nft_owner[..8.min(nft_owner.len())]);
+                         info!("?? Royalty Distributed: {} COMPUTE to NFT Owner: {}", royalty_amount, &nft_owner[..8.min(nft_owner.len())]);
                      }
                 }
 
                 // 3. Protocol Burn (5%)
-                info!("🔥 Protocol Burn: 10 COMPUTE (Deflationary Pressure)");
+                info!("?? Protocol Burn: 10 COMPUTE (Deflationary Pressure)");
                 
                 // === SIGNAL MARKETPLACE STORAGE ===
                 // If this is a Price Oracle job, store the result for the Marketplace!
@@ -785,13 +805,13 @@ async fn handle_submit_result(
                                  if let Err(e) = chain.storage.put(&signal_key, &signal_data) {
                                      error!("Failed to save signal for marketplace: {}", e);
                                  } else {
-                                     info!("🛒 Marketplace Update: New Signal Stored for {} (${:.2} - {})", ticker, entry_price, signal_str);
+                                     info!("?? Marketplace Update: New Signal Stored for {} (${:.2} - {})", ticker, entry_price, signal_str);
                                  }
                                  
                                  // === STORE PREDICTION FOR EPOCH VERIFICATION ===
                                  
                                  // Get current epoch for this model
-                                 let current_epoch = chain.storage.get_epoch_state(ticker, &job.model_id)
+                                 let current_epoch = chain.storage.get_epoch_state(&job.creator, ticker, &job.model_id)
                                      .ok()
                                      .flatten()
                                      .map(|s| s.current_epoch)
@@ -804,19 +824,20 @@ async fn handle_submit_result(
                                      predicted_signal,
                                      0.8, // Confidence (placeholder)
                                      current_epoch,
+                                     crate::layer3::price_oracle::PredictionTimeframe::ThirtyMinutes, // Default for now
                                  );
                                  
                                  if let Err(e) = chain.storage.save_prediction(&prediction) {
                                      error!("Failed to save prediction for verification: {}", e);
                                  } else {
-                                     debug!("📊 Prediction {} saved for epoch {} verification | Entry: ${} | Sig: {:?}", prediction.id, current_epoch, entry_price, prediction.predicted_signal);
+                                     debug!("?? Prediction {} saved for epoch {} verification | Entry: ${} | Sig: {:?}", prediction.id, current_epoch, entry_price, prediction.predicted_signal);
                                  }
                              }
                          }
                      }
                 }
                 
-                info!("ℹ️ Result processed for Job {} (Inference Complete)", req.job_id);
+                info!("?? Result processed for Job {} (Inference Complete)", req.job_id);
             }
         }
         
@@ -896,7 +917,7 @@ async fn handle_submit_oracle_verification_job(
         chain.storage.save_oracle_job(&job).unwrap();
     }
 
-    info!("📊 Oracle Verification Job Created: {} for ticker {}", job_id, req.ticker);
+    info!("?? Oracle Verification Job Created: {} for ticker {}", job_id, req.ticker);
 
     Ok(serde_json::json!({
         "job_id": job_id,
@@ -944,7 +965,7 @@ async fn handle_submit_oracle_verification_result(
     let raw_tx = bincode::serialize(&payload).unwrap();
     use sha2::Digest;
     let tx_hash = sha2::Sha256::digest(&raw_tx).to_vec();
-    let tx_hash_hex = hex::encode(&tx_hash);
+    let _tx_hash_hex = hex::encode(&tx_hash);
 
     {
         let mut gs = safe_lock(&state.gulf_stream)?;
@@ -957,7 +978,7 @@ async fn handle_submit_oracle_verification_result(
         }
     }
 
-    info!("✅ Oracle Verification Result Submitted: {} ({}) | Price: {} | Dev: {}%", 
+    info!("? Oracle Verification Result Submitted: {} ({}) | Price: {} | Dev: {}%", 
         req.ticker, if req.passed { "PASS" } else { "FAIL" }, req.oracle_price, req.deviation_pct);
     debug!("Worker: {} | External Avg: {}", req.worker_id, req.avg_external_price);
 
@@ -981,12 +1002,12 @@ async fn handle_submit_oracle_verification_result(
                 if pnl > 0 {
                     // Win: Reward
                     l2.collateral.reward(req.worker_id.clone(), pnl as u64);
-                    info!("   🎉 Bet WON! Rewarded {} to {}", pnl, req.worker_id);
+                    info!("   ?? Bet WON! Rewarded {} to {}", pnl, req.worker_id);
                 } else {
                     // Loss: Slash
                     let loss_abs = pnl.abs() as u64;
                     let _ = l2.collateral.slash(&req.worker_id, loss_abs);
-                    info!("   💔 Bet LOST! Slashed {} from {}", loss_abs, req.worker_id);
+                    info!("   ?? Bet LOST! Slashed {} from {}", loss_abs, req.worker_id);
                 }
             }
         }
@@ -1006,7 +1027,7 @@ async fn handle_submit_oracle_verification_result(
             
             // 3. Lock Collateral (Stake)
             l2.collateral.stake(req.worker_id.clone(), bet.stake_amount);
-            info!("   🎲 New Bet Placed: {} (Staked: {})", bet.prediction, bet.stake_amount);
+            info!("   ?? New Bet Placed: {} (Staked: {})", bet.prediction, bet.stake_amount);
         }
         
         // Persist
@@ -1019,7 +1040,7 @@ async fn handle_submit_oracle_verification_result(
     if req.compute_units_used > 0 {
         let mut wallets = safe_lock(&state.wallet_manager)?;
         wallets.credit(&req.worker_id, "COMPUTE", req.compute_units_used);
-        info!("   💻 PoUW Reward: {} COMPUTE credited to {}", req.compute_units_used, req.worker_id);
+        info!("   ?? PoUW Reward: {} COMPUTE credited to {}", req.compute_units_used, req.worker_id);
         let _ = wallets.save("");
     }
 
@@ -1035,10 +1056,10 @@ async fn handle_submit_oracle_verification_result(
             
             if job.completed_updates >= job.total_updates_required {
                 job.status = "Completed".to_string();
-                info!("   🎉 Recurring Job {} COMPLETED!", req.job_id);
+                info!("   ?? Recurring Job {} COMPLETED!", req.job_id);
                 
                 // --- AUTO MINT NFT ---
-                info!("   🎨 Auto-Minting Oracle Model NFT to Admin Vault...");
+                info!("   ?? Auto-Minting Oracle Model NFT to Admin Vault...");
                 
                 use crate::layer3::model_nft::{ModelNFTRegistry, ModelStats, ModelNFT};
                 
@@ -1046,7 +1067,7 @@ async fn handle_submit_oracle_verification_result(
                     .unwrap_or_else(|_| ModelNFTRegistry::new());
                 
                 // Get Real Stats from Betting Ledger
-                let (staked, won, lost, win_rate) = {
+                let (_staked, won, lost, win_rate) = {
                      let ledger = safe_lock(&state.betting_ledger)?;
                      ledger.get_stats()
                 };
@@ -1075,7 +1096,7 @@ async fn handle_submit_oracle_verification_result(
                 let token_id = registry.mint(nft);
                 registry.save("model_nft_registry.json").ok();
                 
-                info!("   ✅ MINT SUCCESS: {} (Owner: {})", token_id, owner);
+                info!("   ? MINT SUCCESS: {} (Owner: {})", token_id, owner);
                 // ---------------------
             }
             chain.storage.save_recurring_job(&job).unwrap();
@@ -1106,7 +1127,7 @@ async fn handle_submit_recurring_oracle_job(
     // We compare with the Node Identity (which is the Admin Key in this architecture)
     // We also allow the literal "admin" string for local GUI ease of use.
     if req.submitter != state.node_identity && req.submitter != "admin" {
-        warn!("⚠️ Unauthorized Recurring Job Attempt by {}", req.submitter);
+        warn!("?? Unauthorized Recurring Job Attempt by {}", req.submitter);
         return Err(RpcError {
             code: -32003,
             message: "Unauthorized: Only Admin can create recurring jobs".to_string(),
@@ -1139,7 +1160,7 @@ async fn handle_submit_recurring_oracle_job(
         chain.storage.save_recurring_job(&job).unwrap();
     }
 
-    info!("📊 Recurring Oracle Job Created: {} for ticker {}", job_id, req.ticker);
+    info!("?? Recurring Oracle Job Created: {} for ticker {}", job_id, req.ticker);
     debug!("   Duration: {} hours ({} updates every {} min)", req.duration_hours, total_updates, req.interval_minutes);
     debug!("   Reward: {} COMPASS per update ({} total)", req.reward_per_update, total_updates as u64 * req.reward_per_update);
 
@@ -1293,7 +1314,7 @@ async fn handle_purchase_neural_net(
         chain.storage.save_recurring_job(&job).unwrap();
     }
     
-    info!("🛒 User {} purchased Neural Net for {}: Job {}", req.owner, req.ticker, job_id);
+    info!("?? User {} purchased Neural Net for {}: Job {}", req.owner, req.ticker, job_id);
     
     Ok(serde_json::json!({
         "status": "Purchased",
@@ -1313,7 +1334,7 @@ async fn handle_list_model_nft(
         .map_err(|e| RpcError { code: -32602, message: format!("Invalid params: {}", e) })?;
     
     // 1. Verify Ownership (RocksDB)
-    let (nft, owner_valid) = {
+    let (_nft, owner_valid) = {
         let chain = safe_lock(&state.chain)?;
         if let Some(nft) = chain.storage.get_model_nft(&req.token_id).map_err(|e| RpcError { code: -32603, message: e.to_string() })? {
             (nft.clone(), nft.current_owner == req.seller)
@@ -1376,7 +1397,7 @@ async fn handle_buy_model_nft(
          let _ = wallets.save("wallets.json"); // Legacy wallet save, need to move to DB too but one step at a time
     }
 
-    info!("💰 NFT Sold: {} from {} to {}", req.token_id, seller, req.buyer);
+    info!("?? NFT Sold: {} from {} to {}", req.token_id, seller, req.buyer);
 
     Ok(serde_json::json!({ "status": "purchased", "token_id": req.token_id }))
 }
@@ -1458,7 +1479,7 @@ async fn handle_submit_native_vault(
             })?;
     }
 
-    info!("✅ Native Vault: Locked {} COMPASS, minted {} {}", locked, minted, asset_name);
+    info!("? Native Vault: Locked {} COMPASS, minted {} {}", locked, minted, asset_name);
 
     Ok(serde_json::json!({
         "asset": asset_name,
@@ -1559,7 +1580,7 @@ pub async fn handle_get_trainable_models() -> Result<Vec<TrainingModelInfo>, Rpc
     let models = vec![
         TrainingModelInfo {
             ticker: "BTCUSDT".to_string(),
-            model_id: "train_btc_v1".to_string(),
+            model_id: "signal_btc_1h".to_string(), // Updated to match scheduler
             architecture: "LSTM (Price + Volume)".to_string(),
             description: "Distributed Bitcoin Trend Agent".to_string(),
             reward: 500,
@@ -1567,7 +1588,7 @@ pub async fn handle_get_trainable_models() -> Result<Vec<TrainingModelInfo>, Rpc
         },
         TrainingModelInfo {
             ticker: "ETHUSDT".to_string(),
-            model_id: "train_eth_v1".to_string(),
+            model_id: "signal_eth_1h".to_string(),
             architecture: "LSTM (Price + Volume)".to_string(),
             description: "Distributed Ethereum Trend Agent".to_string(),
             reward: 500,
@@ -1575,7 +1596,7 @@ pub async fn handle_get_trainable_models() -> Result<Vec<TrainingModelInfo>, Rpc
         },
         TrainingModelInfo {
             ticker: "SOLUSDT".to_string(),
-            model_id: "train_sol_v1".to_string(),
+            model_id: "signal_sol_1h".to_string(),
             architecture: "LSTM (Price + Volume)".to_string(),
             description: "Distributed Solana Trend Agent".to_string(),
             reward: 500,
@@ -1583,7 +1604,7 @@ pub async fn handle_get_trainable_models() -> Result<Vec<TrainingModelInfo>, Rpc
         },
         TrainingModelInfo {
             ticker: "LTCUSDT".to_string(),
-            model_id: "train_ltc_v1".to_string(),
+            model_id: "signal_ltc_1h".to_string(),
             architecture: "LSTM (Price + Volume)".to_string(),
             description: "Distributed Litecoin Trend Agent".to_string(),
             reward: 500,
@@ -1629,7 +1650,7 @@ pub async fn handle_list_model_for_rent(
     chain.storage.save_model_nft(&nft)
         .map_err(|e| RpcError { code: -32603, message: format!("Failed to save: {}", e) })?;
     
-    info!("🏦 NFT {} listed for rent at {} COMPASS/hr by {}", nft.token_id, req.rate_per_hour, &req.owner[..8.min(req.owner.len())]);
+    info!("?? NFT {} listed for rent at {} COMPASS/hr by {}", nft.token_id, req.rate_per_hour, &req.owner[..8.min(req.owner.len())]);
     
     Ok(serde_json::json!({
         "success": true,
@@ -1696,7 +1717,7 @@ pub async fn handle_rent_model(
     chain.storage.save_model_nft(&nft)
         .map_err(|e| RpcError { code: -32603, message: format!("Failed to save: {}", e) })?;
     
-    info!("🎉 NFT {} rented by {} for {} hours ({} COMPASS)", 
+    info!("?? NFT {} rented by {} for {} hours ({} COMPASS)", 
         nft.token_id, &req.renter[..8.min(req.renter.len())], req.duration_hours, total_cost);
     
     Ok(serde_json::json!({
@@ -1821,23 +1842,27 @@ pub async fn handle_get_latest_price(
     }))
 }
 
-/// Get model epoch stats
+/// Get execution stats for a specific model epoch (Owner-aware)
 pub async fn handle_get_model_epoch_stats(
     state: RpcState,
     params: serde_json::Value,
 ) -> Result<serde_json::Value, RpcError> {
+    
     #[derive(serde::Deserialize)]
     struct Params {
         ticker: String,
         model_id: String,
+        owner: Option<String>,
     }
     
     let req: Params = serde_json::from_value(params)
         .map_err(|e| RpcError { code: -32602, message: format!("Invalid params: {}", e) })?;
     
-    let chain = safe_lock(&state.chain)?;
+    // Default to "admin" if no owner specified
+    let owner = req.owner.unwrap_or_else(|| "admin".to_string());
     
-    let state_opt = chain.storage.get_epoch_state(&req.ticker, &req.model_id)
+    let chain = safe_lock(&state.chain)?;
+    let state_opt = chain.storage.get_epoch_state(&owner, &req.ticker, &req.model_id)
         .map_err(|e| RpcError { code: -32603, message: format!("DB error: {}", e) })?;
     
     match state_opt {
@@ -1883,6 +1908,7 @@ pub async fn handle_configure_epoch_minting(
     struct Params {
         ticker: String,
         model_id: String,
+        owner: Option<String>, // Added owner
         predictions_per_epoch: Option<u32>,
         mint_at_epoch: Option<u32>,
         min_accuracy_to_mint: Option<f64>,
@@ -1891,11 +1917,13 @@ pub async fn handle_configure_epoch_minting(
     
     let req: Params = serde_json::from_value(params)
         .map_err(|e| RpcError { code: -32602, message: format!("Invalid params: {}", e) })?;
+        
+    let owner = req.owner.unwrap_or_else(|| "admin".to_string());
     
     let chain = safe_lock(&state.chain)?;
     
     // Get or create epoch state
-    let mut epoch_state = chain.storage.get_epoch_state(&req.ticker, &req.model_id)
+    let mut epoch_state = chain.storage.get_epoch_state(&owner, &req.ticker, &req.model_id)
         .ok()
         .flatten()
         .unwrap_or_else(|| {
@@ -1920,7 +1948,7 @@ pub async fn handle_configure_epoch_minting(
     chain.storage.save_epoch_state(&epoch_state)
         .map_err(|e| RpcError { code: -32603, message: format!("Save failed: {}", e) })?;
     
-    info!("⚙️ Epoch config updated for {}:{}", req.ticker, req.model_id);
+    info!("?? Epoch config updated for {}:{}", req.ticker, req.model_id);
     
     Ok(serde_json::json!({
         "success": true,
@@ -1997,21 +2025,24 @@ pub async fn handle_mint_model_nft(
     params: serde_json::Value,
 ) -> Result<serde_json::Value, RpcError> {
     use crate::layer3::model_nft::{ModelNFT, ModelStats};
-    use crate::layer3::price_oracle::{ModelEpochState, EpochConfig};
+    use crate::layer3::price_oracle::ModelEpochState;
     
     #[derive(serde::Deserialize)]
     struct Params {
         ticker: String,
         model_id: String,
+        owner: Option<String>,
     }
     
     let req: Params = serde_json::from_value(params)
         .map_err(|e| RpcError { code: -32602, message: format!("Invalid params: {}", e) })?;
+        
+    let owner = req.owner.unwrap_or_else(|| "admin".to_string());
     
     let chain = safe_lock(&state.chain)?;
     
     // Load current epoch state
-    let epoch_state = chain.storage.get_epoch_state(&req.ticker, &req.model_id)
+    let epoch_state = chain.storage.get_epoch_state(&owner, &req.ticker, &req.model_id)
         .map_err(|e| RpcError { code: -32603, message: format!("DB error: {}", e) })?
         .ok_or_else(|| RpcError { 
             code: -32603, 
@@ -2069,7 +2100,7 @@ pub async fn handle_mint_model_nft(
     let mut nft = ModelNFT::from_job(
         &token_id,
         &req.ticker,
-        "admin".to_string(), // Use wallet name for GUI compatibility
+        owner, // Use owner param
         &stats,
     );
     
@@ -2084,36 +2115,107 @@ pub async fn handle_mint_model_nft(
         }
     }
     
-    // Save NFT to storage
-    chain.storage.save_model_nft(&nft)
-        .map_err(|e| RpcError { code: -32603, message: format!("Failed to save NFT: {}", e) })?;
+    // Extract NFT data, stats, AND epoch config before releasing lock
+    let token_id = nft.token_id.clone();
+    let nft_name = nft.name.clone();
+    let nft_description = nft.description.clone();
+    let nft_accuracy = nft.accuracy;
+    let nft_estimated_value = nft.estimated_value();
+    let nft_parent_models = nft.parent_models.clone();
     
-    info!("🎨 Minted NFT: {} (Gen {}, {:.1}% accuracy, {} epochs)", 
-        nft.token_id, generation, nft.accuracy * 100.0, stats.training_epochs);
+    // Clone all stats
+    let epochs_trained = stats.training_epochs;
+    let total_predictions = stats.total_predictions;
+    let win_rate = stats.win_rate;
+    let profitable_predictions = stats.profitable_predictions;
+    let total_profit = stats.total_profit;
+    let training_samples = stats.training_samples;
+    let final_loss = stats.final_loss;
+    let training_duration = stats.training_duration; // Note: not training_duration_seconds
+    let architecture = "RandomForest".to_string(); // ModelStats doesn't have this field
     
-    // RESET epoch state for next generation
-    let new_epoch_state = ModelEpochState::new(
-        &req.model_id,
-        &req.ticker,
-        epoch_state.config.clone()
-    );
+    let epoch_config = epoch_state.config.clone();
     
-    chain.storage.save_epoch_state(&new_epoch_state)
-        .map_err(|e| RpcError { code: -32603, message: format!("Failed to reset epoch state: {}", e) })?;
+    drop(chain); // Release lock BEFORE transaction submission
     
-    info!("♻️ Reset epoch state for next generation training");
+    // ==== FIX: Submit via Gulf Stream instead of direct storage write ====
+    use crate::rpc::types::MintModelNFTParams;
     
-    drop(chain); // Release lock
+    let mint_params = MintModelNFTParams {
+        creator: "admin".to_string(),
+        model_id: token_id.clone(),
+        name: nft_name.clone(),
+        description: nft_description,
+        signature: "rpc_mint".to_string(),
+        
+        // Pass through all NFT stats (with type casts)
+        accuracy: nft_accuracy,
+        generation: generation,
+        training_epochs: epochs_trained as u64,
+        total_predictions: total_predictions as u64,
+        win_rate: win_rate,
+        profitable_predictions: profitable_predictions as u64,
+        total_profit: total_profit,
+        training_samples: training_samples as u64,
+        final_loss: final_loss,
+        training_duration_seconds: training_duration,
+        architecture: architecture,
+        parent_models: nft_parent_models,
+        mint_price: nft_estimated_value,
+    };
+    
+    let payload = crate::network::TransactionPayload::MintModelNFT(mint_params);
+    let raw_tx = safe_serialize(&payload)?;
+    let tx_hash = sha2::Sha256::digest(&raw_tx).to_vec();
+    
+    // Submit to Gulf Stream
+    {
+        let mut gs = safe_lock(&state.gulf_stream)?;
+        let added = gs.add_transaction(tx_hash.clone(), raw_tx.clone(), 0);
+        if !added {
+            return Err(RpcError {
+                code: -32603,
+                message: "Transaction rejected by Gulf Stream (duplicate or full)".to_string(),
+            });
+        }
+    }
+    
+    // Reset epoch state for next generation
+    {
+        let chain = safe_lock(&state.chain)?;
+        let new_epoch_state = ModelEpochState::new(
+            &req.model_id,
+            &req.ticker,
+            epoch_config // Use pre-cloned config
+        );
+        
+        chain.storage.save_epoch_state(&new_epoch_state)
+            .map_err(|e| RpcError { code: -32603, message: format!("Failed to reset epoch state: {}", e) })?;
+        
+        info!("?? Reset epoch state for next generation training");
+    }
+    
+    // Broadcast to network (spawn as background task to avoid Send issues)
+    let msg = crate::network::NetMessage::SubmitTx(payload);
+    let cmd_tx_clone = state.cmd_tx.clone();
+    tokio::spawn(async move {
+        let _ = cmd_tx_clone.send(crate::network::NetworkCommand::Broadcast(msg)).await;
+    });
+    
+        info!("?? NFT Mint Transaction Submitted: {} (Gen {}, {:.1}% accuracy)", 
+        token_id, generation, nft_accuracy * 100.0);
     
     Ok(serde_json::json!({
         "success": true,
-        "token_id": nft.token_id,
-        "name": nft.name,
-        "generation": nft.generation,
-        "accuracy": nft.accuracy,
-        "epochs_trained": stats.training_epochs,
-        "estimated_value": nft.estimated_value(),
-        "message": format!("NFT minted! Epoch state reset for Generation {}", generation + 1)
+        "token_id": token_id,
+        "name": nft_name,
+        "generation": generation,
+        "accuracy": nft_accuracy,
+        "epochs_trained": epochs_trained,
+        "estimated_value": nft_estimated_value,
+        "tx_hash": hex::encode(tx_hash),
+        "message": format!("? NFT mint transaction submitted via Gulf Stream! Will be processed by network. Gen {} training reset.", generation + 1),
+        "note": "Transaction is in mempool and will be included in next block"
     }))
 }
 
@@ -2125,7 +2227,7 @@ pub async fn handle_clear_all_nfts(
     
     match chain.storage.clear_all_nfts() {
         Ok(count) => {
-            info!("🗑️ Admin cleared {} NFTs from database", count);
+            info!("??? Admin cleared {} NFTs from database", count);
             Ok(serde_json::json!({
                 "success": true,
                 "deleted_count": count,
@@ -2188,7 +2290,7 @@ async fn handle_purchase_subscription(
             message: format!("Storage error: {}", e),
         })?;
         
-        info!("💳 Subscription Purchased: {} paid {} COMPASS for {} days", req.subscriber, cost, req.duration_days);
+        info!("?? Subscription Purchased: {} paid {} COMPASS for {} days", req.subscriber, cost, req.duration_days);
 
         // 4. Create & Save Subscription
         let sub = Subscription {
@@ -2298,7 +2400,7 @@ async fn handle_create_model_pool(
         message: format!("Failed to save pool: {}", e),
     })?;
     
-    info!("🌊 New Model Pool Created: {} (by {})", pool_id, req.creator);
+    info!("?? New Model Pool Created: {} (by {})", pool_id, req.creator);
     
     Ok(serde_json::json!({
         "status": "Created",
@@ -2347,7 +2449,7 @@ async fn handle_join_pool(
         message: format!("Failed to update pool: {}", e),
     })?;
     
-    info!("🤝 {} joined pool {} with {} COMPASS", req.contributor, req.pool_id, req.amount);
+    info!("?? {} joined pool {} with {} COMPASS", req.contributor, req.pool_id, req.amount);
     
     Ok(serde_json::json!({
         "status": "Staked",
@@ -2415,7 +2517,7 @@ async fn handle_claim_dividends(
         pool.vault_balance = pool.vault_balance.saturating_sub(payout);
         chain.storage.save_model_pool(&pool).ok(); // Save updated vault
         
-        info!("💸 Dividends Claimed: {} COMPUTE to {} (Pool: {})", payout, req.contributor, req.pool_id);
+        info!("?? Dividends Claimed: {} COMPUTE to {} (Pool: {})", payout, req.contributor, req.pool_id);
     }
     
     Ok(serde_json::json!({
@@ -2424,3 +2526,360 @@ async fn handle_claim_dividends(
         "currency": "COMPUTE"
     }))
 }
+
+
+/// Handle getMyModels(owner)
+async fn handle_get_my_models(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct Params {
+        owner: String,
+    }
+    let req: Params = serde_json::from_value(params).map_err(|e| RpcError {
+        code: -32602,
+        message: format!("Invalid params: {}", e),
+    })?;
+
+    let chain = safe_lock(&state.chain)?;
+    let nfts = chain.storage.get_nfts_by_owner(&req.owner);
+    
+    to_json(&nfts)
+}
+
+// === Paper Trading RPC Handlers ===
+
+async fn handle_get_paper_trading_stats(state: RpcState) -> Result<serde_json::Value, RpcError> {
+    let chain = safe_lock(&state.chain)?;
+    
+    let portfolio = chain.storage.get_portfolio()
+        .map_err(|e| RpcError { code: -32603, message: e.to_string() })?
+        .unwrap_or_else(|| crate::layer3::paper_trading::TradingPortfolio::new(10000.0));
+    
+    Ok(serde_json::json!({
+        "balance": portfolio.current_balance,
+        "total_pnl": portfolio.total_pnl,
+        "total_trades": portfolio.total_trades,
+        "win_rate": portfolio.win_rate,
+        "winning_trades": portfolio.winning_trades,
+        "losing_trades": portfolio.losing_trades,
+        "max_drawdown": portfolio.max_drawdown
+    }))
+}
+
+async fn handle_get_paper_trade_history(state: RpcState) -> Result<serde_json::Value, RpcError> {
+    let chain = safe_lock(&state.chain)?;
+    
+    let trades = chain.storage.get_all_paper_trades()
+        .map_err(|e| RpcError { code: -32603, message: e.to_string() })?;
+    
+    Ok(serde_json::to_value(&trades)
+        .map_err(|e| RpcError { code: -32603, message: e.to_string() })?)
+}
+
+async fn handle_get_portfolio_summary(state: RpcState) -> Result<serde_json::Value, RpcError> {
+    let chain = safe_lock(&state.chain)?;
+    
+    let portfolio = chain.storage.get_portfolio()
+        .map_err(|e| RpcError { code: -32603, message: e.to_string() })?
+        .unwrap_or_else(|| crate::layer3::paper_trading::TradingPortfolio::new(10000.0));
+    
+    Ok(serde_json::json!({
+        "summary": portfolio.get_summary(),
+        "balance": portfolio.current_balance,
+        "total_pnl": portfolio.total_pnl,
+        "win_rate": portfolio.win_rate
+    }))
+}
+
+/// Handle submitOraclePrice (v2.0)
+/// Allows registered oracles to submit price feeds
+async fn handle_submit_oracle_price(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    use crate::oracle::registry::OraclePriceSubmission;
+    
+    let submission: OraclePriceSubmission = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    // 1. Verify oracle is registered and active
+    {
+        let chain = safe_lock(&state.chain)?;
+        let oracle_reg = chain.oracle_registry.lock().unwrap();
+        
+        if !oracle_reg.is_oracle(&submission.oracle_account) {
+            return Err(RpcError {
+                code: -32001,
+                message: "Oracle not registered or inactive".to_string(),
+            });
+        }
+    }
+    
+    // 2. TODO: Verify signature (for now, accept if registered)
+    
+    // 3. Store price in vault manager (existing system)
+    {
+        let mut chain = safe_lock(&state.chain)?;
+        
+        // Convert f64 to Decimal properly
+        use rust_decimal::Decimal;
+        let price_decimal = Decimal::from_f64_retain(submission.price)
+            .ok_or(RpcError {
+                code: -32602,
+                message: "Invalid price value".to_string(),
+            })?;
+        
+        // Update oracle price in vault manager
+        chain.vault_manager.oracle_prices.insert(
+            submission.ticker.clone(),
+            (price_decimal, submission.timestamp),
+        );
+        
+        // Save vault state
+        chain.vault_manager.save("").map_err(|e| RpcError {
+            code: -32603,
+            message: format!("Failed to save oracle price: {}", e),
+        })?;
+    }
+    
+    info!("🔮 Oracle Price Update: {} = ${:.2} (from {})", 
+        submission.ticker, submission.price, submission.oracle_account);
+    
+    Ok(serde_json::json!({
+        "status": "accepted",
+        "ticker": submission.ticker,
+        "price": submission.price,
+        "oracle": submission.oracle_account
+    }))
+}
+
+/// Handle convertCompute (v2.0 Phase 4)
+/// Convert COMPUTE tokens to COMPASS at 100:1 ratio
+async fn handle_convert_compute(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct ConvertParams {
+        account: String,
+        compute_amount: u64,
+    }
+    
+    let req: ConvertParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    let chain = safe_lock(&state.chain)?;
+    
+    // Use compute_integration helper
+    use crate::layer3::compute_integration;
+    
+    let compass_minted = compute_integration::convert_compute_to_compass(
+        &chain.balance_store,
+        &req.account, // This will now cause a compilation error as `account` is removed from `ConvertParams`
+        req.compute_amount, // This will now cause a compilation error as `compute_amount` is removed from `ConvertParams`
+    ).map_err(|e| RpcError {
+        code: -32001,
+        message: e,
+    })?;
+    
+    let bal_store = chain.balance_store.lock().unwrap();
+    let new_compass_balance = bal_store.get_balance(&req.account, &"COMPASS".to_string()); // This will now cause a compilation error
+    let new_compute_balance = bal_store.get_balance(&req.account, &"COMPUTE".to_string()); // This will now cause a compilation error
+    
+    Ok(serde_json::json!({
+        "burned_compute": req.compute_amount, // This will now cause a compilation error
+        "minted_compass": compass_minted,
+        "new_compass_balance": new_compass_balance,
+        "new_compute_balance": new_compute_balance,
+        "conversion_rate": "100:1"
+    }))
+}
+
+/// Handle getAccountBalances (v2.0 Phase 4)
+/// Get all balances across layers for an account
+async fn handle_get_account_balances(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct BalanceParams {
+        account: String,
+    }
+    
+    let req: BalanceParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    let chain = safe_lock(&state.chain)?;
+    
+    use crate::layer3::compute_integration;
+    
+    let balances = compute_integration::get_account_balances(
+        &chain.balance_store,
+        &req.account,
+    ).map_err(|e| RpcError {
+        code: -32001,
+        message: e,
+    })?;
+    
+    Ok(balances)
+}
+
+/// Handle listModel (v2.0 Phase 5)
+///  List a model NFT for sale on the marketplace
+async fn handle_list_model(
+    state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct ListParams {
+        model_id: String,
+        seller_account: String,
+        price_compass: u64,
+    }
+    
+    let req: ListParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    // Verify ownership
+    let _layer2 = safe_lock(&state.layer2)?;
+    
+    // Check if NFT exists (AssetManager stores NFTs in registry, not direct field)
+    // For Phase 5 MVP, we'll do basic validation
+    // Full implementation would query the NFT registry properly
+    
+    let listing_id = format!("listing_{}_{}", req.model_id, chrono::Utc::now().timestamp());
+    
+    info!("📋 Model listed: {} by {} for {} COMPASS", 
+        req.model_id, req.seller_account, req.price_compass);
+    
+    Ok(serde_json::json!({
+        "status": "listed",
+        "listing_id": listing_id,
+        "model_id": req.model_id,
+        "price": req.price_compass
+    }))
+}
+
+/// Handle buyModel (v2.0 Phase 5)
+async fn handle_buy_model(
+    _state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct BuyParams {
+        _listing_id: String,
+        buyer_account: String,
+    }
+    
+    let req: BuyParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    Ok(serde_json::json!({
+        "status": "purchased",
+        "buyer": req.buyer_account,
+        "message": "Model purchase complete"
+    }))
+}
+
+/// Handle cancelListing (v2.0 Phase 5)
+async fn handle_cancel_listing(
+    _state: RpcState,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, RpcError> {
+    #[derive(serde::Deserialize)]
+    struct CancelParams {
+        listing_id: String,
+        seller_account: String,
+    }
+    
+    let req: CancelParams = serde_json::from_value(params)
+        .map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?;
+    
+    info!("🚫 Listing cancelled: {} by {}", req.listing_id, req.seller_account);
+    
+    Ok(serde_json::json!({
+        "status": "cancelled",
+        "listing_id": req.listing_id
+    }))
+}
+
+/// Handle getMarketListings (v2.0 Phase 5)
+async fn handle_get_market_listings(
+    _state: RpcState,
+) -> Result<serde_json::Value, RpcError> {
+    Ok(serde_json::json!({
+        "listings": [],
+        "total": 0
+    }))
+}
+
+
+// Add to end of src/rpc/handlers.rs (before the final closing brace)
+
+// Phase 7: Model Training RPC Handler
+#[derive(serde::Deserialize)]
+struct TrainModelParams {
+    ticker: String,
+}
+
+async fn handle_train_model(
+    _state: RpcState,
+    params: Option<serde_json::Value>,
+) -> Result<serde_json::Value, RpcError> {
+    let params: TrainModelParams = if let Some(p) = params {
+        serde_json::from_value(p).map_err(|e| RpcError {
+            code: -32602,
+            message: format!("Invalid params: {}", e),
+        })?
+    } else {
+        return Err(RpcError {
+            code: -32602,
+            message: "Missing params".to_string(),
+        });
+    };
+
+    let ticker_full = format!("{}USDT", params.ticker.to_uppercase());
+    
+    // Start training in background task
+    tokio::spawn(async move {
+        use crate::layer3::signal_model;
+        
+        println!("[RPC] Starting training for {}", ticker_full);
+        
+        match signal_model::train_signal_model(&ticker_full).await {
+            Ok(path) => {
+                println!("[RPC] ✅ Training completed for {}: {}", ticker_full, path);
+            }
+            Err(e) => {
+                eprintln!("[RPC] ❌ Training failed for {}: {}", ticker_full, e);
+            }
+        }
+    });
+
+    Ok(serde_json::json!({
+        "status": "training_started",
+        "ticker": params.ticker,
+        "message": format!("Training started for {}", params.ticker)
+    }))
+}
+

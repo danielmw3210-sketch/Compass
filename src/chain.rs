@@ -3,8 +3,13 @@ use crate::crypto::verify_with_pubkey_hex;
 use crate::storage::Storage;
 use crate::vault::VaultManager;
 use crate::error::CompassError;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tracing::{info, warn, debug};
+
+// v2.0: Account-based state management
+use crate::account::store::AccountStore;
+use crate::account::balance::BalanceStore;
+use crate::oracle::registry::OracleRegistry;
 
 /// Fork detection result
 #[derive(Debug, Clone, PartialEq)]
@@ -19,6 +24,11 @@ pub struct Chain {
     pub head_hash: Option<String>,
     pub height: u64,
     pub vault_manager: VaultManager,
+    
+    // v2.0: Account-based state management
+    pub account_store: Arc<Mutex<AccountStore>>,
+    pub balance_store: Arc<Mutex<BalanceStore>>,
+    pub oracle_registry: Arc<Mutex<OracleRegistry>>,
 }
 
 impl Chain {
@@ -59,10 +69,15 @@ impl Chain {
         }
 
         Chain {
-            storage,
+            storage: storage.clone(),
             head_hash,
             height,
             vault_manager,
+            
+            // v2.0: Initialize account system
+            account_store: Arc::new(Mutex::new(AccountStore::new())),
+            balance_store: Arc::new(Mutex::new(BalanceStore::new())),
+            oracle_registry: Arc::new(Mutex::new(OracleRegistry::new())),
         }
     }
 
@@ -122,6 +137,49 @@ impl Chain {
                  // For now just add to list.
              }
              self.storage.set_active_validators(&val_ids).map_err(|e| CompassError::DatabaseError(e.to_string()))?;
+        }
+        
+        // v2.0: Initialize admin account
+        info!("🔐 Creating admin account: vikingcoder");
+        {
+            let mut acc_store = self.account_store.lock().unwrap();
+            use crate::account::types::{AccountType, AdminAccountData};
+            
+            let admin_account = acc_store.create_account(
+                "vikingcoder".to_string(),
+                "D4rkness10@@".to_string(),
+                AccountType::Admin(AdminAccountData {
+                    permissions: vec!["*".to_string()], // Full permissions
+                }),
+            ).map_err(|e| CompassError::InvalidState(format!("Failed to create admin account: {:?}", e)))?;
+            
+            info!("✅ Admin account created: {}", admin_account.name);
+        }
+        
+        // v2.0: Mint 10M COMPASS to admin
+        {
+            let mut bal_store = self.balance_store.lock().unwrap();
+            
+            bal_store.credit(
+                &"vikingcoder".to_string(),
+                &"COMPASS".to_string(), // Asset is type alias for String
+                10_000_000 * 1_000_000, // 10M COMPASS (6 decimals)
+            ).map_err(|e| CompassError::InvalidState(format!("Failed to mint genesis COMPASS: {:?}", e)))?;
+            
+            info!("💰 Minted 10,000,000 COMPASS to admin");
+        }
+        
+        // v2.0: Register admin as first oracle (100K COMPASS stake)
+        {
+            let mut oracle_reg = self.oracle_registry.lock().unwrap();
+            
+            oracle_reg.register_oracle(
+                "vikingcoder".to_string(),
+                100_000 * 1_000_000, // 100K COMPASS stake
+                0, // Genesis block
+            ).map_err(|e| CompassError::InvalidState(format!("Failed to register admin oracle: {}", e)))?;
+            
+            info!("🔮 Registered admin as genesis oracle (100K COMPASS staked)");
         }
 
         Ok(())

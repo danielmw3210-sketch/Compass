@@ -1,0 +1,45 @@
+[Unit]
+Description=Compass Blockchain Node
+Documentation=https://github.com/compass-blockchain
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=compass
+Group=compass
+WorkingDirectory=/opt/compass
+
+# Main executable
+ExecStart=/opt/compass/rust_compass node start \
+    --p2p-port 19000 \
+    --rpc-port 9000 \
+    --db-path /var/lib/compass/mainnet.db
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Resource limits
+LimitNOFILE=65535
+LimitNPROC=4096
+
+# Logging
+StandardOutput=append:/var/log/compass/node.log
+StandardError=append:/var/log/compass/node-error.log
+SyslogIdentifier=compass-node
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/var/lib/compass /var/log/compass
+
+[Install]
+WantedBy=multi-user.target

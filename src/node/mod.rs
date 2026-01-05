@@ -102,6 +102,10 @@ impl CompassNode {
         // --- 1. Storage & Persistence (Initialized First) ---
         info!("Persistence: Opening Sled DB at '{}'...", db_path);
         let storage = Storage::new(&db_path).expect("Failed to open DB");
+        
+        // Auto-Migrate Legacy NFTs
+        let _ = storage.migrate_legacy_nfts();
+        
         let storage_arc = Arc::new(storage); // Wrap for sharing
 
         // --- 2. Wallets (Migrated to Sled) ---
@@ -120,19 +124,8 @@ impl CompassNode {
              info!("Persistence: ✅ Migration Complete.");
         }
 
-        // Ensure "Daniel" exists
-        if wallet_manager.get_wallet("Daniel").is_none() {
-            let daniel_w = crate::wallet::Wallet::new("Daniel", WalletType::Admin);
-            wallet_manager.create_wallet(&daniel_w, "Daniel", WalletType::Admin);
-            info!("Created 'Daniel' wallet.");
-        }
-        // Ensure "admin" exists
-        if wallet_manager.get_wallet("admin").is_none() {
-             let admin_w = crate::wallet::Wallet::new("admin", WalletType::Admin);
-             wallet_manager.create_wallet(&admin_w, "admin", WalletType::Admin);
-             info!("System: Created 'admin' wallet.");
-        }
-        
+        // v2.0: Wallets are deprecated - using account-based system instead
+        // Legacy wallet manager kept temporarily for backward compatibility with existing RPC/Oracle code
         let wallets = Arc::new(Mutex::new(wallet_manager));
 
         // --- Load Other Components (Still JSON for now) ---
@@ -193,12 +186,10 @@ impl CompassNode {
         let (cmd_tx, cmd_rx) = mpsc::channel(32);
         let local_libp2p_key = libp2p::identity::Keypair::generate_ed25519();
 
-        // --- Oracle Init ---
+
+        // --- Oracle Init (v2.0: Use admin identity) ---
         let oracle_config = crate::oracle::OracleConfig::default();
-        let oracle_keypair = wallets.lock().unwrap()
-            .get_wallet("Daniel")
-            .and_then(|w| w.get_keypair())
-            .expect("Oracle wallet (Daniel) not found");
+        let oracle_keypair = crate::crypto::KeyPair::generate();  // Oracle needs its own KeyPair
             
         let oracle = Arc::new(tokio::sync::Mutex::new(OracleService::new(
             oracle_config,
@@ -413,13 +404,32 @@ impl CompassNode {
                                          creator: params.creator.clone(),
                                          license: crate::layer3::model_nft::LicenseType::Commercial,
                                          rental_status: None,
-                                         // Defaults...
-                                         accuracy: 0.0, win_rate: 0.0, total_predictions: 0, profitable_predictions: 0, total_profit: 0,
-                                         training_samples: 0, training_epochs: 0, final_loss: 0.0, training_duration_seconds: 0,
-                                         trained_on_data_hash: "genesis".into(), weights_hash: "pending".into(), weights_uri: "pending".into(),
-                                         architecture: "unknown".into(), parent_models: vec![], generation: 0, mint_price: 0,
-                                         royalty_rate: 0.05, current_owner: params.creator.clone(), sale_history: vec![],
-                                         minted_at: block::current_unix_timestamp_ms(), last_updated: block::current_unix_timestamp_ms(),
+                                         
+                                         // Use stats from params (preserves model performance!)
+                                         accuracy: params.accuracy,
+                                         win_rate: params.win_rate,
+                                         total_predictions: params.total_predictions as usize,
+                                         profitable_predictions: params.profitable_predictions as usize,
+                                         total_profit: params.total_profit,
+                                         training_samples: params.training_samples as usize,
+                                         training_epochs: params.training_epochs as usize,
+                                         final_loss: params.final_loss,
+                                         training_duration_seconds: params.training_duration_seconds,
+                                         
+                                         // Model metadata
+                                         trained_on_data_hash: "binance_5m".into(),
+                                         weights_hash: format!("model_gen_{}", params.generation),
+                                         weights_uri: format!("ipfs://model_{}", params.model_id),
+                                         architecture: params.architecture,
+                                         parent_models: params.parent_models,
+                                         generation: params.generation,
+                                         mint_price: params.mint_price,
+                                         
+                                         royalty_rate: 0.05,
+                                         current_owner: params.creator.clone(),
+                                         sale_history: vec![],
+                                         minted_at: block::current_unix_timestamp_ms(),
+                                         last_updated: block::current_unix_timestamp_ms(),
                                      };
                                      l2.assets.register_mint(nft.clone(), params.creator);
                                      let _ = l2.save("layer2.json"); 

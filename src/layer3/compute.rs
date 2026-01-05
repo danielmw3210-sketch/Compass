@@ -130,22 +130,34 @@ impl ComputeJob {
              let ticker_short = parts.get(1).unwrap_or(&"btc");
              let ticker = format!("{}USDT", ticker_short.to_uppercase());
              
-             // 2. Deserialize Inputs (Vec<Vec<f64>> [Close, Volume])
+             // 2. Deserialize Inputs (Vec<Vec<f64>> - OHLCV format)
              let x: Vec<Vec<f64>> = serde_json::from_slice(&self.inputs)
                 .map_err(|e| format!("Invalid inputs for signal model: {}", e))?;
                 
-             // 3. Extract Prices and Volumes
-             let mut prices = Vec::with_capacity(x.len());
+             // 3. Extract OHLCV Arrays
+             let mut highs = Vec::with_capacity(x.len());
+             let mut lows = Vec::with_capacity(x.len());
+             let mut closes = Vec::with_capacity(x.len());
              let mut volumes = Vec::with_capacity(x.len());
+             
              for row in x {
-                 if row.len() >= 2 {
-                     prices.push(row[0]);
+                 if row.len() >= 5 {
+                     // [Open, High, Low, Close, Volume]
+                     highs.push(row[1]);
+                     lows.push(row[2]);
+                     closes.push(row[3]);
+                     volumes.push(row[4]);
+                 } else if row.len() >= 2 {
+                     // Backward compatibility: [Close, Volume]
+                     closes.push(row[0]);
                      volumes.push(row[1]);
+                     highs.push(row[0] * 1.001);  // Approximate
+                     lows.push(row[0] * 0.999);
                  }
              }
              
-             // 4. Compute Features
-             let features = crate::layer3::signal_model::compute_inference_features(&prices, &volumes)
+             // 4. Compute Features (now with real high/low data!)
+             let features = crate::layer3::signal_model::compute_inference_features(&highs, &lows, &closes, &volumes)
                  .map_err(|e| format!("Feature calculation failed: {}", e))?;
                  
              // 5. Predict

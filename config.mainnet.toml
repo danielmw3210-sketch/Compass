@@ -1,0 +1,38 @@
+# Compass Mainnet Configuration
+# Copy this to config.toml on your production server
+
+[node]
+# P2P port for peer discovery and block propagation
+p2p_port = 19000
+
+# RPC port for API/client connections
+rpc_port = 9000
+
+# Database path (use absolute path in production)
+db_path = "/var/lib/compass/mainnet.db"
+
+# Logging level: trace, debug, info, warn, error
+log_level = "info"
+
+# Path to admin identity file
+identity_file = "/opt/compass/admin.json"
+
+[consensus]
+# Slot duration in milliseconds (1000 = 1 second per slot)
+slot_duration_ms = 1000
+
+[network]
+# Bootnodes for initial peer discovery (add mainnet bootnodes here)
+# bootnodes = [
+#   "/ip4/35.x.x.x/tcp/19000/p2p/12D3KooW...",
+# ]
+
+# Maximum number of peer connections
+max_peers = 50
+
+[rpc]
+# Enable CORS for web clients (set specific origins in production)
+cors_origins = ["*"]
+
+# Rate limiting
+max_requests_per_second = 100

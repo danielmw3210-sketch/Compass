@@ -1,0 +1,84 @@
+
+// Phase 7: Training Tab Implementation
+impl CompassApp {
+    pub(crate) fn render_training(&mut self, ui: &mut egui::Ui) {
+        ui.heading("🧠 AI Model Training");
+        ui.add_space(10.0);
+        
+        ui.group(|ui| {
+            ui.set_min_width(500.0);
+            
+            // Ticker selection
+            ui.horizontal(|ui| {
+                ui.label("Select Asset:");
+                egui::ComboBox::from_label("")
+                    .selected_text(&self.training_ticker)
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.training_ticker, "BTC".to_string(), "Bitcoin (BTC)");
+                        ui.selectable_value(&mut self.training_ticker, "ETH".to_string(), "Ethereum (ETH)");
+                        ui.selectable_value(&mut self.training_ticker, "SOL".to_string(), "Solana (SOL)");
+                        ui.selectable_value(&mut self.training_ticker, "LTC".to_string(), "Litecoin (LTC)");
+                    });
+            });
+            
+            ui.add_space(10.0);
+            
+            // Training controls
+            ui.horizontal(|ui| {
+                if self.training_in_progress {
+                    ui.spinner();
+                    ui.label("Training in progress...");
+                    ui.label(format!("{:.0}%", self.training_progress * 100.0));
+                } else {
+                    if ui.button("🚀 Start Training").clicked() {
+                        self.start_training();
+                    }
+                    if ui.button("📦 Mint NFT from Last Model").clicked() {
+                        self.mint_nft();
+                    }
+                }
+            });
+            
+            ui.add_space(10.0);
+            
+            // Training info
+            ui.label("Training will:");
+            ui.label("• Fetch historical price data");
+            ui.label("• Train neural network");
+            ui.label("• Run paper trading backtest");
+            ui.label("• Generate performance metrics");
+            ui.label("• Auto-mint NFT on completion");
+        });
+        
+        ui.add_space(10.0);
+        ui.separator();
+        
+        // Training logs
+        ui.heading("Training Logs");
+        egui::ScrollArea::vertical()
+            .max_height(300.0)
+            .show(ui, |ui| {
+                if self.training_logs.is_empty() {
+                    ui.label("No training logs yet. Start training to see progress.");
+                } else {
+                    ui.label(&self.training_logs);
+                }
+            });
+    }
+    
+    fn start_training(&mut self) {
+        self.training_in_progress = true;
+        self.training_progress = 0.0;
+        self.training_logs = format!("Starting training for {}...\n", self.training_ticker);
+        self.training_logs.push_str("Fetching historical data...\n");
+        
+        // TODO: Call RPC to start training
+        // For now, simulate
+        self.training_logs.push_str("Training model...\n");
+    }
+    
+    fn mint_nft(&mut self) {
+        self.training_logs.push_str("Minting NFT from trained model...\n");
+        // TODO: Call RPC mintModelNFT
+    }
+}
