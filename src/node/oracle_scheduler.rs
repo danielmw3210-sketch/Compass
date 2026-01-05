@@ -343,75 +343,133 @@ impl OracleScheduler {
 
     /// Fetches historical market data (OHLCV) for enhanced signal model
     /// Returns Vec<[Open, High, Low, Close, Volume]>
+    /// Uses Kraken API (US-friendly) as primary, with Binance.US as fallback
     async fn fetch_historical_sequence(&self, symbol: &str) -> Option<Vec<Vec<f64>>> {
-        let url = "https://api.binance.com/api/v3/klines";
-        // Fetch 1000 5m candles for Signal Model (needs 200+ for SMA200)
+        // Convert symbol format: BTCUSDT -> XXBTZUSD, ETHUSDT -> XETHZUSD
+        let kraken_pair = match symbol {
+            "BTCUSDT" => "XXBTZUSD",
+            "ETHUSDT" => "XETHZUSD",
+            "SOLUSDT" => "SOLUSD",
+            "LTCUSDT" => "XLTCZUSD",
+            _ => return None,
+        };
+        
+        // Try Kraken first (works in US)
+        if let Some(seq) = self.fetch_kraken_ohlc(kraken_pair).await {
+            return Some(seq);
+        }
+        
+        // Try Binance.US as fallback (also works in US)
+        if let Some(seq) = self.fetch_binance_us_ohlc(symbol).await {
+            return Some(seq);
+        }
+        
+        warn!("   ⚠️ All data sources failed for {}", symbol);
+        None
+    }
+    
+    /// Fetch OHLC data from Kraken API
+    async fn fetch_kraken_ohlc(&self, pair: &str) -> Option<Vec<Vec<f64>>> {
+        let url = "https://api.kraken.com/0/public/OHLC";
+        let params = [
+            ("pair", pair),
+            ("interval", "5"),  // 5 minutes
+        ];
+        
+        match self.client.get(url).query(&params).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                let text = resp.text().await.ok()?;
+                let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+                
+                // Check for error
+                if let Some(errors) = json.get("error").and_then(|e| e.as_array()) {
+                    if !errors.is_empty() {
+                        error!("   ❌ Kraken error for {}: {:?}", pair, errors);
+                        return None;
+                    }
+                }
+                
+                // Extract data from result
+                let result = json.get("result")?;
+                // Kraken returns {"result": {"XXBTZUSD": [[time, open, high, low, close, vwap, volume, count], ...]}}
+                let ohlc_data = result.as_object()?.values().next()?.as_array()?;
+                
+                let sequence: Vec<Vec<f64>> = ohlc_data.iter().filter_map(|candle| {
+                    let arr = candle.as_array()?;
+                    // [time, open, high, low, close, vwap, volume, count]
+                    let open = arr.get(1)?.as_str()?.parse::<f64>().ok()?;
+                    let high = arr.get(2)?.as_str()?.parse::<f64>().ok()?;
+                    let low = arr.get(3)?.as_str()?.parse::<f64>().ok()?;
+                    let close = arr.get(4)?.as_str()?.parse::<f64>().ok()?;
+                    let volume = arr.get(6)?.as_str()?.parse::<f64>().ok()?;
+                    Some(vec![open, high, low, close, volume])
+                }).collect();
+                
+                if sequence.len() >= 200 {
+                    info!("   📈 [Kraken] Fetched {}-candle OHLCV for {} (Last: ${:.2})", 
+                        sequence.len(), pair, sequence.last()?[3]);
+                    Some(sequence)
+                } else {
+                    warn!("   ⚠️ [Kraken] Insufficient data for {}: {}/200+", pair, sequence.len());
+                    None
+                }
+            }
+            Ok(resp) => {
+                error!("   ❌ Kraken HTTP error: {} for {}", resp.status(), pair);
+                None
+            }
+            Err(e) => {
+                error!("   ❌ Kraken request failed for {}: {}", pair, e);
+                None
+            }
+        }
+    }
+    
+    /// Fetch OHLC data from Binance.US API (works in US)
+    async fn fetch_binance_us_ohlc(&self, symbol: &str) -> Option<Vec<Vec<f64>>> {
+        let url = "https://api.binance.us/api/v3/klines";
         let params = [
             ("symbol", symbol),
             ("interval", "5m"),
-            ("limit", "1000"), 
+            ("limit", "1000"),
         ];
-
+        
         match self.client.get(url).query(&params).send().await {
-            Ok(resp) => {
-                // First check HTTP status
-                if !resp.status().is_success() {
-                    error!("   ❌ Binance API HTTP error: {} for {}", resp.status(), symbol);
+            Ok(resp) if resp.status().is_success() => {
+                let text = resp.text().await.ok()?;
+                
+                // Check for error object
+                if text.starts_with("{") {
+                    error!("   ❌ Binance.US error for {}", symbol);
                     return None;
                 }
                 
-                // Get raw text first to check for error response
-                let text = match resp.text().await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        error!("   ❌ Failed to read response body: {}", e);
-                        return None;
-                    }
-                };
+                let data: Vec<serde_json::Value> = serde_json::from_str(&text).ok()?;
                 
-                // Check if response is an error object
-                if text.starts_with("{") {
-                    // It's a JSON object, likely an error
-                    if let Ok(err_obj) = serde_json::from_str::<serde_json::Value>(&text) {
-                        if let Some(code) = err_obj.get("code") {
-                            let msg = err_obj.get("msg").and_then(|m| m.as_str()).unwrap_or("Unknown error");
-                            error!("   ❌ Binance API error for {}: {} ({})", symbol, msg, code);
-                            return None;
-                        }
-                    }
-                }
+                let sequence: Vec<Vec<f64>> = data.iter().filter_map(|kline| {
+                    let open = kline.get(1)?.as_str()?.parse::<f64>().ok()?;
+                    let high = kline.get(2)?.as_str()?.parse::<f64>().ok()?;
+                    let low = kline.get(3)?.as_str()?.parse::<f64>().ok()?;
+                    let close = kline.get(4)?.as_str()?.parse::<f64>().ok()?;
+                    let volume = kline.get(5)?.as_str()?.parse::<f64>().ok()?;
+                    Some(vec![open, high, low, close, volume])
+                }).collect();
                 
-                // Parse as klines array
-                match serde_json::from_str::<Vec<serde_json::Value>>(&text) {
-                    Ok(data) => {
-                        // Extract full OHLCV: [[Open, High, Low, Close, Volume], ...]
-                        let sequence: Vec<Vec<f64>> = data.iter().filter_map(|kline| {
-                            // kline format: [time, open, high, low, close, volume, ...]
-                            let open = kline.get(1)?.as_str()?.parse::<f64>().ok()?;
-                            let high = kline.get(2)?.as_str()?.parse::<f64>().ok()?;
-                            let low = kline.get(3)?.as_str()?.parse::<f64>().ok()?;
-                            let close = kline.get(4)?.as_str()?.parse::<f64>().ok()?;
-                            let volume = kline.get(5)?.as_str()?.parse::<f64>().ok()?;
-                            Some(vec![open, high, low, close, volume])
-                        }).collect();
-                        
-                        if sequence.len() >= 200 {
-                            info!("   📈 Fetched {}-candle OHLCV sequence for {} (Last Close: ${:.2})", 
-                                sequence.len(), symbol, sequence.last()?[3]);
-                            Some(sequence)
-                        } else {
-                            warn!("   ⚠️ Insufficient data for {}: Got {}/200+", symbol, sequence.len());
-                            None
-                        }
-                    }
-                    Err(e) => {
-                        error!("   ❌ Failed to parse klines for {}: {}", symbol, e);
-                        None
-                    }
+                if sequence.len() >= 200 {
+                    info!("   📈 [Binance.US] Fetched {}-candle OHLCV for {} (Last: ${:.2})", 
+                        sequence.len(), symbol, sequence.last()?[3]);
+                    Some(sequence)
+                } else {
+                    warn!("   ⚠️ [Binance.US] Insufficient data for {}: {}/200+", symbol, sequence.len());
+                    None
                 }
-            },
+            }
+            Ok(resp) => {
+                error!("   ❌ Binance.US HTTP error: {} for {}", resp.status(), symbol);
+                None
+            }
             Err(e) => {
-                error!("   ❌ Failed to fetch sequence data for {}: {}", symbol, e);
+                error!("   ❌ Binance.US request failed for {}: {}", symbol, e);
                 None
             }
         }
