@@ -174,51 +174,106 @@ fn calculate_obv(closes: &[f64], volumes: &[f64]) -> Vec<f64> {
 
 /// Train a signal model for the specified ticker
 pub async fn train_signal_model(ticker: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-    println!("🧠 [Signal Model] Fetching Binance Data for {} (5m candles)...", ticker);
+    println!("🧠 [Signal Model] Fetching Data for {} (5m candles)...", ticker);
     
     let client = Client::new();
-    let url = "https://api.binance.com/api/v3/klines";
-    let params = [
-        ("symbol", ticker),
-        ("interval", "5m"), // IMPROVEMENT: More granular data
-        ("limit", "1000")
-    ];
-
-    // 1. Fetch Data
-    let resp = client.get(url).query(&params).send().await?;
-    let json_data: Vec<serde_json::Value> = resp.json().await?;
     
+    // 1. Fetch Data (Try Kraken first, then Binance.US)
+    let kraken_pair = match ticker {
+        "BTCUSDT" => "XXBTZUSD",
+        "ETHUSDT" => "XETHZUSD",
+        "SOLUSDT" => "SOLUSD",
+        "LTCUSDT" => "XLTCZUSD",
+        _ => ticker, // Fallback to ticker
+    };
+
     let mut high_prices: Vec<f64> = Vec::new();
     let mut low_prices: Vec<f64> = Vec::new();
     let mut close_prices: Vec<f64> = Vec::new();
     let mut volumes: Vec<f64> = Vec::new();
-    
-    for k in &json_data {
-        // Binance klines format: [time, open, high, low, close, volume, ...]
-        if let Some(h_str) = k[2].as_str() {
-            if let Ok(h) = h_str.parse::<f64>() {
-                high_prices.push(h);
+
+    let mut success = false;
+
+    // Try Kraken
+    println!("   📈 Attempting [Kraken] API for {}...", kraken_pair);
+    let kraken_url = "https://api.kraken.com/0/public/OHLC";
+    let kraken_params = [
+        ("pair", kraken_pair),
+        ("interval", "5"), // 5 minutes
+    ];
+
+    if let Ok(resp) = client.get(kraken_url).query(&kraken_params).send().await {
+        if resp.status().is_success() {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(result) = json.get("result") {
+                    if let Some(ohlc_data) = result.as_object().and_then(|m| m.values().next()).and_then(|v| v.as_array()) {
+                        for k in ohlc_data {
+                            let arr = k.as_array().ok_or("Invalid Kraken candle")?;
+                            // [time, open, high, low, close, vwap, volume, count]
+                            if let (Some(h), Some(l), Some(c), Some(v)) = (
+                                arr.get(2).and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()),
+                                arr.get(3).and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()),
+                                arr.get(4).and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()),
+                                arr.get(6).and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()),
+                            ) {
+                                high_prices.push(h);
+                                low_prices.push(l);
+                                close_prices.push(c);
+                                volumes.push(v);
+                            }
+                        }
+                        if close_prices.len() >= 200 {
+                            println!("   ✅ [Kraken] Fetched {} candles", close_prices.len());
+                            success = true;
+                        }
+                    }
+                }
             }
-        }
-        if let Some(l_str) = k[3].as_str() {
-            if let Ok(l) = l_str.parse::<f64>() {
-                low_prices.push(l);
-            }
-        }
-        if let Some(c_str) = k[4].as_str() {
-            if let Ok(p) = c_str.parse::<f64>() {
-                close_prices.push(p);
-            }
-        }
-        if let Some(v_str) = k[5].as_str() {
-             if let Ok(v) = v_str.parse::<f64>() {
-                 volumes.push(v);
-             }
         }
     }
 
-    if close_prices.len() < 200 {
-        return Err(format!("Not enough data for {}", ticker).into());
+    // Try Binance.US if Kraken failed
+    if !success {
+        println!("   📈 Attempting [Binance.US] API for {}...", ticker);
+        let b_us_url = "https://api.binance.us/api/v3/klines";
+        let b_us_params = [
+            ("symbol", ticker),
+            ("interval", "5m"),
+            ("limit", "1000")
+        ];
+
+        if let Ok(resp) = client.get(b_us_url).query(&b_us_params).send().await {
+            if resp.status().is_success() {
+                if let Ok(json_data) = resp.json::<Vec<serde_json::Value>>().await {
+                    high_prices.clear();
+                    low_prices.clear();
+                    close_prices.clear();
+                    volumes.clear();
+
+                    for k in &json_data {
+                        if let (Some(h), Some(l), Some(c), Some(v)) = (
+                            k[2].as_str().and_then(|s| s.parse::<f64>().ok()),
+                            k[3].as_str().and_then(|s| s.parse::<f64>().ok()),
+                            k[4].as_str().and_then(|s| s.parse::<f64>().ok()),
+                            k[5].as_str().and_then(|s| s.parse::<f64>().ok()),
+                        ) {
+                            high_prices.push(h);
+                            low_prices.push(l);
+                            close_prices.push(c);
+                            volumes.push(v);
+                        }
+                    }
+                    if close_prices.len() >= 200 {
+                        println!("   ✅ [Binance.US] Fetched {} candles", close_prices.len());
+                        success = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if !success {
+        return Err(format!("All data sources failed for {}. Check network/geo-restrictions.", ticker).into());
     }
 
     println!("🧠 [Signal Model] Computing indicators for {} candles...", close_prices.len());

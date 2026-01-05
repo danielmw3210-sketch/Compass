@@ -109,6 +109,22 @@ class CompassRPC {
     async submitTransaction(params) {
         return this.call('submitTransaction', params);
     }
+
+    async trainModel(ticker) {
+        return this.call('trainModel', { ticker });
+    }
+
+    async mintModelNFT(ticker, modelId, owner) {
+        return this.call('mintModelNFT', { ticker, model_id: modelId, owner });
+    }
+
+    async getModelEpochStats(ticker, modelId, owner) {
+        return this.call('getModelEpochStats', { ticker, model_id: modelId, owner });
+    }
+
+    async getMyModels(owner) {
+        return this.call('getMyModels', { owner });
+    }
 }
 
 // Initialize RPC client
@@ -177,7 +193,11 @@ async function loadPageData(page) {
             ]);
             break;
         case 'models':
-            await refreshModels();
+            await Promise.all([
+                refreshModelProgress(),
+                refreshMyModels(),
+                refreshModels()
+            ]);
             break;
         case 'settings':
             await loadNodeInfo();
@@ -276,7 +296,13 @@ async function loadWallet() {
     }
 
     state.walletAddress = address;
+    localStorage.setItem('compass_wallet_address', address);
     await loadWalletBalances();
+
+    // Refresh model progress if on that page
+    if (state.currentPage === 'models') {
+        refreshModelProgress();
+    }
 }
 
 async function loadWalletBalances() {
@@ -499,6 +525,182 @@ async function loadSignals() {
 }
 
 // ===== AI Models Functions =====
+async function startTraining(ticker) {
+    if (!state.walletAddress) {
+        showToast('Please load a wallet first', 'error');
+        navigateTo('wallet');
+        return;
+    }
+
+    try {
+        const result = await rpc.trainModel(ticker);
+        showToast(`Training started for ${ticker}`, 'success');
+
+        // Wait a bit and refresh progress
+        setTimeout(refreshModelProgress, 2000);
+    } catch (error) {
+        showToast(`Failed to start training: ${error.message}`, 'error');
+    }
+}
+
+async function refreshModelProgress() {
+    const container = document.getElementById('modelProgressContainer');
+    if (!state.walletAddress) {
+        container.innerHTML = '<div class="loading">Load a wallet to see your model progress...</div>';
+        return;
+    }
+
+    try {
+        // Models we want to track
+        const tickers = ['BTC', 'ETH', 'SOL', 'LTC'];
+        const owner = state.walletAddress;
+
+        let html = '';
+        let foundAny = false;
+
+        for (const ticker of tickers) {
+            const tickerFull = `${ticker}USDT`;
+            // Attempt to get stats for the model (assuming standard ID for now or fetching from MyModels)
+            try {
+                // For now, we use a convention: owner_ticker_1h
+                const modelId = `model_${ticker.toLowerCase()}_1h`;
+                const stats = await rpc.getModelEpochStats(tickerFull, modelId, owner);
+
+                if (stats) {
+                    foundAny = true;
+                    const accuracy = stats.total_predictions > 0
+                        ? (stats.total_correct / stats.total_predictions)
+                        : 0;
+                    const progress = stats.predictions_in_epoch / stats.config.predictions_per_epoch;
+                    const isMintable = stats.epochs_completed >= (stats.config.mint_at_epoch || 10) &&
+                        accuracy >= stats.config.min_accuracy_to_mint;
+
+                    html += `
+                        <div class="progress-item">
+                            <div class="progress-header">
+                                <span class="progress-ticker">${tickerFull}</span>
+                                <span class="progress-status ${isMintable ? 'ready' : 'training'}">
+                                    ${isMintable ? 'Ready to Mint' : 'In Progress'}
+                                </span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" style="width: ${progress * 100}%"></div>
+                            </div>
+                            <div class="progress-info">
+                                <span>Epoch: ${stats.current_epoch} (${stats.predictions_in_epoch}/${stats.config.predictions_per_epoch})</span>
+                                <span>Accuracy: ${(accuracy * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="progress-actions">
+                                ${isMintable ? `
+                                    <button class="btn btn-primary" onclick="window.onMintClick('${tickerFull}', '${modelId}')">
+                                        Mint Model NFT
+                                    </button>
+                                ` : `
+                                    <span class="card-hint">Requirements: ${stats.config.mint_at_epoch || 10} epochs, ${(stats.config.min_accuracy_to_mint * 100).toFixed(0)}% accuracy</span>
+                                `}
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                // Model might not exist yet for this user
+                continue;
+            }
+        }
+
+        if (!foundAny) {
+            container.innerHTML = '<div class="loading">No active training/models found for this wallet. Click "Train" to start!</div>';
+        } else {
+            container.innerHTML = html;
+        }
+
+    } catch (error) {
+        console.error('Progress refresh error:', error);
+        container.innerHTML = '<div class="loading">Error loading progress</div>';
+    }
+}
+
+async function onMintClick(ticker, modelId) {
+    if (!state.walletAddress) return;
+
+    try {
+        showToast(`Minting NFT for ${ticker}...`, 'info');
+        const result = await rpc.mintModelNFT(ticker, modelId, state.walletAddress);
+        showToast(`Successfully minted! Tx: ${result.tx_hash.slice(0, 16)}...`, 'success');
+
+        // Refresh everything
+        setTimeout(() => {
+            refreshModelProgress();
+            refreshModels();
+        }, 2000);
+
+    } catch (error) {
+        showToast(`Minting failed: ${error.message}`, 'error');
+    }
+}
+
+async function refreshMyModels() {
+    const grid = document.getElementById('myModelsGrid');
+    if (!state.walletAddress) {
+        grid.innerHTML = '<div class="loading">Load a wallet to see models you own...</div>';
+        return;
+    }
+
+    try {
+        const nfts = await rpc.getMyModels(state.walletAddress);
+
+        if (!nfts || nfts.length === 0) {
+            grid.innerHTML = `
+                <div class="model-card placeholder">
+                    <div class="model-icon">🤖</div>
+                    <span>You don't own any models yet. Mint one above!</span>
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = renderModelCards(nfts);
+
+    } catch (error) {
+        console.error('My models refresh error:', error);
+        grid.innerHTML = '<div class="loading">Error loading your models</div>';
+    }
+}
+
+// Helper to render model cards (reused for Marketplace and My Models)
+function renderModelCards(nfts) {
+    return nfts.map(nft => `
+        <div class="model-card">
+            <div class="model-header">
+                <span class="model-icon">🤖</span>
+                <h3 class="model-name">${nft.name || nft.token_id || 'AI Model'}</h3>
+            </div>
+            <div class="model-stats">
+                <div class="model-stat">
+                    <span class="model-stat-value">${(nft.accuracy * 100).toFixed(1)}%</span>
+                    <span class="model-stat-label">Accuracy</span>
+                </div>
+                <div class="model-stat">
+                    <span class="model-stat-value">${(nft.win_rate * 100).toFixed(1)}%</span>
+                    <span class="model-stat-label">Win Rate</span>
+                </div>
+                <div class="model-stat">
+                    <span class="model-stat-value">${nft.total_predictions || 0}</span>
+                    <span class="model-stat-label">Predictions</span>
+                </div>
+                <div class="model-stat">
+                    <span class="model-stat-value">${nft.generation || 1}</span>
+                    <span class="model-stat-label">Gen</span>
+                </div>
+            </div>
+            <div class="model-footer">
+                <span class="model-owner">Owner: ${truncateHash(nft.current_owner)}</span>
+                ${nft.mint_price ? `<span class="model-price">${formatNumber(nft.mint_price)} COMPASS</span>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
 async function refreshModels() {
     const grid = document.getElementById('modelsGrid');
 
@@ -515,36 +717,7 @@ async function refreshModels() {
             return;
         }
 
-        grid.innerHTML = nfts.map(nft => `
-            <div class="model-card">
-                <div class="model-header">
-                    <span class="model-icon">🤖</span>
-                    <h3 class="model-name">${nft.name || nft.token_id}</h3>
-                </div>
-                <div class="model-stats">
-                    <div class="model-stat">
-                        <span class="model-stat-value">${(nft.accuracy * 100).toFixed(1)}%</span>
-                        <span class="model-stat-label">Accuracy</span>
-                    </div>
-                    <div class="model-stat">
-                        <span class="model-stat-value">${(nft.win_rate * 100).toFixed(1)}%</span>
-                        <span class="model-stat-label">Win Rate</span>
-                    </div>
-                    <div class="model-stat">
-                        <span class="model-stat-value">${nft.total_predictions}</span>
-                        <span class="model-stat-label">Predictions</span>
-                    </div>
-                    <div class="model-stat">
-                        <span class="model-stat-value">${nft.generation}</span>
-                        <span class="model-stat-label">Generation</span>
-                    </div>
-                </div>
-                <div class="model-footer">
-                    <span class="model-owner">Owner: ${truncateHash(nft.current_owner)}</span>
-                    ${nft.mint_price ? `<span class="model-price">${formatNumber(nft.mint_price)} COMPASS</span>` : ''}
-                </div>
-            </div>
-        `).join('');
+        grid.innerHTML = renderModelCards(nfts);
 
     } catch (error) {
         grid.innerHTML = `
@@ -685,6 +858,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
 
     // Initial load
+    const savedAddress = localStorage.getItem('compass_wallet_address');
+    if (savedAddress) {
+        state.walletAddress = savedAddress;
+        document.getElementById('walletAddressInput').value = savedAddress;
+        loadWalletBalances();
+    }
+
     navigateTo('dashboard');
 
     // Start polling
@@ -710,3 +890,7 @@ window.showBlockDetails = showBlockDetails;
 window.refreshModels = refreshModels;
 window.updateEndpoint = updateEndpoint;
 window.closeModal = closeModal;
+window.startTraining = startTraining;
+window.refreshModelProgress = refreshModelProgress;
+window.refreshMyModels = refreshMyModels;
+window.onMintClick = onMintClick;

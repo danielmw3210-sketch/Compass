@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Sidebar Navigation -->
@@ -116,7 +118,9 @@
                                 </tr>
                             </thead>
                             <tbody id="blocksTableBody">
-                                <tr><td colspan="5" class="loading">Loading blocks...</td></tr>
+                                <tr>
+                                    <td colspan="5" class="loading">Loading blocks...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -163,7 +167,8 @@
                         <div class="wallet-address-box">
                             <label>Wallet Address</label>
                             <div class="address-display">
-                                <input type="text" id="walletAddressInput" placeholder="Enter wallet address or create new" />
+                                <input type="text" id="walletAddressInput"
+                                    placeholder="Enter wallet address or create new" />
                                 <button class="btn" onclick="loadWallet()">Load</button>
                             </div>
                         </div>
@@ -237,7 +242,9 @@
                                 </tr>
                             </thead>
                             <tbody id="explorerBlocksBody">
-                                <tr><td colspan="4" class="loading">Loading...</td></tr>
+                                <tr>
+                                    <td colspan="4" class="loading">Loading...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -296,7 +303,9 @@
                                 </tr>
                             </thead>
                             <tbody id="tradeHistoryBody">
-                                <tr><td colspan="6" class="loading">Loading...</td></tr>
+                                <tr>
+                                    <td colspan="6" class="loading">Loading...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -305,6 +314,56 @@
 
             <!-- AI Models Page -->
             <section class="page" id="page-models">
+                <!-- Training Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Train New Models</h2>
+                    </div>
+                    <div class="train-controls">
+                        <button class="btn btn-primary" onclick="startTraining('BTC')">Train BTC</button>
+                        <button class="btn btn-primary" onclick="startTraining('ETH')">Train ETH</button>
+                        <button class="btn btn-primary" onclick="startTraining('SOL')">Train SOL</button>
+                        <button class="btn btn-primary" onclick="startTraining('LTC')">Train LTC</button>
+                    </div>
+                    <p class="card-hint">Training starts a background task on the node to generate new weights.</p>
+                </div>
+
+                <!-- Epoch Progress Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>My Model Progress</h2>
+                        <button class="btn btn-primary" onclick="window.startTraining('BTC')">Train BTC</button>
+                        <button class="btn btn-primary" onclick="window.startTraining('ETH')">Train ETH</button>
+                        <button class="btn btn-primary" onclick="window.startTraining('SOL')">Train SOL</button>
+                        <button class="btn btn-primary" onclick="window.startTraining('LTC')">Train LTC</button>
+                    </div>
+                    <p class="card-hint">Training starts a background task on the node to generate new weights for the
+                        predictive model.</p>
+                </div>
+
+                <!-- Model Progress Section (Real Persistence) -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>My Model Progress & Minting</h2>
+                        <button class="btn btn-sm" onclick="window.refreshModelProgress()">Refresh Progress</button>
+                    </div>
+                    <div id="modelProgressContainer" class="progress-list">
+                        <div class="loading">Load your wallet to see the progress of your trained models...</div>
+                    </div>
+                </div>
+
+                <!-- Owned Models Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>My Owned Models</h2>
+                        <button class="btn btn-sm" onclick="window.refreshMyModels()">Refresh My Models</button>
+                    </div>
+                    <div class="models-grid" id="myModelsGrid">
+                        <div class="loading">Load your wallet to see models you own...</div>
+                    </div>
+                </div>
+
+                <!-- Marketplace -->
                 <div class="card">
                     <div class="card-header">
                         <h2>Model NFT Marketplace</h2>
@@ -364,4 +423,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>
