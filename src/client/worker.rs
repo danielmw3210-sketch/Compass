@@ -31,7 +31,7 @@ impl AiWorker {
         let worker_id = self.keypair.public_key_hex();
         println!("🤖 P2P Verified Compute Worker Started.");
         println!("   Worker ID: {}", worker_id);
-        println!("   Node URL: {}", self._client.node_url);
+        println!("   Node URL: {}", self._client.url);
         println!("   Polling for jobs every 5 seconds...\n");
 
         loop {
