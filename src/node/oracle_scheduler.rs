@@ -353,35 +353,65 @@ impl OracleScheduler {
         ];
 
         match self.client.get(url).query(&params).send().await {
-            Ok(resp) => match resp.json::<Vec<serde_json::Value>>().await {
-                Ok(data) => {
-                    // Extract full OHLCV: [[Open, High, Low, Close, Volume], ...]
-                    let sequence: Vec<Vec<f64>> = data.iter().filter_map(|kline| {
-                        // kline format: [time, open, high, low, close, volume, ...]
-                        let open = kline.get(1)?.as_str()?.parse::<f64>().ok()?;
-                        let high = kline.get(2)?.as_str()?.parse::<f64>().ok()?;
-                        let low = kline.get(3)?.as_str()?.parse::<f64>().ok()?;
-                        let close = kline.get(4)?.as_str()?.parse::<f64>().ok()?;
-                        let volume = kline.get(5)?.as_str()?.parse::<f64>().ok()?;
-                        Some(vec![open, high, low, close, volume])
-                    }).collect();
-                    
-                    if sequence.len() >= 200 {
-                        info!("   📈 Fetched {}-candle OHLCV sequence for {} (Last Close: ${:.2})", 
-                            sequence.len(), symbol, sequence.last()?[3]);
-                        Some(sequence)
-                    } else {
-                        warn!("   ⚠️ Insufficient data for {}: Got {}/200+", symbol, sequence.len());
+            Ok(resp) => {
+                // First check HTTP status
+                if !resp.status().is_success() {
+                    error!("   ❌ Binance API HTTP error: {} for {}", resp.status(), symbol);
+                    return None;
+                }
+                
+                // Get raw text first to check for error response
+                let text = match resp.text().await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        error!("   ❌ Failed to read response body: {}", e);
+                        return None;
+                    }
+                };
+                
+                // Check if response is an error object
+                if text.starts_with("{") {
+                    // It's a JSON object, likely an error
+                    if let Ok(err_obj) = serde_json::from_str::<serde_json::Value>(&text) {
+                        if let Some(code) = err_obj.get("code") {
+                            let msg = err_obj.get("msg").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+                            error!("   ❌ Binance API error for {}: {} ({})", symbol, msg, code);
+                            return None;
+                        }
+                    }
+                }
+                
+                // Parse as klines array
+                match serde_json::from_str::<Vec<serde_json::Value>>(&text) {
+                    Ok(data) => {
+                        // Extract full OHLCV: [[Open, High, Low, Close, Volume], ...]
+                        let sequence: Vec<Vec<f64>> = data.iter().filter_map(|kline| {
+                            // kline format: [time, open, high, low, close, volume, ...]
+                            let open = kline.get(1)?.as_str()?.parse::<f64>().ok()?;
+                            let high = kline.get(2)?.as_str()?.parse::<f64>().ok()?;
+                            let low = kline.get(3)?.as_str()?.parse::<f64>().ok()?;
+                            let close = kline.get(4)?.as_str()?.parse::<f64>().ok()?;
+                            let volume = kline.get(5)?.as_str()?.parse::<f64>().ok()?;
+                            Some(vec![open, high, low, close, volume])
+                        }).collect();
+                        
+                        if sequence.len() >= 200 {
+                            info!("   📈 Fetched {}-candle OHLCV sequence for {} (Last Close: ${:.2})", 
+                                sequence.len(), symbol, sequence.last()?[3]);
+                            Some(sequence)
+                        } else {
+                            warn!("   ⚠️ Insufficient data for {}: Got {}/200+", symbol, sequence.len());
+                            None
+                        }
+                    }
+                    Err(e) => {
+                        error!("   ❌ Failed to parse klines for {}: {}", symbol, e);
                         None
                     }
                 }
-                Err(e) => {
-                    error!("   ❌ Failed to parse sequence data: {}", e);
-                    None
-                }
             },
             Err(e) => {
-                error!("   ❌ Failed to fetch sequence data: {}", e);
+                error!("   ❌ Failed to fetch sequence data for {}: {}", symbol, e);
                 None
             }
         }

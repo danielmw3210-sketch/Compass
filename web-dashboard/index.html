@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compass Blockchain Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">🧭</span>
+                <span class="logo-text">Compass</span>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-page="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </li>
+                <li class="nav-item" data-page="wallet">
+                    <span class="nav-icon">💰</span>
+                    <span>Wallet</span>
+                </li>
+                <li class="nav-item" data-page="explorer">
+                    <span class="nav-icon">🔍</span>
+                    <span>Explorer</span>
+                </li>
+                <li class="nav-item" data-page="trading">
+                    <span class="nav-icon">📈</span>
+                    <span>Trading</span>
+                </li>
+                <li class="nav-item" data-page="models">
+                    <span class="nav-icon">🤖</span>
+                    <span>AI Models</span>
+                </li>
+                <li class="nav-item" data-page="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Settings</span>
+                </li>
+            </ul>
+            <div class="node-status">
+                <div class="status-indicator" id="nodeStatusIndicator"></div>
+                <span id="nodeStatusText">Connecting...</span>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h1 id="pageTitle">Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <div class="network-badge">
+                        <span class="network-dot"></span>
+                        Mainnet
+                    </div>
+                    <div class="wallet-preview" id="walletPreview">
+                        <span class="wallet-balance">-- COMPASS</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Page -->
+            <section class="page active" id="page-dashboard">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📦</div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="chainHeight">--</span>
+                            <span class="stat-label">Block Height</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="latestBlockTime">--</span>
+                            <span class="stat-label">Latest Block</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔗</div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="peerCount">--</span>
+                            <span class="stat-label">Connected Peers</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💎</div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="totalSupply">100,000</span>
+                            <span class="stat-label">COMPASS Supply</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Blocks -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Recent Blocks</h2>
+                        <button class="btn btn-sm" onclick="refreshBlocks()">Refresh</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Height</th>
+                                    <th>Hash</th>
+                                    <th>Type</th>
+                                    <th>Proposer</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="blocksTableBody">
+                                <tr><td colspan="5" class="loading">Loading blocks...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Oracle Prices -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Oracle Prices</h2>
+                    </div>
+                    <div class="prices-grid" id="pricesGrid">
+                        <div class="price-card">
+                            <span class="price-ticker">BTC</span>
+                            <span class="price-value" id="price-btc">$--</span>
+                            <span class="price-signal" id="signal-btc">--</span>
+                        </div>
+                        <div class="price-card">
+                            <span class="price-ticker">ETH</span>
+                            <span class="price-value" id="price-eth">$--</span>
+                            <span class="price-signal" id="signal-eth">--</span>
+                        </div>
+                        <div class="price-card">
+                            <span class="price-ticker">SOL</span>
+                            <span class="price-value" id="price-sol">$--</span>
+                            <span class="price-signal" id="signal-sol">--</span>
+                        </div>
+                        <div class="price-card">
+                            <span class="price-ticker">LTC</span>
+                            <span class="price-value" id="price-ltc">$--</span>
+                            <span class="price-signal" id="signal-ltc">--</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Wallet Page -->
+            <section class="page" id="page-wallet">
+                <div class="wallet-container">
+                    <div class="card wallet-card">
+                        <div class="card-header">
+                            <h2>My Wallet</h2>
+                            <button class="btn btn-primary" onclick="showCreateWallet()">+ Create Wallet</button>
+                        </div>
+                        <div class="wallet-address-box">
+                            <label>Wallet Address</label>
+                            <div class="address-display">
+                                <input type="text" id="walletAddressInput" placeholder="Enter wallet address or create new" />
+                                <button class="btn" onclick="loadWallet()">Load</button>
+                            </div>
+                        </div>
+                        <div class="balances-grid" id="balancesGrid">
+                            <div class="balance-card">
+                                <span class="balance-asset">COMPASS</span>
+                                <span class="balance-value" id="balanceCompass">0.00</span>
+                            </div>
+                            <div class="balance-card">
+                                <span class="balance-asset">COMPUTE</span>
+                                <span class="balance-value" id="balanceCompute">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transfer Form -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Send Tokens</h2>
+                        </div>
+                        <form id="transferForm" onsubmit="submitTransfer(event)">
+                            <div class="form-group">
+                                <label>Recipient Address</label>
+                                <input type="text" id="transferTo" placeholder="0x..." required />
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Amount</label>
+                                    <input type="number" id="transferAmount" placeholder="0.00" required />
+                                </div>
+                                <div class="form-group">
+                                    <label>Asset</label>
+                                    <select id="transferAsset">
+                                        <option value="COMPASS">COMPASS</option>
+                                        <option value="COMPUTE">COMPUTE</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Send Transaction</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Explorer Page -->
+            <section class="page" id="page-explorer">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Block Explorer</h2>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="explorerSearch" placeholder="Search by block height or hash..." />
+                        <button class="btn btn-primary" onclick="searchBlock()">Search</button>
+                    </div>
+                    <div id="blockDetails" class="block-details hidden">
+                        <!-- Dynamic block details -->
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Latest Blocks</h2>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Height</th>
+                                    <th>Hash</th>
+                                    <th>Type</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="explorerBlocksBody">
+                                <tr><td colspan="4" class="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Trading Page -->
+            <section class="page" id="page-trading">
+                <div class="trading-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Paper Trading Stats</h2>
+                        </div>
+                        <div class="trading-stats" id="tradingStats">
+                            <div class="stat-row">
+                                <span>Total Trades</span>
+                                <span id="totalTrades">--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span>Win Rate</span>
+                                <span id="winRate">--%</span>
+                            </div>
+                            <div class="stat-row">
+                                <span>Total PnL</span>
+                                <span id="totalPnl" class="pnl">$--</span>
+                            </div>
+                            <div class="stat-row">
+                                <span>Portfolio Value</span>
+                                <span id="portfolioValue">$--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>AI Signals</h2>
+                        </div>
+                        <div class="signals-list" id="signalsList">
+                            <!-- Dynamic signals -->
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Trade History</h2>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Ticker</th>
+                                    <th>Side</th>
+                                    <th>Entry</th>
+                                    <th>Exit</th>
+                                    <th>PnL</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tradeHistoryBody">
+                                <tr><td colspan="6" class="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI Models Page -->
+            <section class="page" id="page-models">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Model NFT Marketplace</h2>
+                        <button class="btn btn-primary" onclick="refreshModels()">Refresh</button>
+                    </div>
+                    <div class="models-grid" id="modelsGrid">
+                        <!-- Dynamic model cards -->
+                        <div class="model-card placeholder">
+                            <div class="model-icon">🤖</div>
+                            <span>Loading models...</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Page -->
+            <section class="page" id="page-settings">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Node Connection</h2>
+                    </div>
+                    <div class="form-group">
+                        <label>RPC Endpoint</label>
+                        <input type="text" id="rpcEndpoint" value="http://34.45.156.0:9000" />
+                    </div>
+                    <button class="btn btn-primary" onclick="updateEndpoint()">Save & Reconnect</button>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Node Info</h2>
+                    </div>
+                    <div id="nodeInfo" class="node-info-grid">
+                        <div class="info-row"><span>Version</span><span id="nodeVersion">--</span></div>
+                        <div class="info-row"><span>Height</span><span id="nodeHeight">--</span></div>
+                        <div class="info-row"><span>Head Hash</span><span id="nodeHeadHash">--</span></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Modal Title</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
