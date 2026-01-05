@@ -7,8 +7,8 @@ pub enum NodeCommands {
         rpc_port: Option<u16>,
         #[arg(long)]
         p2p_port: Option<u16>,
-        #[arg(long, default_value = "compass_db")]
-        db_path: String,
+        #[arg(long)]
+        db_path: Option<String>,
         #[arg(long)]
         peer: Option<String>,
         #[arg(long, default_value = "false")]
@@ -17,8 +17,8 @@ pub enum NodeCommands {
     Status,
     Peers,
     Wipe {
-        #[arg(long, default_value = "compass_db")]
-        db_path: String,
+        #[arg(long)]
+        db_path: Option<String>,
     }
 }
 

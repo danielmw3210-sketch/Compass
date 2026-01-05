@@ -50,12 +50,15 @@ async fn main() {
             Commands::Node { cmd } => {
                 // If "compass node start" is called
                 match cmd {
-                    cli::node::NodeCommands::Start { rpc_port, peer, p2p_port: _, db_path: _, ephemeral } => {
+                    cli::node::NodeCommands::Start { rpc_port, peer, p2p_port, db_path, ephemeral } => {
                         // Load Config
                         let mut config = rust_compass::config::CompassConfig::load_or_default("config.toml");
                         
                         // CLI overrides Config (Priority: CLI > Config > Default)
                         if let Some(p) = rpc_port { config.node.rpc_port = p; }
+                        if let Some(p) = p2p_port { config.node.p2p_port = p; }
+                        if let Some(path) = db_path { config.node.db_path = path; }
+                        
                         // Identity Loading (Phase 3)
                         let identity_val = if ephemeral {
                             warn!("Starting in Ephemeral Mode: Generating temporary identity.");
@@ -175,9 +178,12 @@ async fn main() {
                         cli::node::handle_node_command(cmd).await;
                     }
                     cli::node::NodeCommands::Wipe { db_path } => {
-                        info!("Wiping database at '{}'...", db_path);
-                        if std::path::Path::new(&db_path).exists() {
-                            match std::fs::remove_dir_all(&db_path) {
+                        let config = rust_compass::config::CompassConfig::load_or_default("config.toml");
+                        let path = db_path.unwrap_or(config.node.db_path);
+                        
+                        info!("Wiping database at '{}'...", path);
+                        if std::path::Path::new(&path).exists() {
+                            match std::fs::remove_dir_all(&path) {
                                 Ok(_) => info!("Database wiped successfully."),
                                 Err(e) => error!("Error wiping database: {}", e),
                             }
