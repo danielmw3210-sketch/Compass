@@ -562,8 +562,7 @@ async function refreshModelProgress() {
             const tickerFull = `${ticker}USDT`;
             // Attempt to get stats for the model (assuming standard ID for now or fetching from MyModels)
             try {
-                // For now, we use a convention: owner_ticker_1h
-                const modelId = `model_${ticker.toLowerCase()}_1h`;
+                const modelId = `${tickerFull}_1h`;
                 const stats = await rpc.getModelEpochStats(tickerFull, modelId, owner);
 
                 if (stats) {

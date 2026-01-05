@@ -29,29 +29,76 @@ pub async fn train_asset_model(ticker: &str) -> Result<String, Box<dyn Error + S
     println!("🧠 [Rust AI] Fetching Binance Data for {}...", ticker);
     
     let client = Client::new();
-    let url = "https://api.binance.com/api/v3/klines";
-    let params = [
-        ("symbol", ticker),
-        ("interval", "1h"),
-        ("limit", "1000") // 1000 hours
+    // 1. Fetch Data (Try Kraken first, then Binance.US)
+    let kraken_pair = match ticker {
+        "BTCUSDT" => "XXBTZUSD",
+        "ETHUSDT" => "XETHZUSD",
+        "SOLUSDT" => "SOLUSD",
+        "LTCUSDT" => "XLTCZUSD",
+        _ => ticker, 
+    };
+
+    let mut close_prices: Vec<f64> = Vec::new();
+    let mut success = false;
+
+    // Try Kraken
+    println!("   📈 Attempting [Kraken] API for {}...", kraken_pair);
+    let kraken_url = "https://api.kraken.com/0/public/OHLC";
+    let kraken_params = [
+        ("pair", kraken_pair),
+        ("interval", "60"), // 1 hour for this model
     ];
 
-    // 1. Fetch Data
-    let resp = client.get(url).query(&params).send().await?;
-    let json_data: Vec<serde_json::Value> = resp.json().await?;
-    
-    let mut close_prices: Vec<f64> = Vec::new();
-    
-    for k in json_data {
-        if let Some(c_str) = k[4].as_str() {
-            if let Ok(p) = c_str.parse::<f64>() {
-                close_prices.push(p);
+    if let Ok(resp) = client.get(kraken_url).query(&kraken_params).send().await {
+        if resp.status().is_success() {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(result) = json.get("result") {
+                    if let Some(ohlc_data) = result.as_object().and_then(|m| m.values().next()).and_then(|v| v.as_array()) {
+                        for k in ohlc_data {
+                            if let Some(c) = k.as_array().and_then(|arr| arr.get(4)).and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()) {
+                                close_prices.push(c);
+                            }
+                        }
+                        if close_prices.len() >= 100 {
+                            println!("   ✅ [Kraken] Fetched {} candles", close_prices.len());
+                            success = true;
+                        }
+                    }
+                }
             }
         }
     }
 
-    if close_prices.len() < 100 {
-        return Err(format!("Not enough data fetched for {}", ticker).into());
+    // Try Binance.US if Kraken failed
+    if !success {
+        println!("   📈 Attempting [Binance.US] API for {}...", ticker);
+        let b_us_url = "https://api.binance.us/api/v3/klines";
+        let b_us_params = [
+            ("symbol", ticker),
+            ("interval", "1h"),
+            ("limit", "1000")
+        ];
+
+        if let Ok(resp) = client.get(b_us_url).query(&b_us_params).send().await {
+            if resp.status().is_success() {
+                if let Ok(json_data) = resp.json::<Vec<serde_json::Value>>().await {
+                    close_prices.clear();
+                    for k in &json_data {
+                        if let Some(c) = k[4].as_str().and_then(|s| s.parse::<f64>().ok()) {
+                            close_prices.push(c);
+                        }
+                    }
+                    if close_prices.len() >= 100 {
+                        println!("   ✅ [Binance.US] Fetched {} candles", close_prices.len());
+                        success = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if !success {
+        return Err(format!("All data sources failed for {}. Check network.", ticker).into());
     }
 
     println!("🧠 [Rust AI] Training Random Forest on {} candles for {}...", close_prices.len(), ticker);

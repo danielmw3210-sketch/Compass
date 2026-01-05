@@ -68,10 +68,10 @@ impl PriceFetcher {
         })
     }
 
-    /// Fetch price from Binance API
+    /// Fetch price from Binance API (US compatible)
     pub async fn fetch_binance(&self, ticker: &str) -> Result<PriceQuote, String> {
         let symbol = format!("{}USDT", ticker);
-        let url = format!("https://api.binance.com/api/v3/ticker/price?symbol={}", symbol);
+        let url = format!("https://api.binance.us/api/v3/ticker/price?symbol={}", symbol);
 
         let resp = self.client
             .get(&url)

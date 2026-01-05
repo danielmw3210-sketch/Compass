@@ -1862,8 +1862,14 @@ pub async fn handle_get_model_epoch_stats(
     let owner = req.owner.unwrap_or_else(|| "admin".to_string());
     
     let chain = safe_lock(&state.chain)?;
-    let state_opt = chain.storage.get_epoch_state(&owner, &req.ticker, &req.model_id)
+    let mut state_opt = chain.storage.get_epoch_state(&owner, &req.ticker, &req.model_id)
         .map_err(|e| RpcError { code: -32603, message: format!("DB error: {}", e) })?;
+    
+    // Fallback to "admin" if no state found for this owner (allows tracking system models)
+    if state_opt.is_none() && owner != "admin" {
+        state_opt = chain.storage.get_epoch_state("admin", &req.ticker, &req.model_id)
+            .map_err(|e| RpcError { code: -32603, message: format!("DB error: {}", e) })?;
+    }
     
     match state_opt {
         Some(epoch_state) => {
@@ -2041,10 +2047,16 @@ pub async fn handle_mint_model_nft(
     
     let chain = safe_lock(&state.chain)?;
     
-    // Load current epoch state
-    let epoch_state = chain.storage.get_epoch_state(&owner, &req.ticker, &req.model_id)
-        .map_err(|e| RpcError { code: -32603, message: format!("DB error: {}", e) })?
-        .ok_or_else(|| RpcError { 
+    // Load current epoch state (Try owner first, then fallback to admin)
+    let mut state_opt = chain.storage.get_epoch_state(&owner, &req.ticker, &req.model_id)
+        .map_err(|e| RpcError { code: -32603, message: format!("DB error: {}", e) })?;
+        
+    if state_opt.is_none() && owner != "admin" {
+         state_opt = chain.storage.get_epoch_state("admin", &req.ticker, &req.model_id)
+            .map_err(|e| RpcError { code: -32603, message: format!("DB error: {}", e) })?;
+    }
+
+    let epoch_state = state_opt.ok_or_else(|| RpcError { 
             code: -32603, 
             message: format!("No epoch state found for {}:{}", req.ticker, req.model_id) 
         })?;
